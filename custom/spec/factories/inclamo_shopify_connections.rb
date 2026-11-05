@@ -11,7 +11,7 @@ FactoryBot.define do
     client_secret { 'client-secret-for-specs' }
     access_token { 'token-for-specs' }
     token_expires_at { 23.hours.from_now }
-    scopes { %w[read_customers read_draft_orders read_orders write_draft_orders write_orders] }
+    scopes { %w[read_customers read_draft_orders read_orders read_products write_draft_orders write_orders] }
     api_version { Inclamo::Shopify::API_VERSION }
     customer_data_mode { 'full' }
     status { 'working' }

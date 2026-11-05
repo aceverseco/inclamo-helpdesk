@@ -33,7 +33,7 @@ Not in this change: the AI agent's use of the panel (approval cards), SLA, marke
 
 - New code: a backend module for the Shopify connection and order read/write (Admin GraphQL API, custom app credentials), a sidebar UI, conversation custom attributes, and private-note audit entries.
 - Chatwoot: one seam in the conversation sidebar (the file that lists the sidebar sections), recorded in the design and proposed upstream; no change to Chatwoot's data model beyond custom attributes.
-- Shopify scopes required by the merchant's custom app: `read_customers`, `read_orders` at minimum; `write_orders` for cancel / refund / address; `write_orders` together with `write_draft_orders` for the replacement order. The panel must degrade cleanly when a scope is missing.
+- Shopify scopes required by the merchant's custom app: `read_customers`, `read_orders` at minimum; `write_orders` for cancel / refund / address; `write_orders` together with `write_draft_orders` and `read_products` for the replacement order. The panel must degrade cleanly when a scope is missing.
 - Security: the credentials are a secret stored encrypted at rest; actions are limited to administrators and to agents holding the order-actions role; every action is logged.
 - Tests: backend specs on recorded answers, and end-to-end tests that drive the dashboard against a dedicated development store for every scenario of the specs.
 - Depends on: a dedicated development store with the custom apps the tests use, and a development instance of the helpdesk.

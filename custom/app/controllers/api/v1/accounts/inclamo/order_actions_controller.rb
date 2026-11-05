@@ -23,6 +23,18 @@ class Api::V1::Accounts::Inclamo::OrderActionsController < Api::V1::Accounts::Co
     render json: record.as_json
   end
 
+  # POST .../actions/refund_preview  { order_id, params: {...} }
+  def refund_preview
+    preview = runner.refund_preview(order_id: params[:order_id], params: params[:params].respond_to?(:to_unsafe_h) ? params[:params].to_unsafe_h : {})
+    render json: preview
+  rescue ::Inclamo::Shopify::Actions::Refused => e
+    render json: { error: e.code, message: (e.message unless e.message == e.code) }, status: e.code == 'not_allowed' ? :forbidden : :unprocessable_entity
+  rescue ::Inclamo::Shopify::Error::QueryError => e
+    render json: { error: 'store_refused', message: e.message.first(500) }, status: :unprocessable_entity
+  rescue ::Inclamo::Shopify::Error => e
+    render json: { error: 'store_unreachable', reason: e.class.name.demodulize.underscore }, status: :bad_gateway
+  end
+
   private
 
   def runner

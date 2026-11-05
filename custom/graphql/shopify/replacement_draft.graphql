@@ -1,0 +1,13 @@
+# Where a replacement stands: whether its draft still exists and whether it
+# already became an order.
+query replacement_draft($id: ID!) {
+  draftOrder(id: $id) {
+    id
+    name
+    status
+    order {
+      id
+      name
+    }
+  }
+}

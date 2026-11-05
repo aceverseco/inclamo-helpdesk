@@ -53,7 +53,7 @@ RSpec.describe Inclamo::ShopifyConnection do
       report = build(:inclamo_shopify_connection, :read_only).actions_report.index_by { |action| action[:name] }
 
       expect(report['cancel']).to include(available: false, reason: 'missing_scope', missing_scopes: %w[write_orders])
-      expect(report['replacement'][:missing_scopes]).to eq(%w[write_orders write_draft_orders])
+      expect(report['replacement'][:missing_scopes]).to eq(%w[write_orders write_draft_orders read_products])
     end
 
     it 'exclude the address change when the store hides customer data' do

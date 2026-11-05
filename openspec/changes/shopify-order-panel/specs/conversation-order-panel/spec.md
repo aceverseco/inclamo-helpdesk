@@ -146,6 +146,10 @@ The agent SHALL be able to duplicate an order of the customer as a replacement t
 - **WHEN** the connection holds `write_orders` but not `write_draft_orders`
 - **THEN** cancel, refund and address change are available, and the replacement is shown as unavailable naming `write_draft_orders`
 
+#### Scenario: Products scope missing
+- **WHEN** the connection holds `write_orders` and `write_draft_orders` but not `read_products`
+- **THEN** the replacement is shown as unavailable naming `read_products`, and the panel shows orders as before
+
 ### Requirement: Every action leaves a record
 Every action that the store accepted SHALL leave a private note in the conversation, visible to the team and not to the customer, naming the agent, the action, the order number and, for refunds, the amount and currency. Every attempt, accepted or refused, SHALL also be written to an action record kept by the helpdesk with the time, the agent, the conversation, the order, the action, its parameters without personal data, and the outcome.
 

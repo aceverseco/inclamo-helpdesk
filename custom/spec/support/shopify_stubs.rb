@@ -30,7 +30,7 @@ module ShopifyStubs
       .to_return(status: status, body: body.to_json, headers: JSON_HEADERS)
   end
 
-  def shop_info_data(scopes: %w[read_customers read_orders write_orders write_draft_orders read_draft_orders])
+  def shop_info_data(scopes: %w[read_customers read_orders write_orders write_draft_orders read_draft_orders read_products])
     {
       shop: { name: 'Example Store', myshopifyDomain: 'example-store.myshopify.com', currencyCode: 'EUR',
               plan: { publicDisplayName: 'Grow', partnerDevelopment: false } },

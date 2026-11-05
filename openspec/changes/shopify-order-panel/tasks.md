@@ -19,7 +19,7 @@
 - [x] 3.4 Implement verification on connect and on "check again": shop, granted scopes, customer-data probe giving `full` or `limited` (D4); verify by specs for valid credentials, app not installed, token refused, bad domain, missing `read_orders`, limited store
 - [x] 3.5 Implement the connection endpoints (show, create, recheck, destroy), administrators only, never returning the secret (D2); verify by request specs including the agent-forbidden case and that secrets are absent from responses and logs
 - [x] 3.6 Mark the connection as broken on an authentication error from Shopify and report it; verify by a spec that a 401 on an order read flips the status and the next read returns the broken state without calling Shopify
-- [ ] 3.7 Implement removal: delete credentials, token and scopes, keep the action records; verify by a spec that `inclamo_order_actions` rows survive
+- [x] 3.7 Implement removal: delete credentials, token and scopes, keep the action records; verify by a spec that `inclamo_order_actions` rows survive
 
 ## 4. Order-actions role
 
@@ -43,13 +43,13 @@
 
 ## 7. Order actions
 
-- [ ] 7.1 Create the `inclamo_order_actions` table and the action runner: action id from the dialog, record written before Shopify is called, repeated id returns the recorded outcome, outcomes `accepted`, `refused`, `unknown` (D7, D8); verify by specs for repeat, refusal and lost answer
-- [ ] 7.2 Gate every action on the server by role, then by scope, before any Shopify call; verify by request specs that an agent without the role and a connection without the scope are refused with zero Shopify calls and a `refused` record
-- [ ] 7.3 Write the private note through Chatwoot's message builder as the acting agent for accepted actions only, without personal data; verify by specs that a refused action writes no note and that the address-change note has no address
-- [ ] 7.4 Implement cancel with reason, refund, restock and notify, polling up to 10 s and the "cancelling" state; verify by specs for confirmed, still running and refused by the store
-- [ ] 7.5 Implement refund (full, by line items, shipping, custom amount) with the refundable check before Shopify and the action id as idempotency key; verify by specs for partial amount, amount above the refundable, and repeat after a lost answer giving one refund
-- [ ] 7.6 Implement the shipping address change for orders without a shipment; verify by specs for an unfulfilled order, a shipped order and the limited mode
-- [ ] 7.7 Implement the free replacement through a draft order: create from order, update (kept items, full discount, free shipping, tag and note naming the original), complete; draft id recorded after the first step; draft deleted on a later refusal (D14); verify by specs for success, refusal at completion with the draft removed, failed deletion naming the draft, and repeat after a lost answer giving one order
+- [x] 7.1 Create the `inclamo_order_actions` table and the action runner: action id from the dialog, record written before Shopify is called, repeated id returns the recorded outcome, outcomes `accepted`, `refused`, `unknown` (D7, D8); verify by specs for repeat, refusal and lost answer
+- [x] 7.2 Gate every action on the server by role, then by scope, before any Shopify call; verify by request specs that an agent without the role and a connection without the scope are refused with zero Shopify calls and a `refused` record
+- [x] 7.3 Write the private note through Chatwoot's message builder as the acting agent for accepted actions only, without personal data; verify by specs that a refused action writes no note and that the address-change note has no address
+- [x] 7.4 Implement cancel with reason, refund, restock and notify, polling up to 10 s and the "cancelling" state; verify by specs for confirmed, still running and refused by the store
+- [x] 7.5 Implement refund (full, by line items, shipping, custom amount) with the refundable check before Shopify and the action id as idempotency key; verify by specs for partial amount, amount above the refundable, and repeat after a lost answer giving one refund
+- [x] 7.6 Implement the shipping address change for orders without a shipment; verify by specs for an unfulfilled order, a shipped order and the limited mode
+- [x] 7.7 Implement the free replacement through a draft order: create from order, update (kept items, full discount, free shipping, tag and note naming the original), complete; draft id recorded after the first step; draft deleted on a later refusal (D14); verify by specs for success, refusal at completion with the draft removed, failed deletion naming the draft, and repeat after a lost answer giving one order
 
 ## 8. Dashboard
 

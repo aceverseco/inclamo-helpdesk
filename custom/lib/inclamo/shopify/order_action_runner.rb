@@ -11,7 +11,7 @@ module Inclamo
     #   4. the record is written, then the store is asked
     # An accepted action leaves a private note in the conversation.
     class OrderActionRunner
-      HANDLERS = { 'cancel' => Actions::Cancel, 'address' => Actions::Address }.freeze
+      HANDLERS = { 'cancel' => Actions::Cancel, 'address' => Actions::Address, 'refund' => Actions::Refund, 'replacement' => Actions::Replacement }.freeze
 
       def initialize(account:, account_user:, conversation:)
         @account = account
@@ -43,6 +43,21 @@ module Inclamo
       rescue Error => e
         # The store could not be read: nothing was attempted.
         refuse!(record, 'store_unreachable', e.class.name.demodulize.underscore)
+      end
+
+      # What a refund would be, for the confirmation: nothing is changed and
+      # nothing is recorded. Raises Actions::Refused with the reason when the
+      # agent, the connection or the order does not allow it.
+      def refund_preview(order_id:, params:)
+        refusal = gate('refund')
+        raise Actions::Refused, refusal if refusal
+
+        order = reader.order(order_id.to_s) or raise Actions::Refused, 'unknown_order'
+        refusal = OrderPresenter.new(order, shop_domain: @connection.shop_domain).refusal('refund')
+        raise Actions::Refused, refusal if refusal
+
+        draft = OrderAction.new(action: 'refund', order_id: order['id'], action_id: 'preview', params: recordable('refund', params))
+        Actions::Refund.new(store: StoreConnection.new(@connection), record: draft, order: order).preview
       end
 
       # Finishes what an earlier request left open, e.g. a cancellation the
@@ -97,11 +112,16 @@ module Inclamo
         handler = HANDLERS.fetch(record.action)
         arguments = { store: StoreConnection.new(@connection), record: record, order: order }
         arguments[:address] = extra[:address] || extra['address'] if record.action == 'address'
+        arguments[:shop_domain] = @connection.shop_domain if record.action == 'replacement'
         state = handler.new(**arguments).call
         state == :running ? record.update!(outcome: 'running') : accept!(record)
         record
       rescue Actions::Refused => e
         record.update!(outcome: 'refused', refusal: e.code, store_message: (e.message unless e.message == e.code), completed_at: Time.current)
+        record
+      rescue Error::QueryError => e
+        # The store understood the request and said no, in words.
+        record.update!(outcome: 'refused', refusal: 'store_refused', store_message: e.message.first(500), completed_at: Time.current)
         record
       rescue Error => e
         # A lost answer is neither done nor failed; anything else never reached the store.

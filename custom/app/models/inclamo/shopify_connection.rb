@@ -10,7 +10,9 @@ class Inclamo::ShopifyConnection < ApplicationRecord
     'cancel' => %w[write_orders],
     'refund' => %w[write_orders],
     'address' => %w[write_orders],
-    'replacement' => %w[write_orders write_draft_orders]
+    # read_products: the items a replacement keeps are named to the store by
+    # their variants, and a variant can only be read with that scope.
+    'replacement' => %w[write_orders write_draft_orders read_products]
   }.freeze
 
   belongs_to :account
