@@ -244,8 +244,16 @@ test.describe('Duplicate an order as a free replacement', () => {
     await quantities.nth(2).fill('0');
     await confirm(page, 'Create replacement order');
 
-    await expect.poll(async () => (await replacementsOf(orders.replace)).length, { timeout: 45_000 }).toBe(1);
-    const [created] = await replacementsOf(orders.replace);
+    // Kept from the read that found it: the store's search may miss a new
+    // order again on the next read.
+    let created;
+    await expect
+      .poll(async () => {
+        const found = await replacementsOf(orders.replace);
+        [created] = found;
+        return found.length;
+      }, { timeout: 45_000 })
+      .toBe(1);
     const held = await store.read(created);
     expect(Number(held.totalPriceSet.shopMoney.amount)).toBe(0);
     expect(held.lineItems.nodes).toHaveLength(1);
@@ -281,8 +289,10 @@ test.describe('Duplicate an order as a free replacement', () => {
     expect(second.body).toMatchObject({ outcome: 'accepted', action_id: id });
     expect(second.body.result.new_order_number).toMatch(/^#/);
     await expect.poll(async () => (await replacementsOf(orders.stock)).length, { timeout: 45_000 }).toBe(1);
+    // Still one a while later; polled, because the store's search may miss a
+    // new order on a single read.
     await new Promise(resolve => setTimeout(resolve, 5_000));
-    expect((await replacementsOf(orders.stock)).length).toBe(1);
+    await expect.poll(async () => (await replacementsOf(orders.stock)).length, { timeout: 30_000 }).toBe(1);
     expect((await calls('replacement_draft_create')).length).toBe(1);
   });
 

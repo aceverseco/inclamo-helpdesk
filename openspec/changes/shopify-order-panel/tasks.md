@@ -70,7 +70,7 @@
 - [x] 9.6 Write the end-to-end tests of the role scenarios (agent without the role, administrator gives the role, role taken away during a confirmation, agent tries to give the role); verify all pass
 - [x] 9.7 Write the end-to-end tests of the action scenarios (cancel with refund and restock, order the store will not cancel, partial refund, amount above the refundable, change address, already shipped, free replacement, item no longer in stock, missing draft orders scope, private note and action record, refused action); verify all pass and the store holds exactly the expected orders and refunds
 - [x] 9.8 Write the end-to-end tests of the failure scenarios through the proxy (store does not answer, throttling, lost answer on refund and on replacement giving one refund and one order, cancellation still running, authentication error); verify all pass
-- [ ] 9.9 Add the coverage check that maps every scenario of both specs to an end-to-end test by name, and the CI job that runs the suite on the main branch, before a release and on demand with credentials from CI secrets; verify the check fails when a scenario has no test and that no secret appears in the job log
+- [x] 9.9 Add the coverage check that maps every scenario of both specs to an end-to-end test by name, and the CI job that runs the suite on the main branch, before a release and on demand with credentials from CI secrets; verify the check fails when a scenario has no test and that no secret appears in the job log
 
 ## 10. Documents and manual checks
 
