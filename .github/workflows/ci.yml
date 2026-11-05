@@ -97,3 +97,48 @@ jobs:
         run: node scripts/check-graphql.mjs
       - name: Recorded store answers hold no real personal data
         run: node scripts/check-fixtures.mjs
+      - name: Interface strings of the overlay come from its locale file
+        run: node scripts/check-ui-strings.mjs
+
+  frontend:
+    name: Dashboard component tests on the pinned Chatwoot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pinned Chatwoot version
+        id: pin
+        run: echo "tag=$(cat custom/CHATWOOT_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out Chatwoot at the pinned tag
+        uses: actions/checkout@v4
+        with:
+          repository: chatwoot/chatwoot
+          ref: ${{ steps.pin.outputs.tag }}
+          path: build/chatwoot
+
+      - name: Assemble Chatwoot with the patches and the overlay
+        run: scripts/assemble.sh build/chatwoot
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: build/chatwoot/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: build/chatwoot/.nvmrc
+          cache: pnpm
+          cache-dependency-path: build/chatwoot/pnpm-lock.yaml
+
+      - name: Install the dashboard's dependencies
+        working-directory: build/chatwoot
+        run: pnpm install --frozen-lockfile
+
+      - name: Run the overlay's component tests
+        working-directory: build/chatwoot
+        run: pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/inclamo
+
+      - name: Chatwoot's own sidebar tests still pass with the seam
+        working-directory: build/chatwoot
+        run: pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/composables/spec/useUISettings.spec.js
+

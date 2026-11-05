@@ -1,0 +1,188 @@
+{
+  "ORDERS": {
+    "TITLE": "Orders",
+    "LOADING": "Loading orders…",
+    "RETRY": "Try again",
+    "NOT_CONNECTED": {
+      "AGENT": "No Shopify store is connected. An administrator can connect one.",
+      "ADMIN": "Connect your Shopify store to see and manage orders here.",
+      "NO_ENCRYPTION": "Encryption must be configured on this installation before a store can be connected.",
+      "CONNECT": "Connect Shopify"
+    },
+    "BROKEN": {
+      "TEXT": "The store connection needs attention: Shopify no longer accepts it.",
+      "AGENT_HINT": "Ask an administrator to reconnect the store.",
+      "RECONNECT": "Reconnect"
+    },
+    "UNAVAILABLE": "Shopify did not answer. Orders cannot be shown right now.",
+    "LIMITED": {
+      "TEXT": "This store does not share customers' personal data with the connected app, so orders are found by order number only.",
+      "WHY": "Names, emails and addresses are unavailable and the address cannot be changed here. Choosing custom distribution for the app in Shopify lifts this."
+    },
+    "NO_IDENTIFIER": "This contact has no email or phone number. Find an order by its number.",
+    "NONE": "No customer of the store matches this contact. Find an order by its number.",
+    "STALE_CHOICE": "The customer chosen earlier no longer exists in the store.",
+    "AMBIGUOUS": "More than one customer matches this contact. Choose the right one.",
+    "CHOOSE": "This is the customer",
+    "FORGET_CUSTOMER": "Not this customer",
+    "KEEP_CUSTOMER": "Keep this customer for the contact",
+    "CUSTOMER": {
+      "ORDERS_COUNT": "{count} orders",
+      "TOTAL_SPENT": "{amount} spent"
+    },
+    "NO_ORDERS": "This customer has no orders in the last 60 days.",
+    "LOAD_MORE": "Load more",
+    "LOOKUP": {
+      "LABEL": "Order number",
+      "PLACEHOLDER": "#1042",
+      "FIND": "Find",
+      "NOT_FOUND": "No order with this number."
+    },
+    "MANAGE": {
+      "MENU": "Store",
+      "CHECK_AGAIN": "Check again",
+      "WHO_CAN_ACT": "Who can act on orders",
+      "REMOVE": "Remove connection",
+      "REMOVE_CONFIRM": "Remove the store connection? The credentials are deleted; earlier notes and action records stay.",
+      "REMOVE_YES": "Remove"
+    }
+  },
+  "ORDER": {
+    "PLACED": "Placed {date}",
+    "ITEMS": "Items",
+    "QUANTITY": "× {count}",
+    "ADDRESS": "Shipping address",
+    "ADDRESS_HIDDEN": "Unavailable: the store does not share it.",
+    "CUSTOMER_HIDDEN": "Customer unavailable: the store does not share it.",
+    "SHIPMENTS": "Shipments",
+    "NO_SHIPMENTS": "Not shipped yet",
+    "TRACK": "Track",
+    "REFUNDS": "Refunds",
+    "REFUNDED": "Refunded {amount}",
+    "REFUNDABLE": "Refundable {amount}",
+    "CANCELLED": "Cancelled",
+    "CANCELLING": "Cancelling…",
+    "OUTCOME_UNKNOWN": "Outcome unknown. Check the order in Shopify.",
+    "OPEN_IN_ADMIN": "Open in Shopify",
+    "MARK": "This conversation is about this order",
+    "MARKED": "This conversation is about this order",
+    "UNMARK": "Remove mark",
+    "ACTIONS": {
+      "cancel": "Cancel order",
+      "refund": "Refund",
+      "address": "Change address",
+      "replacement": "Send replacement"
+    },
+    "WHY_NOT": {
+      "no_role": "An administrator has not allowed you to act on orders.",
+      "missing_scope": "The connected app lacks access: {scopes}.",
+      "customer_data_hidden": "Unavailable: the store does not share customers' addresses.",
+      "already_cancelled": "The order is cancelled.",
+      "already_shipped": "Already shipped.",
+      "nothing_to_refund": "Nothing left to refund."
+    }
+  },
+  "STATUS": {
+    "PAID": "Paid",
+    "PENDING": "Payment pending",
+    "AUTHORIZED": "Authorized",
+    "PARTIALLY_PAID": "Partially paid",
+    "PARTIALLY_REFUNDED": "Partially refunded",
+    "REFUNDED": "Refunded",
+    "VOIDED": "Voided",
+    "EXPIRED": "Expired",
+    "FULFILLED": "Shipped",
+    "UNFULFILLED": "Not shipped",
+    "PARTIALLY_FULFILLED": "Partially shipped",
+    "IN_PROGRESS": "In progress",
+    "ON_HOLD": "On hold",
+    "SCHEDULED": "Scheduled",
+    "RESTOCKED": "Restocked"
+  },
+  "DIALOG": {
+    "CLOSE": "Close",
+    "BACK": "Back",
+    "FAILED": "Shopify refused: {message}",
+    "FAILED_PLAIN": "The action could not be performed.",
+    "UNKNOWN": "The store did not confirm. The outcome is unknown: check the order in Shopify before trying again.",
+    "RUNNING": "Shopify is still working on it. The order shows as cancelling until it is done.",
+    "NOT_ALLOWED": "An administrator has not allowed you to act on orders.",
+    "CANCEL": {
+      "TITLE": "Cancel order {number}",
+      "WARNING": "Cancelling an order cannot be undone.",
+      "REASON": "Reason",
+      "REASONS": {
+        "CUSTOMER": "Customer changed or cancelled the order",
+        "INVENTORY": "Items unavailable",
+        "FRAUD": "Fraudulent order",
+        "DECLINED": "Payment declined",
+        "STAFF": "Staff error",
+        "OTHER": "Other"
+      },
+      "REFUND": "Refund the payment",
+      "RESTOCK": "Put the items back in stock",
+      "NOTIFY": "Notify the customer",
+      "CONFIRM": "Cancel the order"
+    },
+    "REFUND": {
+      "TITLE": "Refund order {number}",
+      "MODE": {
+        "full": "Everything that remains",
+        "items": "Chosen items",
+        "amount": "An amount"
+      },
+      "AMOUNT": "Amount ({currency})",
+      "ABOVE": "At most {amount} can be refunded.",
+      "SHIPPING": "Refund shipping",
+      "RESTOCK": "Put items that have not shipped back in stock",
+      "NOTIFY": "Notify the customer",
+      "SUMMARY": "Refund {amount}",
+      "GOES_TO": "{amount} back to {gateway}",
+      "RESTOCKED": "{count} items go back in stock",
+      "CALCULATE": "Calculate",
+      "CONFIRM": "Refund {amount}"
+    },
+    "ADDRESS": {
+      "TITLE": "Change the shipping address of {number}",
+      "FIRST_NAME": "First name",
+      "LAST_NAME": "Last name",
+      "COMPANY": "Company",
+      "ADDRESS1": "Address",
+      "ADDRESS2": "Apartment, suite",
+      "CITY": "City",
+      "PROVINCE": "State or province code",
+      "ZIP": "Postal code",
+      "COUNTRY": "Country code",
+      "PHONE": "Phone",
+      "CONFIRM": "Save address"
+    },
+    "REPLACEMENT": {
+      "TITLE": "Send a replacement for {number}",
+      "INTRO": "A new order is created in Shopify with the items below. Stock is taken. The customer is charged nothing and shipping is free.",
+      "NONE": "Keep at least one item.",
+      "CONFIRM": "Create replacement order"
+    },
+    "CONNECT": {
+      "TITLE": "Connect Shopify",
+      "DOMAIN": "Store domain",
+      "DOMAIN_PLACEHOLDER": "your-store.myshopify.com",
+      "KIND": {
+        "client_credentials": "App from the Dev Dashboard (client ID and secret)",
+        "legacy_token": "Older custom app (Admin API access token)"
+      },
+      "CLIENT_ID": "Client ID",
+      "CLIENT_SECRET": "Client secret",
+      "ACCESS_TOKEN": "Admin API access token",
+      "SCOPES": "Access the app needs",
+      "SCOPES_READ": "read_customers, read_orders: required",
+      "SCOPES_WRITE": "write_orders: cancel, refund, address. write_draft_orders and read_products: replacement orders.",
+      "CONFIRM": "Connect"
+    },
+    "ROLES": {
+      "TITLE": "Who can act on orders",
+      "INTRO": "Administrators can always cancel, refund, change addresses and send replacements. Agents can only after you switch it on for them.",
+      "ADMIN": "Administrator",
+      "ALLOW": "Can act on orders"
+    }
+  }
+}
