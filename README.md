@@ -4,8 +4,8 @@ An open-source, self-hosted helpdesk layer for e-commerce merchants, built
 **around** [Chatwoot](https://github.com/chatwoot/chatwoot) Community Edition
 without forking it.
 
-Status: **planning**. No code yet. The first product specification is being
-written in `openspec/`; the plan for it is in `docs/spec-plan.md`.
+Status: **planning**. No code yet. The plan for the first release is in
+`docs/spec-plan.md`; the first change is being specified in `openspec/`.
 
 ## What it is
 
@@ -18,12 +18,15 @@ written in `openspec/`; the plan for it is in `docs/spec-plan.md`.
 
 ## What it is not
 
-- Not a fork of Chatwoot. We use only the documented extension points:
-  webhooks, agent bots, dashboard apps, API inboxes, the Platform API.
+- Not a fork of Chatwoot. Our backend uses the `custom/` overlay hook that
+  Chatwoot ships for exactly this purpose, our UI lives in our own components,
+  and everything else goes through Chatwoot's APIs and webhooks. Chatwoot's
+  core files are not edited for features.
 - Not dependent on Chatwoot Enterprise. Everything here runs on Community
   Edition, which is MIT-licensed. The `enterprise/` directory of Chatwoot is
   under a separate licence and is never used, patched or shipped.
-- Not a cloud service. Everything runs on the merchant's own infrastructure.
+- The open-source edition runs on the merchant's own infrastructure. A hosted
+  edition by the authors uses the same code.
 
 ## Licence
 
