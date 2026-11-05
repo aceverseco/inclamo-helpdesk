@@ -1,0 +1,19 @@
+# Adds HTTPS in front of the helpdesk for a development instance with a public
+# name. Set HELPDESK_DOMAIN in dev/.env; Caddy obtains the certificate itself.
+#
+#   docker compose -f dev/docker-compose.yaml -f dev/docker-compose.https.yaml up -d
+services:
+  caddy:
+    image: caddy:2-alpine
+    command: caddy reverse-proxy --from ${HELPDESK_DOMAIN:?set HELPDESK_DOMAIN in dev/.env} --to rails:3000
+    ports:
+      - '80:80'
+      - '443:443'
+    depends_on:
+      - rails
+    volumes:
+      - caddy:/data
+    restart: unless-stopped
+
+volumes:
+  caddy:

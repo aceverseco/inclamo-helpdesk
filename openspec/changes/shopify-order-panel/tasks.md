@@ -54,11 +54,11 @@
 ## 8. Dashboard
 
 - [ ] 8.1 Add the sidebar section registry and the two seam patches in `ContactPanel.vue` and `useUISettings.js` (D9); verify the stock sidebar is unchanged with an empty registry and that a registered probe section can be collapsed and reordered
-- [ ] 8.2 Build the "Orders" section: not connected, broken, loading, store not answering with retry, limited mode, matched customer with orders, ambiguous match, lookup by order number; verify by component tests for each state
-- [ ] 8.3 Build the administrator menu in the section: connect dialog (domain, credentials, scopes to grant), "check again", remove, and the list of agents with the order-actions switch (D10, D13); verify by component tests that an agent never sees the menu
-- [ ] 8.4 Build the order card (items, statuses, address, shipments with tracking links, refunds, admin link, mark as the conversation's order); verify by component tests on the fixture orders
-- [ ] 8.5 Build the action dialogs (cancel, refund, address, replacement) with confirmation texts, unavailable states naming the reason (no role, missing scope, already shipped), "cancelling" and "outcome unknown"; verify by component tests for each dialog and each unavailable reason
-- [ ] 8.6 Add English locale strings for everything above in our own locale file; verify no hard-coded user-facing string remains by a lint rule or grep in CI
+- [x] 8.2 Build the "Orders" section: not connected, broken, loading, store not answering with retry, limited mode, matched customer with orders, ambiguous match, lookup by order number; verify by component tests for each state
+- [x] 8.3 Build the administrator menu in the section: connect dialog (domain, credentials, scopes to grant), "check again", remove, and the list of agents with the order-actions switch (D10, D13); verify by component tests that an agent never sees the menu
+- [x] 8.4 Build the order card (items, statuses, address, shipments with tracking links, refunds, admin link, mark as the conversation's order); verify by component tests on the fixture orders
+- [x] 8.5 Build the action dialogs (cancel, refund, address, replacement) with confirmation texts, unavailable states naming the reason (no role, missing scope, already shipped), "cancelling" and "outcome unknown"; verify by component tests for each dialog and each unavailable reason
+- [x] 8.6 Add English locale strings for everything above in our own locale file; verify no hard-coded user-facing string remains by a lint rule or grep in CI
 
 ## 9. End-to-end tests
 
