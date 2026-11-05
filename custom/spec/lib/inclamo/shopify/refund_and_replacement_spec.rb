@@ -19,8 +19,12 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
     stub_shopify(:order_details, data: { order: order })
   end
 
+  # Requests of one mutation; with a block, only those whose variables it accepts.
   def mutation_requests(name)
-    a_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].match?(/^mutation #{name}\b/) }
+    a_request(:post, shopify_graphql_url).with do |request|
+      body = JSON.parse(request.body)
+      body['query'].match?(/^mutation #{name}\b/) && (!block_given? || yield(body['variables']))
+    end
   end
 
   def notes
@@ -57,8 +61,7 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
 
       expect(result).to have_attributes(outcome: 'accepted', params: { 'mode' => 'amount', 'amount' => '20.00' })
       expect(result.progress['refunded']).to eq("20.0 #{currency}")
-      expect(mutation_requests('refund_create').with do |r|
-        variables = JSON.parse(r.body)['variables']
+      expect(mutation_requests('refund_create') do |variables|
         variables['key'] == 'action-refund-0001' &&
           variables.dig('input', 'transactions') == [{ 'parentId' => 'gid://shopify/OrderTransaction/1', 'gateway' => 'manual', 'amount' => '20.0', 'orderId' => order['id'], 'kind' => 'REFUND' }] &&
           !variables['input'].key?('refundLineItems')
@@ -85,8 +88,8 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
 
       refund({ 'mode' => 'full', 'restock' => true, 'notify' => true })
 
-      expect(mutation_requests('refund_create').with do |r|
-        input = JSON.parse(r.body).dig('variables', 'input')
+      expect(mutation_requests('refund_create') do |variables|
+        input = variables['input']
         input['notify'] == true && input['refundLineItems'].size == lines.size && input['refundLineItems'].all? { |item| item['restockType'] == 'CANCEL' } &&
           input['transactions'].first['amount'] == total
       end).to have_been_made.once
@@ -117,7 +120,7 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
       expect(second.id).to eq(first.id)
       expect(second.outcome).to eq('accepted')
       # Both requests carried the same idempotency key: the store makes one refund of them.
-      expect(mutation_requests('refund_create').with { |r| JSON.parse(r.body).dig('variables', 'key') == 'action-refund-0001' }).to have_been_made.twice
+      expect(mutation_requests('refund_create') { |variables| variables['key'] == 'action-refund-0001' }).to have_been_made.twice
       expect(Inclamo::OrderAction.where(action: 'refund').count).to eq(1)
       expect(notes.size).to eq(1)
     end
@@ -175,8 +178,8 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
 
       expect(result.outcome).to eq('accepted')
       expect(result.progress).to include('new_order_number' => '#1050')
-      expect(mutation_requests('replacement_draft_update').with do |r|
-        input = JSON.parse(r.body).dig('variables', 'input')
+      expect(mutation_requests('replacement_draft_update') do |variables|
+        input = variables['input']
         input['lineItems'] == [{ 'variantId' => 'gid://shopify/ProductVariant/1', 'quantity' => 1 }] &&
           input['appliedDiscount'].slice('valueType', 'value') == { 'valueType' => 'PERCENTAGE', 'value' => 100 } &&
           input.dig('shippingLine', 'priceWithCurrency', 'amount') == '0' && input['tags'] == ['replacement'] && input['note'].include?('#1001')
@@ -191,7 +194,7 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
 
       replace({})
 
-      expect(mutation_requests('replacement_draft_update').with { |r| JSON.parse(r.body).dig('variables', 'input', 'lineItems').size == lines.size }).to have_been_made.once
+      expect(mutation_requests('replacement_draft_update') { |variables| variables.dig('input', 'lineItems').size == lines.size }).to have_been_made.once
     end
 
     it 'does not let the agent add quantity or unknown items, and creates nothing then' do
