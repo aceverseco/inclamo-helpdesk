@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'net/http'
-
 module Inclamo
   module Shopify
     # Sends one GraphQL document to one shop and returns the `data` of the
@@ -46,30 +44,14 @@ module Inclamo
       end
 
       def post(body, deadline)
-        remaining = deadline - now
-        raise Error::Timeout, 'the store did not answer within the time limit' if remaining <= 0
-
-        http = Net::HTTP.new(uri.host, uri.port)
-        http.use_ssl = uri.scheme == 'https'
-        http.open_timeout = remaining
-        http.read_timeout = remaining
-        http.write_timeout = remaining
-        http.request(request_for(body))
-      rescue Net::OpenTimeout, Net::ReadTimeout, Net::WriteTimeout
-        raise Error::Timeout, 'the store did not answer within the time limit'
-      rescue SocketError, SystemCallError, OpenSSL::SSL::SSLError, EOFError, IOError => e
-        raise Error::Unavailable, "could not reach the store: #{e.class}"
-      end
-
-      def request_for(body)
-        request = Net::HTTP::Post.new(uri.request_uri)
-        request['Content-Type'] = 'application/json'
-        request['Accept'] = 'application/json'
-        request['X-Shopify-Access-Token'] = @access_token
-        # The shop is always named, also when a proxy stands in front of it.
-        request['X-Shopify-Shop-Domain'] = @domain
-        request.body = body
-        request
+        headers = {
+          'Content-Type' => 'application/json',
+          'Accept' => 'application/json',
+          'X-Shopify-Access-Token' => @access_token,
+          # The shop is always named, also when a proxy stands in front of it.
+          'X-Shopify-Shop-Domain' => @domain
+        }
+        Http.post(uri, headers: headers, body: body, time_limit: deadline - now)
       end
 
       # Seconds to wait when the store throttled the request, nil otherwise.

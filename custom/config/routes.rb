@@ -10,6 +10,11 @@ namespace :api, defaults: { format: 'json' } do
       scope module: :accounts do
         namespace :inclamo do
           resource :status, only: [:show], controller: 'status'
+          namespace :shopify do
+            resource :connection, only: [:show, :create, :destroy], controller: '/api/v1/accounts/inclamo/shopify_connections' do
+              post :recheck
+            end
+          end
         end
       end
     end

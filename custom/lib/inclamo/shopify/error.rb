@@ -29,6 +29,29 @@ module Inclamo
       # The token was refused: the connection is broken.
       class Unauthorized < Error; end
 
+      # The client ID or secret was refused when asking for a token.
+      class CredentialsRefused < Unauthorized; end
+
+      # The credentials are fine, but the app is not installed on this store.
+      class AppNotInstalled < Unauthorized; end
+
+      # The connection is marked broken; the store is not called until an
+      # administrator has checked or renewed it.
+      class ConnectionBroken < Error; end
+
+      # What was entered is not a `<name>.myshopify.com` domain.
+      class InvalidDomain < Error; end
+
+      # The app lacks scopes the helpdesk cannot work without.
+      class MissingScopes < Error
+        attr_reader :scopes
+
+        def initialize(scopes)
+          super("missing scopes: #{scopes.join(', ')}")
+          @scopes = scopes
+        end
+      end
+
       # The shop does not exist, is frozen or is locked.
       class ShopUnavailable < Error; end
 

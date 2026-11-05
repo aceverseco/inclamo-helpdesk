@@ -1,0 +1,13 @@
+# Asked once per check to learn whether the store gives this app the personal
+# data of customers. An access-denied answer means it does not.
+query customer_data_probe {
+  customers(first: 1) {
+    nodes {
+      id
+      displayName
+      defaultEmailAddress {
+        emailAddress
+      }
+    }
+  }
+}

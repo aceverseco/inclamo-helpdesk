@@ -41,6 +41,9 @@ if overlay_routes.exist?
   end
 end
 
+# Credentials of a store connection never reach the request log.
+Rails.application.config.filter_parameters |= [:client_secret, :access_token]
+
 # Locales of the overlay's backend messages.
 I18n.load_path += Dir[overlay_root.join('config/locales/**/*.yml').to_s]
 

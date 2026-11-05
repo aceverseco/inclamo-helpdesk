@@ -1,0 +1,14 @@
+en:
+  inclamo:
+    shopify_connection:
+      errors:
+        forbidden: Only an administrator can manage the store connection.
+        not_connected: No store is connected to this account.
+        encryption_not_configured: Encryption must be configured on this installation before a store can be connected.
+        already_connected: This account already has a store connection. Remove it before connecting another store.
+        invalid_domain: Enter the store's domain in the form your-store.myshopify.com.
+        app_not_installed: The app must be installed on the store first.
+        credentials_refused: The store refused these credentials.
+        missing_scopes: "The app lacks required access: %{missing_scopes}."
+        shop_unavailable: This store cannot be reached. Check the domain.
+        store_unreachable: Shopify did not answer. Try again in a moment.

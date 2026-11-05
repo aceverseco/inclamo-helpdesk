@@ -72,6 +72,11 @@ jobs:
       - name: Run the overlay's specs
         working-directory: build/chatwoot
         run: bundle exec rspec custom/spec --format progress
+        env:
+          # Throwaway keys: the store connection is refused without encryption.
+          ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: ci-only-primary-key-0000000000000000
+          ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: ci-only-deterministic-key-000000000
+          ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: ci-only-key-derivation-salt-0000000
 
   graphql:
     name: Shopify documents match the published schema
