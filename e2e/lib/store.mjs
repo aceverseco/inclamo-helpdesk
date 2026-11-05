@@ -5,6 +5,10 @@ import { connect } from './shopify.mjs';
 
 const money = (amount, currencyCode) => ({ shopMoney: { amount: amount.toFixed(2), currencyCode } });
 const ADDRESS = { address1: '1 Example Street', city: 'Kyiv', countryCode: 'UA', zip: '01001' };
+// The tests refund 20 of an order of one item, so every product they order
+// costs clearly more than that.
+const MIN_PRICE = 50;
+const CATALOG = [['E2E Mug', '120.00'], ['E2E Notebook', '185.00'], ['E2E Tote Bag', '250.00']];
 
 // A development store lets an app create only a few orders a minute and
 // answers "Too many attempts" beyond that: wait and try again.
@@ -22,10 +26,32 @@ async function paced(create) {
 export async function openStore(run) {
   const shopify = await connect('SHOPIFY_SEEDER');
   const tags = ['e2e', `e2e-${run}`];
-  const catalog = await shopify('seed_catalog');
+  let catalog = await shopify('seed_catalog');
   const currency = catalog.shop.currencyCode;
-  const variants = catalog.products.nodes.flatMap(product => product.variants.nodes.slice(0, 1));
-  if (variants.length < 3) throw new Error('the store needs at least three active products');
+  const variantsOf = found => found.products.nodes.flatMap(product => product.variants.nodes.slice(0, 1)).filter(variant => Number(variant.price) >= MIN_PRICE);
+  // A store that was just created has nothing to sell, and another may sell
+  // only cheap things: give it the three products the tests order. They stay
+  // as the store's catalogue.
+  for (const [title, price] of CATALOG.slice(variantsOf(catalog).length)) {
+    await shopify('seed_product', {
+      input: {
+        title,
+        status: 'ACTIVE',
+        tags: ['e2e-catalog'],
+        productOptions: [{ name: 'Title', values: [{ name: 'Default Title' }] }],
+        variants: [{ optionValues: [{ optionName: 'Title', name: 'Default Title' }], price, inventoryItem: { tracked: false } }],
+      },
+    });
+  }
+  if (variantsOf(catalog).length < 3) {
+    // The store's search lags behind what was just created.
+    for (let attempt = 0; attempt < 20 && variantsOf(catalog).length < 3; attempt += 1) {
+      await new Promise(resolve => setTimeout(resolve, 3_000));
+      catalog = await shopify('seed_catalog');
+    }
+  }
+  const variants = variantsOf(catalog);
+  if (variants.length < 3) throw new Error('the store needs at least three active products, and creating them did not help');
   let counter = 0;
 
   const store = {
@@ -103,8 +129,10 @@ export async function openStore(run) {
       const removed = { orders: 0, customers: 0, kept: [] };
       const replacements = (await shopify('seeded_orders', { query: `tag:'replacement'`, after: null })).orders.nodes;
       const own = (await shopify('seeded_orders', { query: `tag:'e2e-${run}'`, after: null })).orders.nodes.filter(order => order.tags.includes(`e2e-${run}`));
-      // A replacement carries the tags of the order it was copied from.
-      const orders = [...own, ...replacements.filter(order => order.tags.includes(`e2e-${run}`) && !own.find(known => known.id === order.id))];
+      // A replacement the helpdesk created carries only its own tag: it is
+      // known by its note, which names the order of this run it replaces.
+      const replaces = order => own.some(known => (order.note || '').endsWith(` ${known.name}`));
+      const orders = [...own, ...replacements.filter(order => !own.find(known => known.id === order.id) && (order.tags.includes(`e2e-${run}`) || replaces(order)))];
       for (const order of orders) {
         try {
           if (!order.cancelledAt) await shopify('seed_cancel', { orderId: order.id }).catch(() => {});

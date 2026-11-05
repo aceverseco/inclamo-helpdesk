@@ -9,6 +9,8 @@
 # app the helpdesk connects with) and SHOPIFY_SEEDER_DOMAIN, _CLIENT_ID,
 # _CLIENT_SECRET (the app that creates and removes the test data).
 # E2E_OTHER_SHOP_DOMAIN names a store that exists and has neither app installed.
+# The store may be empty: the tests create the products, customers and orders
+# they need, and remove the customers and orders afterwards.
 # Optional: SHOPIFY_LIMITED_DOMAIN, _CLIENT_ID, _CLIENT_SECRET, an app with no
 # distribution method chosen; with it the limited-mode tests meet a real refusal.
 # E2E_KEEP=1 leaves the stack running afterwards; E2E_OUTPUT is where reports go.

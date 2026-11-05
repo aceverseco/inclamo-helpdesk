@@ -95,6 +95,8 @@ Recorded here because none of it could be read from documentation (task 10.2). A
 - **Chatwoot's first-run page.** Until the flag `CHATWOOT_INSTALLATION_ONBOARDING` is gone from Redis, `/installation/onboarding` lets anyone who reaches the instance create its super administrator. `e2e/setup.rb` removes it; the installer slice must own this for real installations.
 - **Orders and customers need a distribution method.** An app with none chosen is refused the `Customer`, `Order` and `DraftOrder` objects; with custom distribution they are given. The three test apps are checked by `e2e/check-apps.mjs`.
 - **The store refuses only what exists.** The same app gets an empty list, not a refusal, when a query matches nothing, and `ordersCount` answers either way. An earlier note here said such an app could still read orders; that was read from a store with no orders yet. The third test app showed it: the limited-mode test, run against a real app with no distribution method instead of the proxy, found no order. Hence the refusal at connect, and the `refused` state of the panel for a store that was empty when it was connected.
+- **A development store on the Basic plan behaves like the one on Grow.** The whole suite was run against a second development store created with the Basic plan and an app with custom distribution: every scenario passed, with customers' names, emails and addresses given and the free replacement working. This says nothing yet about a paid store, where the plan is billed rather than simulated (task 10.3).
+- **The suite brings its own catalogue.** It had silently relied on products that happened to be in the first store. On an empty store it now creates the three products it orders, priced above the amounts the refund tests use.
 - **`read_all_orders` is not a scope an app can simply list.** The Dev Dashboard refuses it as invalid. The panel therefore sees 60 days of orders.
 - **A draft's lines can only be named by variants**, which need `read_products` (D14).
 - **Restocking shipped items needs a location**, and reading locations another scope: a refund restocks only items that have not shipped.
@@ -110,7 +112,7 @@ Not learned yet: which notification, if any, the store sends the customer for a 
 
 None that block the task list. To be confirmed on a live store, each with a task:
 
-1. Customer data for an app created by a merchant's own organisation, and on a real Basic-plan store; whether `draftOrderCreateFromOrder` works in the limited mode. Manual check; everything else below is settled by the end-to-end tests.
+1. Customer data for an app created by a merchant's own organisation, and on a paid Basic-plan store; whether `draftOrderCreateFromOrder` works in the limited mode. A development store on the Basic plan passed the whole suite; the paid store is still to be checked. Everything else below is settled by the end-to-end tests.
 2. Which notification, if any, the store sends the customer for a completed zero-total replacement.
 
 Settled since, on a live store: `read_all_orders` cannot simply be listed among an app's scopes (the Dev Dashboard refuses it as invalid; it is requested separately), so the panel sees the last 60 days of orders. A draft order with a total of zero completes into a paid order. Restocking refunded items that have shipped needs a location, and reading locations needs another scope, so a refund restocks only items that have not shipped.
