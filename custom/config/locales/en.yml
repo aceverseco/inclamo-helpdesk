@@ -15,3 +15,14 @@ en:
     order_roles:
       errors:
         forbidden: Only an administrator can decide who acts on orders.
+    order_actions:
+      notes:
+        cancel: "Cancelled order %{number}. %{details}"
+        address: "Changed the shipping address of order %{number}."
+        refund: "Refunded %{refunded} on order %{number}."
+        replacement: "Created replacement order %{new_order_number} for order %{number}, free of charge."
+        details:
+          reason: "Reason: %{reason}."
+          refunded: Payment refunded.
+          restocked: Items restocked.
+          notified: Customer notified.

@@ -23,6 +23,9 @@ namespace :api, defaults: { format: 'json' } do
               put 'order', action: :mark_order
               delete 'order', action: :clear_order
             end
+            scope 'conversations/:conversation_id' do
+              resources :actions, only: [:create, :show], controller: '/api/v1/accounts/inclamo/order_actions'
+            end
           end
         end
       end

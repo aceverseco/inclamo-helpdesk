@@ -1,0 +1,13 @@
+# Replaces the shipping address of an order. Only the id comes back: the
+# address is not kept on our side.
+mutation order_address_update($input: OrderInput!) {
+  orderUpdate(input: $input) {
+    order {
+      id
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

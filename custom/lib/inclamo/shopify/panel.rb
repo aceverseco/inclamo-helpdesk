@@ -19,7 +19,8 @@ module Inclamo
         return base.merge(state: 'not_connected') unless @record
         return base.merge(state: 'broken') if @record.broken?
 
-        base.merge(body(after)).merge(marked_order)
+        OrderActionRunner.new(account: @account, account_user: @account_user, conversation: @conversation).settle_open!
+        base.merge(body(after)).merge(marked_order).merge(open_actions)
       rescue Error::ConnectionBroken, Error::Unauthorized
         base.merge(connection: connection, state: 'broken')
       rescue Error => e
@@ -63,6 +64,12 @@ module Inclamo
         end
         marker.mark!(node)
         { marked_order: present_order(node) }
+      end
+
+      # Actions of this conversation that are not settled yet: a cancellation
+      # the store is still working on, or an attempt whose answer was lost.
+      def open_actions
+        { open_actions: OrderAction.unsettled.where(account_id: @account.id, conversation_id: @conversation.id).order(:id).map(&:as_json) }
       end
 
       def body(after)
