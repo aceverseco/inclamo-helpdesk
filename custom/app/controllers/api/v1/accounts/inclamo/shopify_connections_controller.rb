@@ -77,14 +77,21 @@ class Api::V1::Accounts::Inclamo::ShopifyConnectionsController < Api::V1::Accoun
   end
 
   def present(record)
-    return { connected: false, encryption_configured: Chatwoot.encryption_configured? } unless record
+    return { connected: false, encryption_configured: Chatwoot.encryption_configured?, viewer: viewer } unless record
 
     {
+      viewer: viewer,
       connected: true, status: record.status, shop_name: record.shop_name, shop_domain: record.shop_domain,
       shop_currency: record.shop_currency, auth_kind: record.auth_kind, customer_data: record.customer_data_mode,
       scopes: record.scopes, actions: record.actions_report, api_version: record.api_version,
       last_checked_at: record.last_checked_at
     }
+  end
+
+  # What the signed-in member may do; the dashboard shows or hides by it, the
+  # server checks again on every request.
+  def viewer
+    { administrator: Current.account_user&.administrator? || false, can_act_on_orders: ::Inclamo::OrderRole.allows?(Current.account_user) }
   end
 
   def refuse_for(error)

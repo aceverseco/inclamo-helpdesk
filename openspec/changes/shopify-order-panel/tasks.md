@@ -23,8 +23,8 @@
 
 ## 4. Order-actions role
 
-- [ ] 4.1 Create the `inclamo_order_roles` table and the policy "administrator, or agent holding the role" (D13); verify by policy specs for administrator, agent with the role, agent without it, agent of another account
-- [ ] 4.2 Implement the `order_roles` endpoints (list agents with their state, give, take), administrators only; verify by request specs including the agent-forbidden case and that a newly added agent has no role
+- [x] 4.1 Create the `inclamo_order_roles` table and the policy "administrator, or agent holding the role" (D13); verify by policy specs for administrator, agent with the role, agent without it, agent of another account
+- [x] 4.2 Implement the `order_roles` endpoints (list agents with their state, give, take), administrators only; verify by request specs including the agent-forbidden case and that a newly added agent has no role
 
 ## 5. Customer matching and order reads
 

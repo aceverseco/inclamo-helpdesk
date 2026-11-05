@@ -12,3 +12,6 @@ en:
         missing_scopes: "The app lacks required access: %{missing_scopes}."
         shop_unavailable: This store cannot be reached. Check the domain.
         store_unreachable: Shopify did not answer. Try again in a moment.
+    order_roles:
+      errors:
+        forbidden: Only an administrator can decide who acts on orders.

@@ -152,7 +152,8 @@ RSpec.describe 'Inclamo Shopify connection API', type: :request do
     it 'tells any member that nothing is connected' do
       get path, headers: agent.create_new_auth_token, as: :json
 
-      expect(response.parsed_body).to eq('connected' => false, 'encryption_configured' => true)
+      expect(response.parsed_body).to eq('connected' => false, 'encryption_configured' => true,
+                                         'viewer' => { 'administrator' => false, 'can_act_on_orders' => false })
     end
 
     it 'shows an agent the store, its scopes and the time of the last check' do
