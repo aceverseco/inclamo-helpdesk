@@ -45,14 +45,20 @@ RSpec.describe Inclamo::Overlay::Migrations do
     expect(described_class.pending?).to be(true)
   end
 
-  it 'rolls the last migration back' do
-    quietly do
-      described_class.migrate
-      described_class.rollback
-    end
+  context 'when it is the newest migration' do
+    # Rolling back takes the newest recorded migration, so the probe must be
+    # newer than the overlay's real ones.
+    let(:version) { 20_990_101_000_000 }
 
-    expect(connection.table_exists?(:inclamo_spec_probe)).to be(false)
-    expect(described_class.pending?).to be(true)
+    it 'rolls it back' do
+      quietly do
+        described_class.migrate
+        described_class.rollback
+      end
+
+      expect(connection.table_exists?(:inclamo_spec_probe)).to be(false)
+      expect(described_class.pending?).to be(true)
+    end
   end
 
   it 'keeps its tables out of the schema dump of Chatwoot' do

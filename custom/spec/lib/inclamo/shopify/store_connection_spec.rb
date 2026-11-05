@@ -28,6 +28,7 @@ RSpec.describe Inclamo::Shopify::StoreConnection do
     end
 
     it 'gets a new token by itself once the old one is about to expire' do
+      record # created now, so its token is a day old after the jump in time
       exchange = stub_token_exchange(token: 'fresh-token-for-specs')
       fresh = stub_request(:post, shopify_graphql_url).with(headers: { 'X-Shopify-Access-Token' => 'fresh-token-for-specs' })
                                                       .to_return(status: 200, body: { data: shop_info_data }.to_json, headers: ShopifyStubs::JSON_HEADERS)

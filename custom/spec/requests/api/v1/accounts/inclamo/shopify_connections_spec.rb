@@ -38,7 +38,7 @@ RSpec.describe 'Inclamo Shopify connection API', type: :request do
       stub_shopify(:shop_info, data: shop_info_data)
       stub_shopify(:customer_data_probe, data: { customers: { nodes: [] } })
 
-      connect(shop_domain: 'example-store.myshopify.com', access_token: 'legacy-token-do-not-leak')
+      connect({ shop_domain: 'example-store.myshopify.com', access_token: 'legacy-token-do-not-leak' })
 
       expect(response).to have_http_status(:created)
       expect(Inclamo::ShopifyConnection.find_by(account: account)).to be_legacy_token
