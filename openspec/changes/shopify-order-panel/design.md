@@ -87,6 +87,24 @@ See `proposal.md` for motivation and the settled items (action set, native sideb
 
 New tables and a new image; nothing existing changes. Rollback: run the official image, the `inclamo_` tables stay unused. Removing `custom/` returns a stock Chatwoot.
 
+## What the end-to-end runs showed
+
+Recorded here because none of it could be read from documentation (task 10.2). All on a development store, 2026-11-05.
+
+- **A first installation came up without the overlay's tables.** `db:chatwoot_prepare` on a server without a database runs `db:setup` and never `db:migrate`. Fixed in D1; found only because the suite starts a stack from nothing.
+- **Chatwoot's first-run page.** Until the flag `CHATWOOT_INSTALLATION_ONBOARDING` is gone from Redis, `/installation/onboarding` lets anyone who reaches the instance create its super administrator. `e2e/setup.rb` removes it; the installer slice must own this for real installations.
+- **Customer data needs a distribution method.** An app with none chosen is refused the `Customer` object; with custom distribution it is given. Both test apps were checked by `e2e/check-apps.mjs`.
+- **`read_all_orders` is not a scope an app can simply list.** The Dev Dashboard refuses it as invalid. The panel therefore sees 60 days of orders.
+- **A draft's lines can only be named by variants**, which need `read_products` (D14).
+- **Restocking shipped items needs a location**, and reading locations another scope: a refund restocks only items that have not shipped.
+- **A draft with a total of zero completes into a paid order.**
+- **Shopify's idempotency key holds.** A refund sent twice with the same key, the first answer lost, is one refund in the store.
+- **Shipping addresses are checked against the store's markets.** An address in a country the store does not sell to is refused by the store ("Country/region not supported"); the dialog shows that sentence.
+- **Limits of the test bed itself:** a development store accepts about five created orders a minute; Chatwoot limits a user's concurrent sessions and throttles sign-ins. The suite paces its seeding, signs each user in once per run and runs with `ENABLE_RACK_ATTACK=false`.
+- **To make the store say no, the proxy must answer itself.** Changing the store's real answer afterwards lets the store act: the first version of two refusal tests created a real order and a real refund while the helpdesk reported a refusal.
+
+Not learned yet: which notification, if any, the store sends the customer for a completed replacement; anything about a real Basic-plan store or an app created by a merchant's own organisation.
+
 ## Open Questions
 
 None that block the task list. To be confirmed on a live store, each with a task:
