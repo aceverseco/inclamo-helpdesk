@@ -8,7 +8,8 @@
 //                   merchant guide asks for, customer data given.
 // SHOPIFY_SEEDER_*  the app that creates and removes test data: wider scopes.
 // SHOPIFY_LIMITED_* optional: an app with no distribution method chosen, to
-//                   which the store refuses customer data.
+//                   which the store refuses its orders and customers. The
+//                   store refuses only what exists, so it must hold an order.
 import { connect } from './lib/shopify.mjs';
 
 const GUIDE = ['read_customers', 'read_orders', 'write_orders', 'write_draft_orders', 'read_products'];
@@ -37,8 +38,9 @@ for (const app of apps) {
     const extra = granted.filter(scope => !wanted.includes(scope));
     if (missing.length) problems.push(`lacks ${missing.join(', ')}`);
     if (app.exact && extra.length) problems.push(`holds more than it should: ${extra.join(', ')}`);
-    const given = await shopify('app_customers').then(() => true, error => (/ACCESS_DENIED/.test(error.message) ? false : Promise.reject(error)));
-    if (given !== app.customers) problems.push(app.customers ? 'is refused customer data (choose custom distribution for the app)' : 'is given customer data, so it cannot stand for a limited store');
+    const given = name => shopify(name).then(() => true, error => (/ACCESS_DENIED/.test(error.message) ? false : Promise.reject(error)));
+    if ((await given('app_customers')) !== app.customers) problems.push(app.customers ? 'is refused customer data (choose custom distribution for the app)' : 'is given customers, so it cannot stand for an app with no distribution method');
+    if ((await given('app_orders')) !== app.customers) problems.push(app.customers ? 'is refused orders (choose custom distribution for the app)' : 'is given orders: either a distribution method was chosen or the store holds no order');
   } catch (error) {
     problems.push(error.message.slice(0, 200));
   }

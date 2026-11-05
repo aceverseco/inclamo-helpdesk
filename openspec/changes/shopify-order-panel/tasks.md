@@ -62,7 +62,7 @@
 
 ## 9. End-to-end tests
 
-- [ ] 9.1 Prepare the dedicated development store and its three custom apps: the helpdesk app with exactly the scopes of the merchant guide, the seeding app with wider scopes, and an app without protected customer data; verify each app's token exchange succeeds and the granted scopes match by a script in `e2e/`
+- [x] 9.1 Prepare the dedicated development store and its three custom apps: the helpdesk app with exactly the scopes of the merchant guide, the seeding app with wider scopes, and an app without protected customer data (it turned out to be refused orders too: see the requirement "An app the store refuses its orders is not connected"); verify each app's token exchange succeeds and the granted scopes match by a script in `e2e/`
 - [x] 9.2 Add the end-to-end environment: compose with our image, Postgres, Redis, the controllable proxy in front of Shopify, and a seed that creates the account, the administrator and two agents; verify one command brings it up and a smoke test logs in
 - [x] 9.3 Add the store seeding and cleanup helpers (customers, products, orders in the states the scenarios need, tagged per run); verify a run leaves no tagged data in the store
 - [x] 9.4 Write the end-to-end tests of the `shopify-connection` scenarios (connect with client ID and secret, legacy token where the store has one, token renewal, app not installed, token refused, bad domain, agent forbidden, missing read scope, write scopes and "check again", limited mode, secret never shown, second store refused, broken connection, removal); verify all pass against the development store

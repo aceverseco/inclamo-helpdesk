@@ -155,6 +155,13 @@ export const bench = () => ({
   client_secret: process.env.SHOPIFY_BENCH_CLIENT_SECRET,
 });
 
+// The app with no distribution method chosen, to which the store refuses its
+// orders and customers. Optional: without it a test makes the proxy refuse.
+export const limited = () =>
+  process.env.SHOPIFY_LIMITED_CLIENT_ID
+    ? { shop_domain: process.env.SHOPIFY_LIMITED_DOMAIN, client_id: process.env.SHOPIFY_LIMITED_CLIENT_ID, client_secret: process.env.SHOPIFY_LIMITED_CLIENT_SECRET }
+    : null;
+
 // Waits until `read()` returns something `accept` likes; for things a
 // background job does.
 export async function eventually(read, accept, { timeout = 30_000, every = 1_000 } = {}) {

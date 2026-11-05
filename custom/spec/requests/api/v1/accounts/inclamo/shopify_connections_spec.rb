@@ -112,6 +112,19 @@ RSpec.describe 'Inclamo Shopify connection API', type: :request do
       expect(body['actions'].find { |action| action['name'] == 'address' }).to include('available' => false, 'reason' => 'customer_data_hidden')
     end
 
+    it 'does not save an app the store refuses its orders, and says what to do' do
+      stub_token_exchange
+      stub_shopify(:shop_info, data: shop_info_data)
+      stub_shopify(:customer_data_probe, errors: access_denied('orders'))
+
+      connect
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.parsed_body).to include('error' => 'orders_refused')
+      expect(response.parsed_body['message']).to include('custom distribution')
+      expect(Inclamo::ShopifyConnection.count).to eq(0)
+    end
+
     it 'is refused without encryption keys' do
       allow(Chatwoot).to receive(:encryption_configured?).and_return(false)
 

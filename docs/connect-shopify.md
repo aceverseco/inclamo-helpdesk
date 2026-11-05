@@ -46,9 +46,13 @@ Open the app's **Distribution** and choose **Custom distribution**, then enter
 your store's domain (`your-store.myshopify.com`) and generate the install link.
 
 **Do not skip this step.** Until a distribution method is chosen, Shopify
-refuses the app every customer record. The helpdesk then connects in a
-*limited mode*: orders are found by order number only, names and addresses are
-not shown, and the shipping address cannot be changed.
+refuses the app the store's orders, draft orders and customers. The helpdesk
+then does not connect and tells you that the store refuses the app its orders.
+
+Shopify refuses only what exists. On a store with no orders yet, an app
+without a distribution method connects, and the panel starts saying that
+Shopify refuses the app once the first customer or order appears. Choose
+custom distribution, then press "Check again".
 
 The choice cannot be undone, and the app can then be installed on that one
 store only. That is what you want here.
@@ -108,8 +112,10 @@ Apps**): Shopify asks you to approve the new access. Back in the helpdesk press
 If your store still has a custom app created in the store's admin before 2026,
 choose "Older custom app" in the connect dialog and enter its Admin API access
 token. For such apps Shopify gives customers' names, emails, phones and
-addresses only on some plans; where it does not, the helpdesk connects in the
-limited mode described above. Creating an app as in step 1 lifts that.
+addresses only on some plans; where it does not, the helpdesk connects in a
+*limited mode*: orders are found by order number only, names and addresses are
+not shown, and the shipping address cannot be changed. Creating an app as in
+steps 1 and 2 lifts that.
 
 ## Things to know
 

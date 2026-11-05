@@ -101,6 +101,7 @@ class Api::V1::Accounts::Inclamo::ShopifyConnectionsController < Api::V1::Accoun
     when ::Inclamo::Shopify::Error::AppNotInstalled then refuse(:app_not_installed)
     when ::Inclamo::Shopify::Error::Unauthorized then refuse(:credentials_refused)
     when ::Inclamo::Shopify::Error::MissingScopes then refuse(:missing_scopes, missing_scopes: error.scopes)
+    when ::Inclamo::Shopify::Error::OrdersRefused then refuse(:orders_refused)
     when ::Inclamo::Shopify::Error::ShopUnavailable then refuse(:shop_unavailable)
     else refuse(:store_unreachable)
     end

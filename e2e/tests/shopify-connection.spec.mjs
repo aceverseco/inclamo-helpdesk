@@ -1,7 +1,7 @@
 // Scenarios of openspec capability `shopify-connection`. Each test is named
 // after its scenario; scripts/check-e2e-coverage.mjs relies on that.
 import { test, expect } from '@playwright/test';
-import { signIn, openOrders, apiAs, proxy, bench, users } from '../lib/helpdesk.mjs';
+import { signIn, openOrders, apiAs, proxy, bench, limited, users } from '../lib/helpdesk.mjs';
 import { accessToken, credentials } from '../lib/shopify.mjs';
 
 const account = process.env.E2E_ACCOUNT_ID || '1';
@@ -157,6 +157,41 @@ test('Store whose plan hides customer data', async ({ page }) => {
   await expect(section.getByTestId('inclamo-orders-limited')).toContainText('orders are found by order number only');
   await expect(section.getByTestId('inclamo-orders-limited')).toContainText('custom distribution');
   expect(await admin.connection()).toMatchObject({ connected: true, customer_data: 'limited' });
+});
+
+test('App with no distribution method', async ({ page }) => {
+  await openConnectDialog(page);
+  // The real thing when the third test app is configured: the store has
+  // orders and refuses them to it. Otherwise the proxy answers as the store did.
+  const app = limited() || bench();
+  if (!limited()) await proxy.rule({ match: { operation: 'customer_data_probe' }, effect: 'patch', value: { patch: 'orders_denied' } });
+  const dialog = await fillConnect(page, { domain: app.shop_domain, clientId: app.client_id, clientSecret: app.client_secret });
+
+  await expect(dialog.getByTestId('inclamo-connect-error')).toContainText("refuses this app the store's orders");
+  await expect(dialog.getByTestId('inclamo-connect-error')).toContainText('custom distribution');
+  expect((await admin.connection()).connected).toBe(false);
+});
+
+test('Store starts refusing after it was connected', async ({ page }) => {
+  await admin.disconnect();
+  await admin.connect(bench());
+  const inbox = await admin.inbox();
+  const asked = await admin.conversation(inbox, { name: 'Refused Example', email: 'refused.example.e2e@example.com' });
+  await proxy.rule({ match: { operation: 'customers_search' }, effect: 'patch', value: { patch: 'customers_denied' } });
+  await signIn(page, users.admin);
+  const section = await openOrders(page, account, asked.id);
+
+  await expect(section).toHaveAttribute('data-state', 'refused');
+  await expect(section.getByTestId('inclamo-orders-refused')).toContainText('Shopify refuses the connected app');
+  await expect(section.getByTestId('inclamo-orders-refused')).toContainText('custom distribution');
+  await expect(section.locator('[data-testid^="inclamo-order-#"]')).toHaveCount(0);
+  await expect(section.getByTestId('inclamo-lookup')).toHaveCount(0);
+  expect((await admin.connection()).status).toBe('working');
+
+  // The merchant chose a distribution method: the store answers again.
+  await proxy.reset();
+  await section.getByTestId('inclamo-refused-recheck').click();
+  await expect(section).toHaveAttribute('data-state', 'none');
 });
 
 test('Reading the connection', async ({ page }) => {

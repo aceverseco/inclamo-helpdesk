@@ -4,8 +4,8 @@ module Inclamo
   module Shopify
     # Everything the "Orders" section of a conversation shows, in one answer.
     # The state says what the section is: not_connected, broken, unavailable
-    # (the store did not answer), limited, no_identifier, none, ambiguous or
-    # matched.
+    # (the store did not answer), refused (the store does not give the app its
+    # orders or customers), limited, no_identifier, none, ambiguous or matched.
     class Panel
       def initialize(account:, conversation:, account_user:)
         @account = account
@@ -23,6 +23,11 @@ module Inclamo
         base.merge(body(after)).merge(marked_order).merge(open_actions)
       rescue Error::ConnectionBroken, Error::Unauthorized
         base.merge(connection: connection, state: 'broken')
+      rescue Error::QueryError => e
+        # Shopify refuses orders and customers to an app with no distribution
+        # method, but only once the store has some: a store that was empty when
+        # it was connected starts refusing later.
+        base.merge(state: e.access_denied? ? 'refused' : 'unavailable', reason: 'query_error')
       rescue Error => e
         base.merge(state: 'unavailable', reason: e.class.name.demodulize.underscore)
       end

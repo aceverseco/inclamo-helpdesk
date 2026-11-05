@@ -53,3 +53,8 @@ jobs:
           SHOPIFY_SEEDER_DOMAIN: ${{ secrets.SHOPIFY_SEEDER_DOMAIN }}
           SHOPIFY_SEEDER_CLIENT_ID: ${{ secrets.SHOPIFY_SEEDER_CLIENT_ID }}
           SHOPIFY_SEEDER_CLIENT_SECRET: ${{ secrets.SHOPIFY_SEEDER_CLIENT_SECRET }}
+          # Optional: an app with no distribution method. Without these the
+          # limited-mode tests make the proxy refuse customers' data instead.
+          SHOPIFY_LIMITED_DOMAIN: ${{ secrets.SHOPIFY_LIMITED_DOMAIN }}
+          SHOPIFY_LIMITED_CLIENT_ID: ${{ secrets.SHOPIFY_LIMITED_CLIENT_ID }}
+          SHOPIFY_LIMITED_CLIENT_SECRET: ${{ secrets.SHOPIFY_LIMITED_CLIENT_SECRET }}

@@ -10,6 +10,7 @@ en:
         app_not_installed: The app must be installed on the store first.
         credentials_refused: The store refused these credentials.
         missing_scopes: "The app lacks required access: %{missing_scopes}."
+        orders_refused: Shopify refuses this app the store's orders. In the Dev Dashboard open the app's Distribution, choose custom distribution, then try again.
         shop_unavailable: This store cannot be reached. Check the domain.
         store_unreachable: Shopify did not answer. Try again in a moment.
     order_roles:

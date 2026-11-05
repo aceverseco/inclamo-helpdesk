@@ -146,6 +146,15 @@ RSpec.describe 'Inclamo conversation order panel API', type: :request do
     expect(panel).not_to include('orders')
   end
 
+  it 'says the store refuses the app when a store that was empty on connecting gets its first customers' do
+    record = connect!
+    stub_shopify(:customers_search, errors: access_denied('customers'))
+
+    expect(panel).to include('state' => 'refused')
+    expect(panel).not_to include('orders')
+    expect(record.reload).to be_working
+  end
+
   it 'writes nothing to the database while reading' do
     connect!
     stub_shopify_fixture(:customers_search, 'customers_search_one')

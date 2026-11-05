@@ -48,8 +48,11 @@ module ShopifyStubs
     stub_shopify(operation, data: shopify_fixture(name))
   end
 
-  def access_denied
-    [{ message: 'Access denied for customers field.', extensions: { code: 'ACCESS_DENIED' } }]
+  # The store's refusal of a root field, as recorded from a development store.
+  def access_denied(field = 'customers')
+    object = { 'customers' => 'Customer', 'orders' => 'Order' }.fetch(field)
+    [{ message: "This app is not approved to access the #{object} object. See https://shopify.dev/docs/apps/launch/protected-customer-data for more details.",
+       path: [field], extensions: { code: 'ACCESS_DENIED' } }]
   end
 end
 

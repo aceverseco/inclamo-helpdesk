@@ -77,4 +77,18 @@ RSpec.describe Inclamo::Shopify::Verifier do
 
     expect(described_class.call(**credentials).customer_data_mode).to eq('limited')
   end
+
+  it 'reports an app the store refuses its orders' do
+    stub_token_exchange
+    stub_shopify(:shop_info, data: shop_info_data)
+    stub_shopify(:customer_data_probe, errors: access_denied('orders'))
+
+    expect { described_class.call(**credentials) }.to raise_error(Inclamo::Shopify::Error::OrdersRefused)
+  end
+
+  it 'asks for orders before customers, because the store names only its first refusal' do
+    document = Inclamo::Shopify::Documents.fetch(:customer_data_probe)
+
+    expect(document.index('orders(')).to be < document.index('customers(')
+  end
 end

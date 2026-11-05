@@ -13,7 +13,8 @@
 //   lose_answer   let Shopify act, then never answer
 //   status        answer `value.status` with `value.body`, without asking Shopify
 //   patch         let Shopify answer, then change the answer by `value.patch`:
-//                 scopes (value.scopes), customers_denied, second_customer,
+//                 scopes (value.scopes), customers_denied, orders_denied,
+//                 second_customer,
 //                 expires_in (value.seconds), job_pending, not_cancelled
 //   refuse        answer as the store does when it refuses a mutation: HTTP 200
 //                 with `value.message` as a user error of `value.mutation`,
@@ -50,8 +51,9 @@ const takeRule = (path, operation) => {
   return rule;
 };
 
-const denied = path => ({
-  errors: [{ message: 'This app is not approved to access the Customer object.', extensions: { code: 'ACCESS_DENIED' }, path }],
+// The store's refusal of a root field, as recorded from a development store.
+const denied = (path, object = 'Customer') => ({
+  errors: [{ message: `This app is not approved to access the ${object} object.`, extensions: { code: 'ACCESS_DENIED' }, path }],
   data: null,
 });
 
@@ -61,6 +63,7 @@ const patches = {
     return payload;
   },
   customers_denied: payload => (payload.data && ('customers' in payload.data || 'customer' in payload.data) ? denied(['customers']) : payload),
+  orders_denied: payload => (payload.data && 'orders' in payload.data ? denied(['orders'], 'Order') : payload),
   second_customer: payload => {
     const nodes = payload.data?.customers?.nodes;
     if (nodes?.length === 1) nodes.push({ ...nodes[0], id: `${nodes[0].id}9`, displayName: 'Mia Example' });

@@ -1,6 +1,14 @@
-# Asked once per check to learn whether the store gives this app the personal
-# data of customers. An access-denied answer means it does not.
+# Asked once per check to learn what the store gives this app of its protected
+# customer data. Orders come first: the store reports only the first refusal,
+# and an app refused its orders cannot be connected at all, while one refused
+# only customers' personal data is connected in the limited mode. The store
+# refuses only when it has something to return, so an empty store answers both.
 query customer_data_probe {
+  orders(first: 1) {
+    nodes {
+      id
+    }
+  }
   customers(first: 1) {
     nodes {
       id

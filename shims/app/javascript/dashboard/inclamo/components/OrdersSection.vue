@@ -146,6 +146,15 @@ watch(
       <p v-else class="text-n-slate-11">{{ t('ORDERS.BROKEN.AGENT_HINT') }}</p>
     </div>
 
+    <div v-else-if="state === 'refused'" class="flex flex-col items-start gap-2" data-testid="inclamo-orders-refused">
+      <p class="text-n-ruby-11">{{ t('ORDERS.REFUSED.TEXT') }}</p>
+      <template v-if="viewer.administrator">
+        <p class="text-xs">{{ t('ORDERS.REFUSED.ADMIN_HINT') }}</p>
+        <button type="button" class="text-n-blue-text" data-testid="inclamo-refused-recheck" @click="recheck">{{ t('ORDERS.MANAGE.CHECK_AGAIN') }}</button>
+      </template>
+      <p v-else class="text-n-slate-11">{{ t('ORDERS.REFUSED.AGENT_HINT') }}</p>
+    </div>
+
     <template v-else>
       <div v-if="state === 'limited'" class="mb-2 p-2 rounded-md bg-n-amber-3 text-n-amber-11" data-testid="inclamo-orders-limited">
         <p>{{ t('ORDERS.LIMITED.TEXT') }}</p>

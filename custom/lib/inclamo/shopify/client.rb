@@ -75,7 +75,8 @@ module Inclamo
         codes = error_codes(payload)
         if payload['errors'].present?
           messages = Array(payload['errors']).map { |error| error.is_a?(Hash) ? error['message'] : error.to_s }
-          raise Error::QueryError.new(messages.join('; '), codes: codes)
+          paths = Array(payload['errors']).filter_map { |error| Array(error['path']).first.to_s.presence if error.is_a?(Hash) }
+          raise Error::QueryError.new(messages.join('; '), codes: codes, paths: paths)
         end
 
         payload['data'] || {}

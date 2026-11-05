@@ -1,0 +1,3 @@
+query app_orders {
+  orders(first: 1) { nodes { id } }
+}

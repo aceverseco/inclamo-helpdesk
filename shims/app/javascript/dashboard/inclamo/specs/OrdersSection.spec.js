@@ -109,6 +109,25 @@ describe('OrdersSection', () => {
     expect(has(wrapper, 'inclamo-orders-unavailable')).toBe(true);
   });
 
+  it('says the store refuses the app, with the way out for administrators only', async () => {
+    const refused = { state: 'refused', reason: 'query_error', connection: connection() };
+    const forAgent = await show({ ...refused, viewer: agent });
+    expect(has(forAgent, 'inclamo-orders-refused')).toBe(true);
+    expect(forAgent.text()).not.toContain('custom distribution');
+    expect(has(forAgent, 'inclamo-refused-recheck')).toBe(false);
+    expect(has(forAgent, 'inclamo-lookup')).toBe(false);
+
+    const forAdmin = await show({ ...refused, viewer: admin });
+    expect(forAdmin.text()).toContain('custom distribution');
+    InclamoAPI.recheck.mockResolvedValue({ data: {} });
+    InclamoAPI.getPanel.mockResolvedValue({ data: matched() });
+    await forAdmin.find('[data-testid="inclamo-refused-recheck"]').trigger('click');
+    await flush();
+
+    expect(InclamoAPI.recheck).toHaveBeenCalledTimes(1);
+    expect(has(forAdmin, 'inclamo-orders-matched')).toBe(true);
+  });
+
   it('works by order number only in the limited mode, and says why', async () => {
     const wrapper = await show({ state: 'limited', viewer: admin, connection: connection({ customer_data: 'limited' }), candidates: [] });
 

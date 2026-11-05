@@ -4,7 +4,8 @@ module Inclamo
   module Shopify
     # Checks credentials against a store before anything is saved, and again on
     # "check again": gets a token, reads the shop and the scopes the app holds,
-    # and learns whether the store gives customers' personal data.
+    # and learns whether the store gives the app its orders and customers'
+    # personal data.
     class Verifier
       Result = Struct.new(:shop_domain, :shop_name, :shop_currency, :scopes, :customer_data_mode,
                           :access_token, :token_expires_at, keyword_init: true)
@@ -47,6 +48,7 @@ module Inclamo
         'full'
       rescue Error::QueryError => e
         raise unless e.access_denied?
+        raise Error::OrdersRefused, e.message if e.paths.include?('orders')
 
         'limited'
       end

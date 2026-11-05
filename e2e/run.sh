@@ -9,6 +9,8 @@
 # app the helpdesk connects with) and SHOPIFY_SEEDER_DOMAIN, _CLIENT_ID,
 # _CLIENT_SECRET (the app that creates and removes the test data).
 # E2E_OTHER_SHOP_DOMAIN names a store that exists and has neither app installed.
+# Optional: SHOPIFY_LIMITED_DOMAIN, _CLIENT_ID, _CLIENT_SECRET, an app with no
+# distribution method chosen; with it the limited-mode tests meet a real refusal.
 # E2E_KEEP=1 leaves the stack running afterwards; E2E_OUTPUT is where reports go.
 set -eu
 
@@ -81,6 +83,7 @@ docker run --rm --ipc=host --network "${project}_default" \
   --env-file "$stack_env" \
   -e SHOPIFY_BENCH_DOMAIN -e SHOPIFY_BENCH_CLIENT_ID -e SHOPIFY_BENCH_CLIENT_SECRET \
   -e SHOPIFY_SEEDER_DOMAIN -e SHOPIFY_SEEDER_CLIENT_ID -e SHOPIFY_SEEDER_CLIENT_SECRET \
+  -e SHOPIFY_LIMITED_DOMAIN -e SHOPIFY_LIMITED_CLIENT_ID -e SHOPIFY_LIMITED_CLIENT_SECRET \
   -e HELPDESK_URL=http://rails:3000 -e E2E_PROXY_URL=http://shopify-proxy:8080 -e E2E_ACCOUNT_ID="$account" \
   -e E2E_OUTPUT=/out -e E2E_RUN="${E2E_RUN:-r$(date +%m%d%H%M%S)}" -e E2E_OTHER_SHOP_DOMAIN -e CI="${CI:-}" \
   -v "$root":/repo:ro -v "$output":/out -w /work \

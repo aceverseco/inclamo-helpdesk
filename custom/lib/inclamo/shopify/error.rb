@@ -52,16 +52,22 @@ module Inclamo
         end
       end
 
+      # The store refuses the app its orders: Shopify gives orders, draft orders
+      # and customers only to an app for which a distribution method was chosen.
+      class OrdersRefused < Error; end
+
       # The shop does not exist, is frozen or is locked.
       class ShopUnavailable < Error; end
 
       # The store answered with GraphQL errors.
       class QueryError < Error
-        attr_reader :codes
+        attr_reader :codes, :paths
 
-        def initialize(message, codes: [])
+        # `paths` are the root fields the errors are about, as the store names them.
+        def initialize(message, codes: [], paths: [])
           super(message)
           @codes = codes
+          @paths = paths
         end
 
         def access_denied?
