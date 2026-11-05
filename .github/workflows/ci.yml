@@ -16,7 +16,8 @@ concurrency:
 jobs:
   backend:
     name: Backend specs on the pinned Chatwoot
-    runs-on: ubuntu-latest
+    # Chatwoot pins a Ruby patch release; prebuilt rubies lag on the newest runner image.
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -71,6 +72,20 @@ jobs:
       - name: Run the overlay's specs
         working-directory: build/chatwoot
         run: bundle exec rspec custom/spec --format progress
+
+  graphql:
+    name: Shopify documents match the published schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --no-audit --no-fund
+      - name: A document with an unknown field is refused
+        run: node scripts/check-graphql.mjs --self-test
+      - name: Every document is valid for the pinned API version
+        run: node scripts/check-graphql.mjs
 
   image:
     name: Image builds, every seam patch applies

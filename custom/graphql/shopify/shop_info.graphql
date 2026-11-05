@@ -1,0 +1,17 @@
+# What a connection is verified with: the shop, and the scopes its app holds.
+query shop_info {
+  shop {
+    name
+    myshopifyDomain
+    currencyCode
+    plan {
+      publicDisplayName
+      partnerDevelopment
+    }
+  }
+  currentAppInstallation {
+    accessScopes {
+      handle
+    }
+  }
+}
