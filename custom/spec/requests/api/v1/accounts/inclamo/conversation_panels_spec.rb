@@ -166,6 +166,62 @@ RSpec.describe 'Inclamo conversation order panel API', type: :request do
     expect(writes).to eq([])
   end
 
+  describe 'the order the conversation is about' do
+    let(:shipped_id) { shopify_fixture('order_details_shipped').dig('order', 'id') }
+
+    before do
+      connect!
+      stub_shopify_fixture(:customers_search, 'customers_search_one')
+      stub_shopify_fixture(:customer_orders, 'customer_orders')
+      stub_shopify_fixture(:order_details, 'order_details_shipped')
+    end
+
+    it 'is marked by the agent, shown by the panel and written to the conversation' do
+      put "#{base}/order", params: { order_id: shipped_id }, headers: agent.create_new_auth_token, as: :json
+
+      expect(response.parsed_body['marked_order']).to include('number' => '#1002')
+      expect(conversation.reload.custom_attributes).to include('shopify_order_number' => '#1002', 'shopify_order_tracking_number' => 'E2Et001A')
+      expect(panel['marked_order']).to include('number' => '#1002')
+    end
+
+    it 'is refreshed when the panel reads an order that changed in the store' do
+      put "#{base}/order", params: { order_id: shipped_id }, headers: agent.create_new_auth_token, as: :json
+      conversation.update!(custom_attributes: conversation.custom_attributes.merge('shopify_order_fulfillment_status' => 'unfulfilled'))
+
+      panel
+
+      expect(conversation.reload.custom_attributes['shopify_order_fulfillment_status']).to eq('fulfilled')
+    end
+
+    it 'is cleared by the agent' do
+      put "#{base}/order", params: { order_id: shipped_id }, headers: agent.create_new_auth_token, as: :json
+      delete "#{base}/order", headers: agent.create_new_auth_token, as: :json
+
+      expect(response.parsed_body['marked_order']).to be_nil
+      expect(conversation.reload.custom_attributes).not_to include('shopify_order_number')
+    end
+
+    it 'refuses something that is not an order of the store' do
+      put "#{base}/order", params: { order_id: 'gid://shopify/Customer/1' }, headers: agent.create_new_auth_token, as: :json
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(conversation.reload.custom_attributes).not_to include('shopify_order_number')
+    end
+  end
+
+  it 'makes the order attributes known to Chatwoot when a store is connected' do
+    admin = create(:user, account: account, role: :administrator)
+    stub_token_exchange
+    stub_shopify(:shop_info, data: shop_info_data)
+    stub_shopify(:customer_data_probe, data: { customers: { nodes: [] } })
+
+    post "/api/v1/accounts/#{account.id}/inclamo/shopify/connection",
+         params: { shop_domain: 'example-store.myshopify.com', client_id: 'id', client_secret: 'secret' }, headers: admin.create_new_auth_token, as: :json
+    get "/api/v1/accounts/#{account.id}/custom_attribute_definitions", params: { attribute_model: 'conversation_attribute' }, headers: admin.create_new_auth_token
+
+    expect(response.parsed_body.pluck('attribute_key')).to include('shopify_order_number', 'shopify_order_tracking_link')
+  end
+
   it 'is closed to an agent who cannot see the conversation' do
     connect!
     outsider = create(:user, account: account, role: :agent)

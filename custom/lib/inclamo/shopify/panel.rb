@@ -19,7 +19,7 @@ module Inclamo
         return base.merge(state: 'not_connected') unless @record
         return base.merge(state: 'broken') if @record.broken?
 
-        base.merge(body(after))
+        base.merge(body(after)).merge(marked_order)
       rescue Error::ConnectionBroken, Error::Unauthorized
         base.merge(connection: connection, state: 'broken')
       rescue Error => e
@@ -48,6 +48,21 @@ module Inclamo
 
       def reader
         @reader ||= OrderReader.new(@record)
+      end
+
+      # The order this conversation is about, read again so that its attributes
+      # on the conversation stay current. Cleared when the store no longer has it.
+      def marked_order
+        marker = ConversationOrder.new(@conversation)
+        return { marked_order: nil } if marker.marked_id.blank?
+
+        node = reader.order(marker.marked_id)
+        if node.nil?
+          marker.clear!
+          return { marked_order: nil }
+        end
+        marker.mark!(node)
+        { marked_order: present_order(node) }
       end
 
       def body(after)

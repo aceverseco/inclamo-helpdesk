@@ -9,6 +9,8 @@ module Inclamo
       CACHE_FOR = 60 # seconds
       PAGE = 10
       NUMBER_FORMAT = /\A[A-Za-z0-9_.-]{1,40}\z/
+      ORDER_ID = %r{\Agid://shopify/Order/\d+\z}
+      CUSTOMER_ID = %r{\Agid://shopify/Customer/\d+\z}
 
       def initialize(record)
         @record = record
@@ -35,12 +37,16 @@ module Inclamo
 
       # The customer with one page of orders, newest first; nil when the id is unknown.
       def customer_with_orders(customer_id, after: nil)
+        return unless customer_id.to_s.match?(CUSTOMER_ID)
+
         cached("customer:#{customer_id}:#{after}") do
           @store.query(:customer_orders, { id: customer_id, first: PAGE, after: after })['customer']
         end
       end
 
       def order(order_id)
+        return unless order_id.to_s.match?(ORDER_ID)
+
         document = limited? ? :order_details_limited : :order_details
         cached("order:#{order_id}") { @store.query(document, { id: order_id })['order'] }
       end

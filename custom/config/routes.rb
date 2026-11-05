@@ -20,6 +20,8 @@ namespace :api, defaults: { format: 'json' } do
               get 'lookup', action: :lookup
               post 'customer', action: :choose_customer
               delete 'customer', action: :forget_customer
+              put 'order', action: :mark_order
+              delete 'order', action: :clear_order
             end
           end
         end

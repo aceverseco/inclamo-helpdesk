@@ -40,6 +40,26 @@ class Api::V1::Accounts::Inclamo::ConversationPanelsController < Api::V1::Accoun
     render json: { error: 'store_unreachable', reason: e.class.name.demodulize.underscore }, status: :bad_gateway
   end
 
+  # Marks the order this conversation is about. params[:order_id] is the id
+  # the panel shows for the order.
+  def mark_order
+    record = connection
+    return head :not_found unless record
+
+    node = ::Inclamo::Shopify::OrderReader.new(record).order(params[:order_id].to_s)
+    return render json: { error: 'unknown_order' }, status: :unprocessable_entity unless node
+
+    ::Inclamo::Shopify::ConversationOrder.new(@conversation).mark!(node)
+    render json: panel.as_json
+  rescue ::Inclamo::Shopify::Error => e
+    render json: { error: 'store_unreachable', reason: e.class.name.demodulize.underscore }, status: :bad_gateway
+  end
+
+  def clear_order
+    ::Inclamo::Shopify::ConversationOrder.new(@conversation).clear!
+    render json: panel.as_json
+  end
+
   private
 
   def panel

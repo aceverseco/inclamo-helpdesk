@@ -9,7 +9,7 @@
 
 - [x] 2.1 Implement the Admin GraphQL client with the API version in one constant (`2026-10`), time limit and throttle handling that honours the wait Shopify states (D5); verify with specs on recorded answers for success, throttled-then-success and timeout
 - [x] 2.2 Add the schema check that validates every GraphQL document of this change against the published schema of the pinned version (D12); verify CI fails on a document with an unknown field
-- [ ] 2.3 Record the fixture set used by the specs below (shop, scopes, customers, orders, refunds, draft orders, error answers); verify fixtures contain no real personal data by a grep in CI
+- [x] 2.3 Record the fixture set used by the specs below (shop, scopes, customers, orders, refunds, draft orders, error answers); verify fixtures contain no real personal data by a grep in CI
 
 ## 3. Store connection
 
@@ -28,18 +28,18 @@
 
 ## 5. Customer matching and order reads
 
-- [ ] 5.1 Implement matching by email, then phone, with the ambiguous and no-match outcomes and the remembered choice stored as a contact attribute (D6); verify by specs for one match by email, two by phone, none, contact without email and phone
-- [ ] 5.2 Implement the order list (ten per page, newest first, load more) and the single order read with items, statuses, address, shipments, refunds, refundable amount and admin link; verify by specs for an order with two shipments and a partially refunded order
-- [ ] 5.3 Implement lookup by order number and keeping that customer for the contact; verify by a spec for an existing and a missing number
-- [ ] 5.4 Implement the limited mode in the reads: order-number lookup only, name and address reported as unavailable; verify by specs on limited-store fixtures
-- [ ] 5.5 Add the 60-second Redis cache keyed by account and customer, dropped after every action; verify by a spec that a second read within 60 s makes no Shopify call and a read after an action does
-- [ ] 5.6 Verify by a spec that no order or customer data is written to the database by any read
+- [x] 5.1 Implement matching by email, then phone, with the ambiguous and no-match outcomes and the remembered choice stored as a contact attribute (D6); verify by specs for one match by email, two by phone, none, contact without email and phone
+- [x] 5.2 Implement the order list (ten per page, newest first, load more) and the single order read with items, statuses, address, shipments, refunds, refundable amount and admin link; verify by specs for an order with two shipments and a partially refunded order
+- [x] 5.3 Implement lookup by order number and keeping that customer for the contact; verify by a spec for an existing and a missing number
+- [x] 5.4 Implement the limited mode in the reads: order-number lookup only, name and address reported as unavailable; verify by specs on limited-store fixtures
+- [x] 5.5 Add the 60-second Redis cache keyed by account and customer, dropped after every action; verify by a spec that a second read within 60 s makes no Shopify call and a read after an action does
+- [x] 5.6 Verify by a spec that no order or customer data is written to the database by any read
 
 ## 6. Order tied to the conversation
 
-- [ ] 6.1 Implement mark, change and clear of the conversation's order and the conversation attributes (number, payment status, fulfilment status, first tracking number and link, admin link), refreshed on every read; verify by request specs and that the shipping address never appears in attributes
-- [ ] 6.2 Implement automatic marking when the customer's first message contains an order number of the matched customer; verify by specs for own order number, someone else's number and no number
-- [ ] 6.3 Create the custom attribute definitions on connect so macros and automation rules can pick them; verify they appear in Chatwoot's attribute list for the account
+- [x] 6.1 Implement mark, change and clear of the conversation's order and the conversation attributes (number, payment status, fulfilment status, first tracking number and link, admin link), refreshed on every read; verify by request specs and that the shipping address never appears in attributes
+- [x] 6.2 Implement automatic marking when the customer's first message contains an order number of the matched customer; verify by specs for own order number, someone else's number and no number
+- [x] 6.3 Create the custom attribute definitions on connect so macros and automation rules can pick them; verify they appear in Chatwoot's attribute list for the account
 
 ## 7. Order actions
 
