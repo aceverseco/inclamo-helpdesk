@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend specs on the pinned Chatwoot
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ''
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --mount type=tmpfs,destination=/var/lib/postgresql/data
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: --entrypoint redis-server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pinned Chatwoot version
+        id: pin
+        run: echo "tag=$(cat custom/CHATWOOT_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out Chatwoot at the pinned tag
+        uses: actions/checkout@v4
+        with:
+          repository: chatwoot/chatwoot
+          ref: ${{ steps.pin.outputs.tag }}
+          path: build/chatwoot
+
+      - name: Assemble Chatwoot with the patches and the overlay
+        run: scripts/assemble.sh build/chatwoot
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+          working-directory: build/chatwoot
+
+      - name: Create the database and load the schema of Chatwoot
+        working-directory: build/chatwoot
+        run: bundle exec rake db:create db:schema:load
+
+      - name: Run the migrations, the overlay's included
+        working-directory: build/chatwoot
+        run: bundle exec rake db:migrate
+
+      - name: Run the overlay's specs
+        working-directory: build/chatwoot
+        run: bundle exec rspec custom/spec --format progress
+
+  image:
+    name: Image builds, every seam patch applies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble Chatwoot with the patches and the overlay
+        run: scripts/assemble.sh build/chatwoot
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the image with Chatwoot's own Dockerfile
+        uses: docker/build-push-action@v6
+        with:
+          context: build/chatwoot
+          file: build/chatwoot/docker/Dockerfile
+          push: false
+          load: true
+          tags: inclamo-helpdesk:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: The image carries the overlay
+        run: |
+          docker run --rm --entrypoint sh inclamo-helpdesk:ci -c \
+            'test -f custom/config/overlay.rb && test -f config/initializers/00_inclamo_overlay.rb && test -f lib/tasks/inclamo_overlay.rake && test ! -d enterprise && cat custom/INCLAMO_VERSION custom/CHATWOOT_VERSION'

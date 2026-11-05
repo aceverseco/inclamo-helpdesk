@@ -1,7 +1,7 @@
 ## 1. Overlay foundation and image
 
-- [ ] 1.1 Create the `custom/` skeleton (`app`, `lib`, `config/routes.rb`, `db/migrate`) and the initializer that adds its load paths, draws its routes and appends its migration path (D1); verify on a stock Chatwoot v4.19.1 checkout that `ChatwootApp.custom?` is true, a probe route under `/api/v1/accounts/:account_id/inclamo/` answers, and `db:migrate` runs a probe migration from `custom/db/migrate`
-- [ ] 1.2 Add the Dockerfile that builds our image from the pinned official CE tag plus `custom/` plus the seam patches (D11); verify the image boots with the stock compose file and the probe route answers
+- [x] 1.1 Create the `custom/` skeleton (`app`, `lib`, `config/routes.rb`, `db/migrate`) and the initializer that adds its load paths, draws its routes and appends its migration path (D1); verify on a stock Chatwoot v4.19.1 checkout that `ChatwootApp.custom?` is true, a probe route under `/api/v1/accounts/:account_id/inclamo/` answers, and `db:migrate` runs a probe migration from `custom/db/migrate`
+- [ ] 1.2 Add the image build (assemble script plus Chatwoot's own Dockerfile) from the pinned official CE tag plus `custom/` plus the seam patches (D11); verify the image boots with the stock compose file and the probe route answers
 - [ ] 1.3 Add the CI job that builds the image and fails when a seam patch does not apply; verify by a deliberately broken patch on a branch
 - [ ] 1.4 Add the backend test harness that runs our specs inside the Chatwoot test environment at the pinned tag; verify one passing spec in CI
 
