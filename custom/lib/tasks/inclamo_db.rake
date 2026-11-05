@@ -22,7 +22,12 @@ namespace :inclamo do
 end
 
 # Chatwoot's own `db:migrate` (also the last step of `db:chatwoot_prepare`)
-# brings the overlay's tables up to date as well.
-Rake::Task['db:migrate'].enhance do
-  Rake::Task['inclamo:db:migrate'].invoke
+# brings the overlay's tables up to date as well. So does `db:test:prepare`:
+# the test helper of Chatwoot rebuilds the test database from schema.rb
+# whenever that file changed, and schema.rb does not hold the overlay's tables.
+%w[db:migrate db:test:prepare].each do |name|
+  Rake::Task[name].enhance do
+    Rake::Task['inclamo:db:migrate'].reenable
+    Rake::Task['inclamo:db:migrate'].invoke
+  end
 end
