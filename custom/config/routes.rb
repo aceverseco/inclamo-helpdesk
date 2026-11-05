@@ -25,7 +25,7 @@ namespace :api, defaults: { format: 'json' } do
             end
             scope 'conversations/:conversation_id' do
               post 'actions/refund_preview', to: '/api/v1/accounts/inclamo/order_actions#refund_preview'
-              resources :actions, only: [:create, :show], controller: '/api/v1/accounts/inclamo/order_actions'
+              resources :actions, only: [:index, :create, :show], controller: '/api/v1/accounts/inclamo/order_actions'
             end
           end
         end

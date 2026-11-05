@@ -86,6 +86,21 @@ describe('OrdersSection', () => {
     expect(has(wrapper, 'inclamo-orders-matched')).toBe(true);
   });
 
+  it('keeps the orders on screen while it refreshes after an action', async () => {
+    const wrapper = await show(matched());
+    let finish;
+    InclamoAPI.getPanel.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+
+    wrapper.findComponent({ name: 'OrderCard' }).vm.$emit('changed', {});
+    await flush();
+
+    expect(has(wrapper, 'inclamo-orders-loading')).toBe(false);
+    expect(has(wrapper, 'inclamo-order-#1001')).toBe(true);
+    finish({ data: matched({ orders: [order({ financial_status: 'REFUNDED' })] }) });
+    await flush();
+    expect(wrapper.find('[data-testid="inclamo-order-statuses"]').text()).toContain('Refunded');
+  });
+
   it('shows the same message when the request itself fails', async () => {
     InclamoAPI.getPanel.mockRejectedValue(new Error('network'));
     const wrapper = mount(OrdersSection, { props: { conversationId: 7 }, global: { stubs } });

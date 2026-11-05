@@ -47,6 +47,15 @@ RSpec.describe 'Inclamo order actions API', type: :request do
     expect(response.parsed_body['outcome']).to eq('accepted')
   end
 
+  it 'lists the attempts made from the conversation, refused ones included' do
+    post "#{base}/actions", params: request_body, headers: admin.create_new_auth_token, as: :json
+    post "#{base}/actions", params: request_body.merge(action_id: 'action-cancel-0002'), headers: agent.create_new_auth_token, as: :json
+
+    get "#{base}/actions", headers: admin.create_new_auth_token
+
+    expect(response.parsed_body['actions'].pluck('action_id', 'outcome')).to eq([%w[action-cancel-0002 refused], %w[action-cancel-0001 accepted]])
+  end
+
   it 'refuses an action it does not know' do
     post "#{base}/actions", params: request_body.merge(action_name: 'delete_everything'), headers: admin.create_new_auth_token, as: :json
 

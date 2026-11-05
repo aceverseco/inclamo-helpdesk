@@ -1,0 +1,16 @@
+query seeded_order($id: ID!) {
+  order(id: $id) {
+    id
+    name
+    cancelledAt
+    displayFinancialStatus
+    displayFulfillmentStatus
+    tags
+    note
+    totalPriceSet { shopMoney { amount currencyCode } }
+    totalRefundedSet { shopMoney { amount currencyCode } }
+    refunds(first: 20) { id totalRefundedSet { shopMoney { amount } } }
+    shippingAddress { address1 zip city }
+    lineItems(first: 20) { nodes { title quantity } }
+  }
+}

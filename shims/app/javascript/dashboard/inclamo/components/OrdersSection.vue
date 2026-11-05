@@ -33,8 +33,10 @@ const markedId = computed(() => panel.value?.marked_order?.id);
 const lookupStates = ['none', 'no_identifier', 'limited'];
 const openActionFor = order => (panel.value?.open_actions || []).find(action => action.order_id === order.id) || null;
 
+// The spinner shows on the first read only; a refresh after an action keeps
+// what is on screen, so an expanded order stays expanded.
 const load = async () => {
-  loading.value = true;
+  loading.value = panel.value === null;
   failed.value = false;
   lookupResult.value = null;
   try {
@@ -94,7 +96,15 @@ const remove = async () => {
   await load();
 };
 
-watch(() => props.conversationId, load, { immediate: true });
+watch(
+  () => props.conversationId,
+  () => {
+    panel.value = null;
+    orders.value = [];
+    load();
+  },
+  { immediate: true }
+);
 </script>
 
 <template>

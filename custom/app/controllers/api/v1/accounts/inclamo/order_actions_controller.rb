@@ -15,6 +15,12 @@ class Api::V1::Accounts::Inclamo::OrderActionsController < Api::V1::Accounts::Co
     render json: { error: 'invalid_request', message: e.message.first(200) }, status: :unprocessable_entity
   end
 
+  # GET .../actions   every attempt made from this conversation, newest first
+  def index
+    records = ::Inclamo::OrderAction.where(account_id: Current.account.id, conversation_id: @conversation.id).order(id: :desc).limit(100)
+    render json: { actions: records.map(&:as_json) }
+  end
+
   # GET .../actions/:id   (id is the action id)
   def show
     record = ::Inclamo::OrderAction.find_by(account_id: Current.account.id, conversation_id: @conversation.id, action_id: params[:id])
