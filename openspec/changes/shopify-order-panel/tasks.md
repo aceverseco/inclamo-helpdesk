@@ -3,22 +3,22 @@
 - [x] 1.1 Create the `custom/` skeleton (`app`, `lib`, `config/routes.rb`, `db/migrate`) and the initializer that adds its load paths, draws its routes and appends its migration path (D1); verify on a stock Chatwoot v4.19.1 checkout that `ChatwootApp.custom?` is true, a probe route under `/api/v1/accounts/:account_id/inclamo/` answers, and `db:migrate` runs a probe migration from `custom/db/migrate`
 - [x] 1.2 Add the image build (assemble script plus Chatwoot's own Dockerfile) from the pinned official CE tag plus `custom/` plus the seam patches (D11); verify the image boots with the stock compose file and the probe route answers
 - [ ] 1.3 Add the CI job that builds the image and fails when a seam patch does not apply; verify by a deliberately broken patch on a branch
-- [ ] 1.4 Add the backend test harness that runs our specs inside the Chatwoot test environment at the pinned tag; verify one passing spec in CI
+- [x] 1.4 Add the backend test harness that runs our specs inside the Chatwoot test environment at the pinned tag; verify one passing spec in CI
 
 ## 2. Shopify client
 
-- [ ] 2.1 Implement the Admin GraphQL client with the API version in one constant (`2026-10`), time limit and throttle handling that honours the wait Shopify states (D5); verify with specs on recorded answers for success, throttled-then-success and timeout
-- [ ] 2.2 Add the schema check that validates every GraphQL document of this change against the published schema of the pinned version (D12); verify CI fails on a document with an unknown field
+- [x] 2.1 Implement the Admin GraphQL client with the API version in one constant (`2026-10`), time limit and throttle handling that honours the wait Shopify states (D5); verify with specs on recorded answers for success, throttled-then-success and timeout
+- [x] 2.2 Add the schema check that validates every GraphQL document of this change against the published schema of the pinned version (D12); verify CI fails on a document with an unknown field
 - [ ] 2.3 Record the fixture set used by the specs below (shop, scopes, customers, orders, refunds, draft orders, error answers); verify fixtures contain no real personal data by a grep in CI
 
 ## 3. Store connection
 
-- [ ] 3.1 Create the `inclamo_shopify_connections` table and model with encrypted secret and token, one row per account (D3); verify by model specs for uniqueness, encryption at rest and refusal when encryption keys are absent
-- [ ] 3.2 Implement `StoreConnection` for the `client_credentials` kind: token exchange, expiry, renewal five minutes before expiry; verify by specs with time travel that an expired token is renewed without an error reaching the caller
-- [ ] 3.3 Implement the `legacy_token` kind behind the same interface; verify the same read specs pass with both kinds
-- [ ] 3.4 Implement verification on connect and on "check again": shop, granted scopes, customer-data probe giving `full` or `limited` (D4); verify by specs for valid credentials, app not installed, token refused, bad domain, missing `read_orders`, limited store
-- [ ] 3.5 Implement the connection endpoints (show, create, recheck, destroy), administrators only, never returning the secret (D2); verify by request specs including the agent-forbidden case and that secrets are absent from responses and logs
-- [ ] 3.6 Mark the connection as broken on an authentication error from Shopify and report it; verify by a spec that a 401 on an order read flips the status and the next read returns the broken state without calling Shopify
+- [x] 3.1 Create the `inclamo_shopify_connections` table and model with encrypted secret and token, one row per account (D3); verify by model specs for uniqueness, encryption at rest and refusal when encryption keys are absent
+- [x] 3.2 Implement `StoreConnection` for the `client_credentials` kind: token exchange, expiry, renewal five minutes before expiry; verify by specs with time travel that an expired token is renewed without an error reaching the caller
+- [x] 3.3 Implement the `legacy_token` kind behind the same interface; verify the same read specs pass with both kinds
+- [x] 3.4 Implement verification on connect and on "check again": shop, granted scopes, customer-data probe giving `full` or `limited` (D4); verify by specs for valid credentials, app not installed, token refused, bad domain, missing `read_orders`, limited store
+- [x] 3.5 Implement the connection endpoints (show, create, recheck, destroy), administrators only, never returning the secret (D2); verify by request specs including the agent-forbidden case and that secrets are absent from responses and logs
+- [x] 3.6 Mark the connection as broken on an authentication error from Shopify and report it; verify by a spec that a 401 on an order read flips the status and the next read returns the broken state without calling Shopify
 - [ ] 3.7 Implement removal: delete credentials, token and scopes, keep the action records; verify by a spec that `inclamo_order_actions` rows survive
 
 ## 4. Order-actions role
