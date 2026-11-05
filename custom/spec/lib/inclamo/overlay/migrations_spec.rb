@@ -61,6 +61,14 @@ RSpec.describe Inclamo::Overlay::Migrations do
     end
   end
 
+  it 'follows every task with which Chatwoot prepares its database, a first installation included' do
+    %w[db:migrate db:chatwoot_prepare db:setup db:prepare db:test:prepare].each do |name|
+      actions = Rake::Task[name].actions.map { |action| action.source_location.first }
+
+      expect(actions).to include(a_string_ending_with('custom/lib/tasks/inclamo_db.rake')), "#{name} does not run the overlay's migrations"
+    end
+  end
+
   it 'keeps its tables out of the schema dump of Chatwoot' do
     expect(ActiveRecord::SchemaDumper.ignore_tables).to include(/\Ainclamo_/)
   end

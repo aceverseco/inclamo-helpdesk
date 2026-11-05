@@ -99,6 +99,8 @@ jobs:
         run: node scripts/check-fixtures.mjs
       - name: Interface strings of the overlay come from its locale file
         run: node scripts/check-ui-strings.mjs
+      - name: Every scenario of the specs has an end-to-end test
+        run: node scripts/check-e2e-coverage.mjs
 
   frontend:
     name: Dashboard component tests on the pinned Chatwoot

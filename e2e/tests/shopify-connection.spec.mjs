@@ -5,7 +5,8 @@ import { signIn, openOrders, apiAs, proxy, bench, users } from '../lib/helpdesk.
 import { accessToken, credentials } from '../lib/shopify.mjs';
 
 const account = process.env.E2E_ACCOUNT_ID || '1';
-const otherShop = process.env.E2E_OTHER_SHOP_DOMAIN || 'inclamo-test.myshopify.com';
+// A store that exists and on which the test app is not installed.
+const otherShop = process.env.E2E_OTHER_SHOP_DOMAIN;
 let admin;
 let agent;
 let conversation;
@@ -16,6 +17,7 @@ const refusedToken = ['shpat', '0'.repeat(32)].join('_');
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async ({ playwright }) => {
+  if (!otherShop) throw new Error('E2E_OTHER_SHOP_DOMAIN is not set');
   const request = await playwright.request.newContext({ baseURL: process.env.HELPDESK_URL });
   admin = await apiAs(request, users.admin);
   agent = await apiAs(request, users.agent);

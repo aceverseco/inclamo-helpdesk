@@ -14,7 +14,9 @@ export default defineConfig({
   use: {
     baseURL: process.env.HELPDESK_URL || 'http://localhost:3000',
     viewport: { width: 1440, height: 900 },
-    screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
+    // A trace or a page snapshot holds what was typed, the store's credentials
+    // included: none is kept where others could download it.
+    screenshot: process.env.CI ? 'off' : 'only-on-failure',
+    trace: process.env.CI ? 'off' : 'retain-on-failure',
   },
 });
