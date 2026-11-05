@@ -65,9 +65,11 @@ jobs:
         working-directory: build/chatwoot
         run: bundle exec rake db:create db:schema:load
 
-      - name: Run the migrations, the overlay's included
+      - name: Run the migrations, the overlay's included, in the test database
         working-directory: build/chatwoot
         run: bundle exec rake db:migrate
+        env:
+          RAILS_ENV: test
 
       - name: Run the overlay's specs
         working-directory: build/chatwoot
