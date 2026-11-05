@@ -83,7 +83,7 @@ jobs:
           ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: ci-only-key-derivation-salt-0000000
 
   graphql:
-    name: Shopify documents match the published schema
+    name: Shopify documents match the schema, fixtures hold no real people
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,6 +95,8 @@ jobs:
         run: node scripts/check-graphql.mjs --self-test
       - name: Every document is valid for the pinned API version
         run: node scripts/check-graphql.mjs
+      - name: Recorded store answers hold no real personal data
+        run: node scripts/check-fixtures.mjs
 
   image:
     name: Image builds, every seam patch applies

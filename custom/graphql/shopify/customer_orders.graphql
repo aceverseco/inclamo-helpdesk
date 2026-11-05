@@ -1,0 +1,18 @@
+# A customer with their recent orders, newest first.
+query customer_orders($id: ID!, $first: Int!, $after: String) {
+  customer(id: $id) {
+    id
+    displayName
+    numberOfOrders
+    amountSpent { amount currencyCode }
+    defaultEmailAddress { emailAddress }
+    defaultPhoneNumber { phoneNumber }
+    orders(first: $first, after: $after, sortKey: CREATED_AT, reverse: true) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        ...OrderFields
+        ...OrderPersonalFields
+      }
+    }
+  }
+}

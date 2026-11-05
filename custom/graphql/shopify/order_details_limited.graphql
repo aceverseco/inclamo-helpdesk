@@ -1,0 +1,6 @@
+# One order for a store that hides customers' personal data: no customer, no address.
+query order_details_limited($id: ID!) {
+  order(id: $id) {
+    ...OrderFields
+  }
+}

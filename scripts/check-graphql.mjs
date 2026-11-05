@@ -1,5 +1,5 @@
-// Validates every GraphQL document in custom/graphql/shopify against the
-// schema Shopify publishes for the pinned Admin API version.
+// Validates every GraphQL document in custom/graphql/shopify and e2e/graphql
+// against the schema Shopify publishes for the pinned Admin API version.
 //
 //   node scripts/check-graphql.mjs            validate the documents
 //   node scripts/check-graphql.mjs --self-test  prove that a wrong document fails
@@ -8,8 +8,11 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildClientSchema, getIntrospectionQuery, parse, validate } from 'graphql';
 
-const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'custom', 'graphql', 'shopify');
-const version = readFileSync(join(dir, 'API_VERSION'), 'utf8').trim();
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const version = readFileSync(join(root, 'custom', 'graphql', 'shopify', 'API_VERSION'), 'utf8').trim();
+// Checked directories: what the backend sends, and what the end-to-end tests send.
+const dirs = [join(root, 'custom', 'graphql', 'shopify'), join(root, 'e2e', 'graphql')];
+let dir = dirs[0];
 const endpoint = `https://shopify.dev/admin-graphql-direct-proxy/${version}`;
 
 async function publishedSchema() {
@@ -22,6 +25,21 @@ async function publishedSchema() {
   const payload = await response.json();
   if (!payload.data) throw new Error(`no schema in the answer for ${version}: ${JSON.stringify(payload).slice(0, 200)}`);
   return buildClientSchema(payload.data);
+}
+
+// A document may spread fragments kept one per file in fragments/; they are
+// appended here the same way the backend appends them before sending.
+function withFragments(source) {
+  const needed = [];
+  const queue = [...source.matchAll(/\.\.\.\s*([A-Z]\w*)/g)].map(match => match[1]);
+  while (queue.length > 0) {
+    const name = queue.shift();
+    if (needed.includes(name)) continue;
+    needed.push(name);
+    const fragment = readFileSync(join(dir, 'fragments', `${name}.graphql`), 'utf8');
+    queue.push(...[...fragment.matchAll(/\.\.\.\s*([A-Z]\w*)/g)].map(match => match[1]));
+  }
+  return [source, ...needed.map(name => readFileSync(join(dir, 'fragments', `${name}.graphql`), 'utf8'))].join('\n\n');
 }
 
 // Returns the problems of one document as strings; empty when it is valid.
@@ -53,21 +71,31 @@ if (process.argv.includes('--self-test')) {
   process.exit(0);
 }
 
-const files = readdirSync(dir).filter(file => file.endsWith('.graphql')).sort();
-if (files.length === 0) {
-  console.error(`no documents found in ${dir}`);
-  process.exit(1);
-}
 let failed = 0;
-for (const file of files) {
-  const problems = problemsOf(schema, basename(file, '.graphql'), readFileSync(join(dir, file), 'utf8'));
-  if (problems.length === 0) {
-    console.log(`ok    ${file}`);
-  } else {
-    failed += 1;
-    console.error(`FAIL  ${file}`);
-    for (const problem of problems) console.error(`      ${problem}`);
+let total = 0;
+for (dir of dirs) {
+  const files = readdirSync(dir).filter(file => file.endsWith('.graphql')).sort();
+  if (files.length === 0) {
+    console.error(`no documents found in ${dir}`);
+    process.exit(1);
+  }
+  for (const file of files) {
+    total += 1;
+    let problems;
+    try {
+      problems = problemsOf(schema, basename(file, '.graphql'), withFragments(readFileSync(join(dir, file), 'utf8')));
+    } catch (error) {
+      problems = [`could not be put together: ${error.message}`];
+    }
+    const shown = join(basename(dirname(dir)), basename(dir), file);
+    if (problems.length === 0) {
+      console.log(`ok    ${shown}`);
+    } else {
+      failed += 1;
+      console.error(`FAIL  ${shown}`);
+      for (const problem of problems) console.error(`      ${problem}`);
+    }
   }
 }
-console.log(`${files.length - failed} of ${files.length} documents valid against Admin API ${version}`);
+console.log(`${total - failed} of ${total} documents valid against Admin API ${version}`);
 process.exit(failed === 0 ? 0 : 1);

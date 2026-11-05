@@ -1,0 +1,177 @@
+# frozen_string_literal: true
+
+require 'rails_helper'
+require Rails.root.join('custom/spec/support/shopify_stubs')
+
+RSpec.describe 'Inclamo conversation order panel API', type: :request do
+  let(:account) { create(:account) }
+  let(:agent) { create(:user, account: account, role: :agent) }
+  let(:inbox) { create(:inbox, account: account) }
+  let(:contact) { create(:contact, account: account, email: 'maya.example.t001@example.com') }
+  let(:conversation) { create(:conversation, account: account, inbox: inbox, contact: contact) }
+  let(:base) { "/api/v1/accounts/#{account.id}/inclamo/shopify/conversations/#{conversation.display_id}" }
+  let(:maya_id) { shopify_fixture('customers_search_one').dig('customers', 'nodes', 0, 'id') }
+
+  before do
+    create(:inbox_member, inbox: inbox, user: agent)
+    Inclamo::Shopify::OrderReader.forget!(account.id)
+  end
+
+  def panel(params = {})
+    get "#{base}/panel", params: params, headers: agent.create_new_auth_token
+    response.parsed_body
+  end
+
+  def connect!(**attributes)
+    create(:inclamo_shopify_connection, account: account, **attributes)
+  end
+
+  it 'says the store is not connected' do
+    expect(panel).to include('state' => 'not_connected', 'viewer' => { 'administrator' => false, 'can_act_on_orders' => false })
+  end
+
+  it 'shows the matched customer with their orders, newest first' do
+    connect!
+    stub_shopify_fixture(:customers_search, 'customers_search_one')
+    stub_shopify_fixture(:customer_orders, 'customer_orders')
+
+    body = panel
+
+    expect(body['state']).to eq('matched')
+    expect(body['customer']).to include('name' => 'Maya Example', 'orders_count' => 3)
+    expect(body['customer']['total_spent']).to include('amount', 'currency')
+    expect(body['orders'].pluck('number')).to eq(%w[#1003 #1002 #1001])
+    expect(body['orders'].pluck('created_at')).to eq(body['orders'].pluck('created_at').sort.reverse)
+    expect(body['page']).to include('has_more' => false)
+  end
+
+  it 'loads the next page of orders' do
+    connect!
+    stub_shopify_fixture(:customers_search, 'customers_search_one')
+    first = shopify_fixture('customer_orders_page_1')
+    cursor = first.dig('customer', 'orders', 'pageInfo', 'endCursor')
+    stub_request(:post, shopify_graphql_url).with { |r| (b = JSON.parse(r.body))['query'].include?('query customer_orders') && b.dig('variables', 'after').nil? }
+                                            .to_return(status: 200, body: { data: first }.to_json, headers: ShopifyStubs::JSON_HEADERS)
+    stub_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body).dig('variables', 'after') == cursor }
+                                            .to_return(status: 200, body: { data: shopify_fixture('customer_orders_page_2') }.to_json, headers: ShopifyStubs::JSON_HEADERS)
+
+    expect(panel['page']).to eq('has_more' => true, 'cursor' => cursor)
+    expect(panel(after: cursor)['orders'].pluck('number')).to eq(%w[#1001])
+  end
+
+  it 'lists the candidates instead of orders when the match is not unique, and remembers the agent\'s choice' do
+    connect!
+    maya = shopify_fixture('customers_search_one').dig('customers', 'nodes', 0)
+    stub_shopify(:customers_search, data: { customers: { nodes: [maya, maya.merge('id' => 'gid://shopify/Customer/2', 'displayName' => 'Mia Example')] } })
+    stub_shopify_fixture(:customer_orders, 'customer_orders')
+
+    body = panel
+    expect(body['state']).to eq('ambiguous')
+    expect(body).not_to include('orders')
+    expect(body['candidates'].size).to eq(2)
+
+    post "#{base}/customer", params: { customer_id: maya_id }, headers: agent.create_new_auth_token, as: :json
+
+    expect(response.parsed_body['state']).to eq('matched')
+    another = create(:conversation, account: account, inbox: inbox, contact: contact)
+    get "/api/v1/accounts/#{account.id}/inclamo/shopify/conversations/#{another.display_id}/panel", headers: agent.create_new_auth_token
+    expect(response.parsed_body).to include('state' => 'matched')
+  end
+
+  it 'offers lookup by order number when nobody matches, and can keep that customer' do
+    connect!
+    stub_shopify_fixture(:customers_search, 'customers_search_none')
+    stub_shopify_fixture(:orders_by_number, 'orders_by_number_others')
+    stub_shopify(:customer_orders, data: { customer: { id: 'gid://shopify/Customer/9', displayName: 'Noah Example', numberOfOrders: '1', orders: { nodes: [], pageInfo: { hasNextPage: false, endCursor: nil } } } })
+
+    expect(panel['state']).to eq('none')
+
+    get "#{base}/lookup", params: { number: '#1004' }, headers: agent.create_new_auth_token
+    found = response.parsed_body
+    expect(found).to include('found' => true)
+    expect(found['order']).to include('number' => '#1004')
+    expect(found['order']['customer']['name']).to eq('Noah Example')
+
+    post "#{base}/customer", params: { customer_id: found['order']['customer']['id'] }, headers: agent.create_new_auth_token, as: :json
+    expect(response.parsed_body['state']).to eq('matched')
+  end
+
+  it 'says so when the order number does not exist' do
+    connect!
+    stub_shopify_fixture(:orders_by_number, 'orders_by_number_none')
+
+    get "#{base}/lookup", params: { number: '999999' }, headers: agent.create_new_auth_token
+
+    expect(response.parsed_body).to eq('found' => false)
+  end
+
+  it 'offers only the lookup for a contact without email and phone' do
+    connect!
+    contact.update!(email: nil, phone_number: nil)
+
+    expect(panel['state']).to eq('no_identifier')
+    expect(WebMock).not_to have_requested(:any, /myshopify/)
+  end
+
+  it 'works by order number only when the store hides customer data' do
+    connect!(customer_data_mode: 'limited')
+    stub_shopify_fixture(:orders_by_number_limited, 'orders_by_number_limited_open')
+
+    expect(panel['state']).to eq('limited')
+    expect(panel['connection']['actions'].find { |action| action['name'] == 'address' }).to include('available' => false, 'reason' => 'customer_data_hidden')
+
+    get "#{base}/lookup", params: { number: '1001' }, headers: agent.create_new_auth_token
+    order = response.parsed_body['order']
+    expect(order).to include('number' => '#1001', 'customer' => nil, 'shipping_address' => nil)
+    expect(order['items'].size).to eq(3)
+    expect(order['shipments']).to eq([])
+  end
+
+  it 'shows a broken connection instead of orders, also when it breaks during the read' do
+    record = connect!(:legacy)
+    stub_request(:post, shopify_graphql_url).to_return(status: 401, body: '{}')
+
+    expect(panel).to include('state' => 'broken')
+    expect(record.reload).to be_broken
+    expect(panel).to include('state' => 'broken')
+    expect(panel).not_to include('orders')
+    expect(WebMock).to have_requested(:post, shopify_graphql_url).once
+  end
+
+  it 'says the store did not answer, and offers no stale orders' do
+    connect!
+    stub_request(:post, shopify_graphql_url).to_timeout
+
+    expect(panel).to include('state' => 'unavailable', 'reason' => 'timeout')
+    expect(panel).not_to include('orders')
+  end
+
+  it 'writes nothing to the database while reading' do
+    connect!
+    stub_shopify_fixture(:customers_search, 'customers_search_one')
+    stub_shopify_fixture(:customer_orders, 'customer_orders')
+    headers = agent.create_new_auth_token
+    conversation
+    writes = []
+    watch = lambda do |_name, _start, _finish, _id, payload|
+      sql = payload[:sql].to_s
+      writes << sql if sql.match?(/\A\s*(INSERT|UPDATE|DELETE)/i) && !sql.match?(/"(users|access_tokens)"/)
+    end
+
+    ActiveSupport::Notifications.subscribed(watch, 'sql.active_record') do
+      get "#{base}/panel", headers: headers
+    end
+
+    expect(response.parsed_body['state']).to eq('matched')
+    expect(writes).to eq([])
+  end
+
+  it 'is closed to an agent who cannot see the conversation' do
+    connect!
+    outsider = create(:user, account: account, role: :agent)
+
+    get "#{base}/panel", headers: outsider.create_new_auth_token
+
+    expect(response).to have_http_status(:unauthorized)
+  end
+end

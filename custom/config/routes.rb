@@ -15,6 +15,12 @@ namespace :api, defaults: { format: 'json' } do
             resource :connection, only: [:show, :create, :destroy], controller: '/api/v1/accounts/inclamo/shopify_connections' do
               post :recheck
             end
+            scope 'conversations/:conversation_id', controller: '/api/v1/accounts/inclamo/conversation_panels' do
+              get 'panel', action: :show
+              get 'lookup', action: :lookup
+              post 'customer', action: :choose_customer
+              delete 'customer', action: :forget_customer
+            end
           end
         end
       end

@@ -26,7 +26,7 @@ module ShopifyStubs
   def stub_shopify(operation, data: nil, errors: nil, status: 200, domain: 'example-store.myshopify.com')
     body = errors ? { errors: errors } : { data: data }
     stub_request(:post, shopify_graphql_url(domain))
-      .with { |request| JSON.parse(request.body)['query'].include?(" #{operation} ") }
+      .with { |request| JSON.parse(request.body)['query'].match?(/^(query|mutation) #{operation}\b/) }
       .to_return(status: status, body: body.to_json, headers: JSON_HEADERS)
   end
 
@@ -36,6 +36,16 @@ module ShopifyStubs
               plan: { publicDisplayName: 'Grow', partnerDevelopment: false } },
       currentAppInstallation: { accessScopes: scopes.map { |handle| { handle: handle } } }
     }
+  end
+
+  # An answer recorded from a development store, scrubbed of nothing because
+  # the store holds only invented people. See custom/spec/fixtures/shopify.
+  def shopify_fixture(name)
+    JSON.parse(Rails.root.join('custom/spec/fixtures/shopify', "#{name}.json").read)['data']
+  end
+
+  def stub_shopify_fixture(operation, name)
+    stub_shopify(operation, data: shopify_fixture(name))
   end
 
   def access_denied

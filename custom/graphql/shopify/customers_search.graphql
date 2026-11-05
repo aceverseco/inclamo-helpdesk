@@ -1,0 +1,14 @@
+# The store's customers matching a contact's email or phone. Never more than
+# five: two or more means the agent must choose.
+query customers_search($query: String!) {
+  customers(first: 5, query: $query) {
+    nodes {
+      id
+      displayName
+      numberOfOrders
+      amountSpent { amount currencyCode }
+      defaultEmailAddress { emailAddress }
+      defaultPhoneNumber { phoneNumber }
+    }
+  }
+}

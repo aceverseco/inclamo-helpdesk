@@ -1,0 +1,6 @@
+mutation seed_cancel($orderId: ID!) {
+  orderCancel(orderId: $orderId, reason: CUSTOMER, restock: true, notifyCustomer: false) {
+    job { id done }
+    orderCancelUserErrors { field message code }
+  }
+}
