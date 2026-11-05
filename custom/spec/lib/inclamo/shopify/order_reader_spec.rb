@@ -47,12 +47,13 @@ RSpec.describe Inclamo::Shopify::OrderReader do
     expect(request).to have_been_requested.twice
   end
 
-  it 'asks again once the minute has passed' do
-    request = stub_shopify_fixture(:customer_orders, 'customer_orders')
+  it 'keeps an answer for a minute, no longer' do
+    stub_shopify_fixture(:customer_orders, 'customer_orders')
+    allow(Redis::Alfred).to receive(:setex).and_call_original
 
     reader.customer_with_orders(customer_id)
-    expect(Redis::Alfred.ttl(Redis::Alfred.keys("inclamo:shopify:#{record.account_id}:*").find { |key| key.exclude?('generation') })).to be_between(1, 60)
-    expect(request).to have_been_requested.once
+
+    expect(Redis::Alfred).to have_received(:setex).with(a_string_starting_with("inclamo:shopify:#{record.account_id}:"), anything, 60)
   end
 
   it 'does not share answers between accounts' do

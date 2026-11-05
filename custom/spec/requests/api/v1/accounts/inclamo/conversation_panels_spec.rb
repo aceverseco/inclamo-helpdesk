@@ -22,8 +22,8 @@ RSpec.describe 'Inclamo conversation order panel API', type: :request do
     response.parsed_body
   end
 
-  def connect!(**attributes)
-    create(:inclamo_shopify_connection, account: account, **attributes)
+  def connect!(*traits, **attributes)
+    create(:inclamo_shopify_connection, *traits, account: account, **attributes)
   end
 
   it 'says the store is not connected' do
@@ -186,7 +186,7 @@ RSpec.describe 'Inclamo conversation order panel API', type: :request do
 
     it 'is refreshed when the panel reads an order that changed in the store' do
       put "#{base}/order", params: { order_id: shipped_id }, headers: agent.create_new_auth_token, as: :json
-      conversation.update!(custom_attributes: conversation.custom_attributes.merge('shopify_order_fulfillment_status' => 'unfulfilled'))
+      conversation.reload.update!(custom_attributes: conversation.custom_attributes.merge('shopify_order_fulfillment_status' => 'unfulfilled'))
 
       panel
 

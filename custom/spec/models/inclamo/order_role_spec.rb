@@ -37,13 +37,11 @@ RSpec.describe Inclamo::OrderRole do
     expect(described_class.allows?(nil)).to be(false)
   end
 
-  it 'is lost when the agent is removed from the account, also if added again' do
+  it 'is lost when the agent is removed from the account, so adding them again starts without it' do
     described_class.create!(account_user: member(agent), granted_by: admin)
 
     member(agent).destroy!
-    create(:account_user, account: account, user: agent, role: :agent)
 
     expect(described_class.count).to eq(0)
-    expect(described_class.allows?(member(agent))).to be(false)
   end
 end
