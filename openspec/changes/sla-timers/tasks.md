@@ -20,12 +20,12 @@
 ## 4. Dashboard
 
 - [x] 4.1 Add the SLA page to the settings registry: list, form with units, inbox choice, reorder, delete, summary; verify by component tests including the validation message
-- [ ] 4.2 Add the "SLA" section to the sidebar registry, shown only when the conversation has a timer, with a local countdown; verify by component tests for each state
-- [ ] 4.3 Add the strings; verify `scripts/check-ui-strings.mjs` passes
+- [x] 4.2 Add the "SLA" section to the sidebar registry, shown only when the conversation has a timer, with a local countdown; verify by component tests for each state
+- [x] 4.3 Add the strings; verify `scripts/check-ui-strings.mjs` passes
 
 ## 5. End to end
 
-- [ ] 5.1 Add `sla-timers` to the coverage check's capability map with `e2e/tests/sla-timers.spec.mjs`; set the check interval to a few seconds in the test stack; verify the check lists its fourteen scenarios
+- [x] 5.1 Add `sla-timers` to the coverage check's capability map with `e2e/tests/sla-timers.spec.mjs`; set the check interval to a few seconds in the test stack; verify the check lists its fourteen scenarios
 - [ ] 5.2 Write the fourteen tests named after the scenarios, creating short-target policies through the API for the "missed" ones and an inbox closed now for the business-hours one; verify they pass on the stand
 - [ ] 5.3 Run the full suite in CI on an `e2e/**` branch; verify all tests pass
 - [ ] 5.4 Describe policies, timers and the label in `docs/`; verify each requirement of the spec has a paragraph

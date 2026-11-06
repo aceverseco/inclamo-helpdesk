@@ -2,7 +2,7 @@
 
 See proposal.md. Chatwoot v4.19.1 keeps its SLA feature behind a paid-edition flag; its server code is in `enterprise/`, which this project never uses, patches or ships. Its tables (`sla_policies`, `applied_slas`, `sla_events`) and dashboard screens exist in the open part of the tree. The release plan says paid-edition features are written by us in our code, so none of that is reused: no flag is switched, no table of theirs is written, no screen of theirs is shown.
 
-We already have two dashboard seams that fit: sidebar sections and settings pages. Inboxes have business hours with a time zone in Chatwoot's open code.
+We already have two dashboard seams that fit: sidebar sections and settings pages. The sidebar seam always draws a section's header, so it needs one addition (D8). Inboxes have business hours with a time zone in Chatwoot's open code.
 
 ## Goals / Non-Goals
 
@@ -34,6 +34,8 @@ A macro run by an agent sends as that agent (`Macros::ExecutionService` builds t
 **D6. The label `sla-missed` is created on first use.** A label is what Chatwoot's list, saved views, rules and label report already understand.
 
 **D7. Summary** is a grouped query over `inclamo_sla_timers` for the period; no stored aggregates.
+
+**D8. The sidebar seam can hide a section.** Patch 0001 drew every registered section with its header, so a conversation without a timer would still show "SLA". The registry entry gets an optional `visible(conversationId)`; ContactPanel leaves the section out while it returns false (five lines in the existing patch, no new patch; chosen by the founder on 2026-11-06 over keeping the header with a "no policy" line). Our `visible` reads a small shared store of timers per conversation (`slaTimers.js`): the first question starts a read, an answer older than a minute is read again, and the section itself reads through the same store, so the two never disagree.
 
 ## Risks / Trade-offs
 

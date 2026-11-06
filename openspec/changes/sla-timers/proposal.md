@@ -29,6 +29,6 @@ Not in this change: a target for every next reply, pausing while waiting for the
 ## Impact
 
 - Backend: two tables of our own (policies, applied timers), a periodic check for missed targets, endpoints for policies, the timer and the summary. Chatwoot's own SLA tables, flags and screens are not used.
-- Dashboard: a section in the sidebar registry and a page in the settings registry; no new seam.
+- Dashboard: a section in the sidebar registry and a page in the settings registry. No new patch: the sidebar seam (patch 0001) gains an optional `visible` hook, so the section shows only on conversations with a timer (design D8).
 - No Shopify scope: this change does not touch the store.
 - Tests: backend specs with time travel, component tests, end-to-end tests for every scenario.

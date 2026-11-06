@@ -3,9 +3,9 @@
 // conversation and, per target, the time left, the time it took or by how
 // much it was missed. Counts down locally between reads of the timer.
 import { ref, computed, watch, onBeforeUnmount } from 'vue';
-import InclamoAPI from '../api';
 import { t } from '../i18n';
 import { duration } from '../sla';
+import { readTimer, timerOf } from '../slaTimers';
 
 const props = defineProps({
   conversationId: { type: [Number, String], required: true },
@@ -18,8 +18,10 @@ const REFRESH_MS = 60_000;
 
 const loading = ref(true);
 const failed = ref(false);
-const timer = ref(null);
-const readAt = ref(Date.now());
+// The last read of this conversation's timer, shared with the sidebar seam.
+const known = computed(() => timerOf(props.conversationId));
+const timer = computed(() => known.value?.timer || null);
+const readAt = computed(() => known.value?.readAt || Date.now());
 const now = ref(Date.now());
 let ticker = null;
 let refresher = null;
@@ -50,11 +52,9 @@ const schedule = data => {
 const load = async () => {
   failed.value = false;
   try {
-    const { data } = await InclamoAPI.getConversationSla(props.conversationId);
-    timer.value = data.timer;
-    readAt.value = Date.now();
-    now.value = readAt.value;
-    schedule(data.timer);
+    const { timer: data } = await readTimer(props.conversationId);
+    now.value = Date.now();
+    schedule(data);
   } catch (error) {
     failed.value = true;
     stopClocks();
@@ -88,7 +88,6 @@ watch(
   () => props.conversationId,
   () => {
     loading.value = true;
-    timer.value = null;
     load();
   },
   { immediate: true }

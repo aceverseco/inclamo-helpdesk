@@ -2,6 +2,8 @@ import { nextTick } from 'vue';
 import { mount } from '@vue/test-utils';
 import SlaSection from '../components/SlaSection.vue';
 import InclamoAPI from '../api';
+import sidebarSections from '../sidebarSections';
+import { forgetTimers } from '../slaTimers';
 
 vi.mock('../api', () => ({ default: { getConversationSla: vi.fn() } }));
 
@@ -35,6 +37,7 @@ const row = (wrapper, name) => wrapper.find(`[data-testid="inclamo-sla-${name}"]
 describe('SlaSection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    forgetTimers();
     vi.useFakeTimers({ toFake: ['setInterval', 'setTimeout', 'clearInterval', 'clearTimeout', 'Date'] });
     vi.setSystemTime(new Date('2026-11-06T10:30:00Z'));
   });
@@ -128,5 +131,43 @@ describe('SlaSection', () => {
     await settle();
 
     expect(wrapper.find('[data-testid="inclamo-sla-failed"]').exists()).toBe(true);
+  });
+
+  describe('in the sidebar', () => {
+    const entry = () => sidebarSections.find(section => section.name === 'inclamo_sla');
+
+    it('is a section of its own, after Orders', () => {
+      expect(sidebarSections.map(section => section.name)).toEqual(['inclamo_orders', 'inclamo_sla']);
+      expect(entry()).toMatchObject({ openKey: 'is_inclamo_sla_open', component: SlaSection });
+      expect(entry().title()).toBe('SLA');
+    });
+
+    it('is shown only for a conversation that has a timer, once its timer is read', async () => {
+      InclamoAPI.getConversationSla.mockImplementation(async id => ({ data: { timer: id === 7 ? timer() : null } }));
+
+      expect(entry().visible(7)).toBe(false);
+      expect(entry().visible(8)).toBe(false);
+      await settle();
+
+      expect(entry().visible(7)).toBe(true);
+      expect(entry().visible(8)).toBe(false);
+      expect(InclamoAPI.getConversationSla).toHaveBeenCalledTimes(2);
+    });
+
+    it('asks again when its answer is a minute old', async () => {
+      InclamoAPI.getConversationSla.mockResolvedValue({ data: { timer: null } });
+      entry().visible(9);
+      await settle();
+      entry().visible(9);
+      await settle();
+      expect(InclamoAPI.getConversationSla).toHaveBeenCalledTimes(1);
+
+      InclamoAPI.getConversationSla.mockResolvedValue({ data: { timer: timer() } });
+      await wait(61_000);
+      entry().visible(9);
+      await settle();
+      expect(entry().visible(9)).toBe(true);
+      expect(InclamoAPI.getConversationSla).toHaveBeenCalledTimes(2);
+    });
   });
 });
