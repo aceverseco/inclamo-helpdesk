@@ -20,14 +20,15 @@ module Inclamo
         @connection = ShopifyConnection.find_by(account_id: account.id)
       end
 
-      # `extra` is what must not be recorded (the new address).
-      def perform(action:, action_id:, order_id:, params: {}, extra: {})
+      # `extra` is what must not be recorded (the new address). `macro_id`
+      # names the macro an order step runs in.
+      def perform(action:, action_id:, order_id:, params: {}, extra: {}, macro_id: nil)
         action = action.to_s
         existing = OrderAction.find_by(account_id: @account.id, action_id: action_id.to_s)
         return settle(existing, extra) if existing
 
         record = OrderAction.new(account: @account, conversation: @conversation, user: @account_user&.user, action_id: action_id.to_s,
-                                 action: action, order_id: order_id.to_s, params: recordable(action, params))
+                                 action: action, order_id: order_id.to_s, params: recordable(action, params), macro_id: macro_id)
         refusal = gate(action)
         return refuse!(record, refusal) if refusal
 
@@ -49,15 +50,29 @@ module Inclamo
       # nothing is recorded. Raises Actions::Refused with the reason when the
       # agent, the connection or the order does not allow it.
       def refund_preview(order_id:, params:)
-        refusal = gate('refund')
-        raise Actions::Refused, refusal if refusal
+        refund_plan(allowed_order!('refund', order_id), params)
+      end
 
-        order = reader.order(order_id.to_s) or raise Actions::Refused, 'unknown_order'
-        refusal = OrderPresenter.new(order, shop_domain: @connection.shop_domain).refusal('refund')
-        raise Actions::Refused, refusal if refusal
-
-        draft = OrderAction.new(action: 'refund', order_id: order['id'], action_id: 'preview', params: recordable('refund', params))
-        Actions::Refund.new(store: StoreConnection.new(@connection), record: draft, order: order).preview
+      # What an action with these parameters would do to the order, for the
+      # confirmation of a macro: the money a refund or a cancellation gives
+      # back, the units a replacement sends. Nothing is changed and nothing is
+      # recorded. When the action would be refused, says why instead.
+      def step_preview(action:, order_id:, params:)
+        order = allowed_order!(action, order_id)
+        case action.to_s
+        when 'refund' then refund_plan(order, params).slice(:amount, :currency)
+        when 'cancel' then cancellation_refund(order, params)
+        when 'replacement' then { units: Array(order.dig('lineItems', 'nodes')).sum { |line| line['quantity'].to_i } }
+        else {}
+        end
+      rescue Actions::Refused => e
+        refused = { refusal: e.code, message: (e.message unless e.message == e.code) }
+        refused[:missing_scopes] = @connection.missing_scopes_for(action) if e.code == 'missing_scope'
+        refused
+      rescue Error::QueryError => e
+        { refusal: 'store_refused', message: e.message.first(500) }
+      rescue Error => e
+        { refusal: 'store_unreachable', message: nil, reason: e.class.name.demodulize.underscore }
       end
 
       # Finishes what an earlier request left open, e.g. a cancellation the
@@ -70,6 +85,32 @@ module Inclamo
 
       def reader
         @reader ||= OrderReader.new(@connection)
+      end
+
+      # The order, when this agent may perform this action on it. Raises
+      # Actions::Refused with the reason otherwise.
+      def allowed_order!(action, order_id)
+        refusal = gate(action.to_s)
+        raise Actions::Refused, refusal if refusal
+
+        order = reader.order(order_id.to_s) or raise Actions::Refused, 'unknown_order'
+        refusal = OrderPresenter.new(order, shop_domain: @connection.shop_domain).refusal(action)
+        raise Actions::Refused, refusal if refusal
+
+        order
+      end
+
+      def refund_plan(order, params)
+        draft = OrderAction.new(action: 'refund', order_id: order['id'], action_id: 'preview', params: recordable('refund', params))
+        Actions::Refund.new(store: StoreConnection.new(@connection), record: draft, order: order).preview
+      end
+
+      # What a cancellation gives back: everything that remains when it
+      # refunds, nothing for an order that was not paid.
+      def cancellation_refund(order, params)
+        return {} unless params.to_h.stringify_keys['refund'] == true && OrderPresenter.new(order, shop_domain: '').refundable_amount.positive?
+
+        refund_plan(order, { 'mode' => 'full' }).slice(:amount, :currency)
       end
 
       def recordable(action, params)

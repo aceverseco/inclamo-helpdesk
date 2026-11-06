@@ -4,9 +4,10 @@ module Inclamo
   module Shopify
     module Actions
       # Refunds an order: everything that remains, chosen items (with or
-      # without shipping), or an amount. The store proposes through which
-      # payments the money goes back; we never invent a payment. The action id
-      # is the idempotency key, so one confirmation is at most one refund.
+      # without shipping), the shipping alone, or an amount. The store
+      # proposes through which payments the money goes back; we never invent
+      # a payment. The action id is the idempotency key, so one confirmation
+      # is at most one refund.
       #
       # Restocking, as a live store takes it: every restocked line names a
       # location, also in a store that has one; units that have not shipped go
@@ -19,7 +20,7 @@ module Inclamo
       # is refunded without restocking. Reading these needs two scopes;
       # without either nothing is restocked.
       class Refund < Base
-        MODES = %w[full items amount].freeze
+        MODES = %w[full items shipping amount].freeze
         RECORDED = %w[mode amount items shipping restock notify].freeze
         RESTOCK_SCOPES = %w[read_locations read_merchant_managed_fulfillment_orders].freeze
 
@@ -180,16 +181,23 @@ module Inclamo
           asked = wanted&.map { |item| { lineItemId: item[:line]['id'], quantity: item[:quantity], restockType: 'NO_RESTOCK' } }
           items = wanted&.flat_map { |item| entries_for(item[:line], item[:quantity]) }
           variables = { id: @record.order_id, refundLineItems: asked,
-                        refundShipping: mode == 'items' ? params['shipping'] == true : nil, suggestFullRefund: mode != 'items' }
+                        refundShipping: %w[items shipping].include?(mode) ? refunds_shipping? : nil, suggestFullRefund: %w[full amount].include?(mode) }
           suggestion = @store.query(:refund_suggestion, variables).dig('order', 'suggestedRefund') or raise Refused, 'nothing_to_refund'
+          shipping_left = suggestion.dig('shipping', 'maximumRefundableSet', 'shopMoney', 'amount').to_d.positive?
+          raise Refused, 'no_shipping_to_refund' if mode == 'shipping' && !shipping_left
+
           transactions = transactions_for(suggestion, amount)
           raise Refused, 'nothing_to_refund' if transactions.empty?
 
           {
             items: placed(items || (mode == 'full' ? suggested_items(suggestion) : [])),
-            shipping: (mode == 'full' || (mode == 'items' && params['shipping'] == true)) && suggestion.dig('shipping', 'maximumRefundableSet', 'shopMoney', 'amount').to_d.positive?,
+            shipping: refunds_shipping? && shipping_left,
             transactions: transactions, total: transactions.sum { |transaction| BigDecimal(transaction[:amount]) }
           }
+        end
+
+        def refunds_shipping?
+          mode == 'full' || mode == 'shipping' || (mode == 'items' && params['shipping'] == true)
         end
 
         # Everything the store would refund, line by line. The store may list

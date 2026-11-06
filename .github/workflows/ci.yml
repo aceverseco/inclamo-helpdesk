@@ -73,9 +73,12 @@ jobs:
         env:
           RAILS_ENV: test
 
-      - name: Run the overlay's specs
+      - name: Run the overlay's specs, and Chatwoot's own around the classes it extends
         working-directory: build/chatwoot
-        run: bundle exec rspec custom/spec --format progress
+        run: >-
+          bundle exec rspec --format progress custom/spec
+          spec/models/macro_spec.rb spec/services/macros/execution_service_spec.rb spec/jobs/macros_execution_job_spec.rb
+          spec/controllers/api/v1/accounts/macros_controller_spec.rb spec/models/automation_rule_spec.rb
         env:
           # Throwaway keys: the store connection is refused without encryption.
           ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: ci-only-primary-key-0000000000000000
@@ -140,7 +143,13 @@ jobs:
         working-directory: build/chatwoot
         run: pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/inclamo
 
-      - name: Chatwoot's own tests around the two seams still pass
+      - name: Chatwoot's own tests around the seams still pass
         working-directory: build/chatwoot
-        run: pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/composables/spec/useUISettings.spec.js app/javascript/dashboard/components-next/sidebar/specs
+        run: >-
+          pnpm exec vitest --no-watch --no-cache --no-coverage
+          app/javascript/dashboard/composables/spec/useUISettings.spec.js app/javascript/dashboard/components-next/sidebar/specs
+          app/javascript/dashboard/composables/spec/useMacroExecution.spec.js app/javascript/dashboard/composables/spec/useMacros.spec.js
+          app/javascript/dashboard/composables/commands/spec/useBulkActionsHotKeys.spec.js app/javascript/dashboard/helper/specs/macrosHelper.spec.js
+          app/javascript/dashboard/helper/specs/validations.spec.js app/javascript/dashboard/routes/dashboard/settings/macros
+          app/javascript/dashboard/routes/dashboard/settings/automation app/javascript/dashboard/routes/dashboard/commands/specs/commandbar.spec.js
 
