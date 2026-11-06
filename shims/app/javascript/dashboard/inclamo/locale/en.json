@@ -196,6 +196,84 @@
       "ALLOW": "Can act on orders",
       "LOADING": "Loading the team…",
       "FAILED": "The list could not be loaded. Reload the page to try again."
+    },
+    "SLA": {
+      "MENU": "SLA",
+      "TITLE": "SLA policies",
+      "INTRO": "How fast conversations must get a first reply from a person and be resolved. A new conversation gets the first policy in this list that covers its inbox; the targets it gets do not change when the policy is edited later.",
+      "LOADING": "Loading the policies…",
+      "FAILED": "The policies could not be loaded. Reload the page to try again.",
+      "ADD": "Add a policy",
+      "EMPTY": "No policies yet: conversations have no SLA timers.",
+      "UNITS": {
+        "minutes": "minutes",
+        "hours": "hours",
+        "days": "days"
+      },
+      "FORM": {
+        "NAME": "Name",
+        "FIRST_RESPONSE": "First response within",
+        "RESOLUTION": "Resolved within",
+        "TARGET_HINT": "Leave one of the two empty if you need only the other.",
+        "BUSINESS_HOURS": "Count business hours only (as set in each inbox's settings)",
+        "ALL_INBOXES": "All inboxes",
+        "CHOSEN_INBOXES": "Chosen inboxes",
+        "SAVE": "Save",
+        "CANCEL": "Cancel"
+      },
+      "ERRORS": {
+        "NAME_NEEDED": "Give the policy a name.",
+        "TARGET_NEEDED": "A target is needed: set a first response, a resolution or both.",
+        "TARGET_POSITIVE": "A target must be more than zero.",
+        "INBOXES_NEEDED": "Choose at least one inbox, or let the policy cover all inboxes.",
+        "NOT_SAVED": "The policy could not be saved. Try again."
+      },
+      "LIST": {
+        "FIRST_RESPONSE": "First response {time}",
+        "RESOLUTION": "Resolution {time}",
+        "ALL_INBOXES": "All inboxes",
+        "BUSINESS_HOURS": "business hours only",
+        "UP": "Move up",
+        "DOWN": "Move down",
+        "EDIT": "Edit",
+        "DELETE": "Delete",
+        "DELETE_ASK": "Delete this policy? Timers it started on open conversations stop.",
+        "DELETE_YES": "Delete",
+        "DELETE_NO": "Keep"
+      },
+      "SUMMARY": {
+        "PERIOD": "Summary for the last",
+        "DAYS": "{days} days",
+        "CONVERSATIONS": "{count} conversations",
+        "FIRST_RESPONSE": "first response:",
+        "RESOLUTION": "resolution:",
+        "MET": "{percent} % met ({met} met, {missed} missed, {running} running)",
+        "NO_TARGET": "no target"
+      }
+    }
+  },
+  "SLA": {
+    "TITLE": "SLA",
+    "LOADING": "Loading the timer…",
+    "FAILED": "The timer could not be loaded.",
+    "RETRY": "Try again",
+    "NONE": "No SLA policy applies to this conversation.",
+    "BUSINESS_HOURS": "business hours only",
+    "POLICY_DELETED": "policy deleted",
+    "TARGETS": {
+      "first_response": "First response",
+      "resolution": "Resolution"
+    },
+    "LEFT": "{time} left",
+    "PAUSED": "Paused, {time} left",
+    "MET": "Met in {time}",
+    "MISSED": "Missed by {time}",
+    "STOPPED": "Stopped",
+    "SHORT": {
+      "DAYS": "{count} d",
+      "HOURS": "{count} h",
+      "MINUTES": "{count} min",
+      "SECONDS": "{count} s"
     }
   }
 }
