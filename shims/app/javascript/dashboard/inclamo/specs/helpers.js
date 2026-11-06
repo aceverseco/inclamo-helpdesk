@@ -27,7 +27,12 @@ export const DialogStub = {
   },
 };
 
-export const stubs = { Dialog: DialogStub, Spinner: true };
+// Chatwoot's settings page frame and its router link, reduced to their slots.
+export const SettingsLayoutStub = { name: 'SettingsLayout', template: '<div><slot name="header" /><slot name="body" /></div>' };
+export const SettingsHeaderStub = { name: 'BaseSettingsHeader', props: ['title', 'description'], template: '<h1 data-testid="settings-title">{{ title }}</h1>' };
+export const RouterLinkStub = { name: 'RouterLink', props: ['to'], template: '<a :data-route="to.name"><slot /></a>' };
+
+export const stubs = { Dialog: DialogStub, Spinner: true, SettingsLayout: SettingsLayoutStub, BaseSettingsHeader: SettingsHeaderStub, RouterLink: RouterLinkStub };
 
 export const order = (overrides = {}) => ({
   id: 'gid://shopify/Order/1',

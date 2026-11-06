@@ -84,3 +84,9 @@
 - [x] 11.2 Show in the refund confirmation where the items go back, and say when the scope is missing; verify by component tests
 - [x] 11.3 Add the two scopes to the helpdesk test apps and write the end-to-end tests of the four scenarios (shipped item put back in stock, unshipped item put back in stock, item the store names no location for, locations scope missing)
 - [x] 11.4 Add the two scopes to the merchant guide and to the list of scopes in the connection form
+
+## 12. The role switches on a settings page
+
+- [x] 12.1 Add the settings seam: a registry of settings pages that Chatwoot's settings routes and sidebar read, as a second patch; verify it applies to the pinned tag and that Chatwoot's own sidebar tests still pass
+- [x] 12.2 Move the list of agents with the role switch from the panel's dialog to a page of the account settings built from Chatwoot's settings layout, open to administrators, and link to it from the panel; verify by component tests
+- [x] 12.3 Update the end-to-end test of "Administrator gives the role" to go through the link and the settings page

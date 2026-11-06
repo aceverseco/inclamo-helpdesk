@@ -4,7 +4,7 @@ import RefundDialog from '../components/RefundDialog.vue';
 import AddressDialog from '../components/AddressDialog.vue';
 import ReplacementDialog from '../components/ReplacementDialog.vue';
 import ConnectDialog from '../components/ConnectDialog.vue';
-import RolesDialog from '../components/RolesDialog.vue';
+import OrderRolesPage from '../components/OrderRolesPage.vue';
 import InclamoAPI from '../api';
 import { stubs, order, flush } from './helpers';
 
@@ -279,7 +279,13 @@ describe('ConnectDialog', () => {
   });
 });
 
-describe('RolesDialog', () => {
+describe('OrderRolesPage', () => {
+  const show = async () => {
+    const wrapper = mount(OrderRolesPage, { global: { stubs } });
+    await flush();
+    return wrapper;
+  };
+
   const members = [
     { user_id: 1, name: 'Ada Admin', email: 'ada@example.com', role: 'administrator', can_act: true, switchable: false },
     { user_id: 2, name: 'Ben Agent', email: 'ben@example.com', role: 'agent', can_act: false, switchable: true },
@@ -288,7 +294,7 @@ describe('RolesDialog', () => {
   it('lists who can act; administrators cannot be switched, agents can', async () => {
     InclamoAPI.getRoles.mockResolvedValue({ data: { members } });
     InclamoAPI.giveRole.mockResolvedValue({ data: { members: [members[0], { ...members[1], can_act: true }] } });
-    const wrapper = await open(RolesDialog);
+    const wrapper = await show();
 
     const adminSwitch = wrapper.find('[data-testid="inclamo-role-1"] input');
     const agentSwitch = wrapper.find('[data-testid="inclamo-role-2"] input');
@@ -306,11 +312,19 @@ describe('RolesDialog', () => {
   it('takes the role away from an agent who has it', async () => {
     InclamoAPI.getRoles.mockResolvedValue({ data: { members: [members[0], { ...members[1], can_act: true }] } });
     InclamoAPI.takeRole.mockResolvedValue({ data: { members } });
-    const wrapper = await open(RolesDialog);
+    const wrapper = await show();
 
     await wrapper.find('[data-testid="inclamo-role-2"] input').trigger('change');
     await flush();
 
     expect(InclamoAPI.takeRole).toHaveBeenCalledWith(2);
+  });
+
+  it('says so when the list cannot be loaded', async () => {
+    InclamoAPI.getRoles.mockRejectedValue(new Error('down'));
+    const wrapper = await show();
+
+    expect(wrapper.find('[data-testid="inclamo-roles-failed"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="inclamo-roles-page"]').exists()).toBe(false);
   });
 });

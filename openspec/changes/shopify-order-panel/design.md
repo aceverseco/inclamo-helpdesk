@@ -17,14 +17,14 @@ See `proposal.md` for motivation and the settled items (action set, native sideb
 
 **Goals:**
 - The whole backend of this change in `custom/`, with no edit to a Chatwoot core Ruby file.
-- One seam in the dashboard, generic enough to carry later sections, carried as a patch.
+- Two seams in the dashboard, each generic enough to carry later additions and carried as a patch: sidebar sections, and settings pages.
 - A store connection that the hosted edition can later satisfy with OAuth without touching the panel.
 - No order or customer data at rest in the helpdesk beyond the conversation attributes named in the spec.
 
 **Non-Goals:**
 - More than one store per account.
 - Shopify webhooks; the panel reads on demand.
-- A settings page; the connection form lives in the panel's "not connected" state until the settings slice.
+- A settings page for the store connection; the connection form lives in the panel's "not connected" state until the settings slice. (The order-actions role does have its settings page, D16.)
 - Order editing (adding or removing line items of an existing order): possible in Shopify, planned for release 0.2, not this change.
 - Creating a new order from scratch (catalogue search, custom lines, invoice): planned for release 0.2. This change has only the duplicate as a free replacement.
 - Roles finer than one order-actions role (per action, per amount).
@@ -65,7 +65,7 @@ See `proposal.md` for motivation and the settled items (action set, native sideb
 - A third app with no distribution method stands for the app a merchant forgot to finish: the store really refuses it orders and customers, and the connection is really refused. The limited mode itself (orders given, customers' personal data withheld) cannot be produced on a development store and is exercised by the proxy refusing the customer part of the probe. A real Basic-plan store stays a manual check.
 - End-to-end tests run on the main branch, before every release and on demand; credentials of the development store live in CI secrets and are never printed.
 
-**D13. The order-actions role is our own record.** Table `inclamo_order_roles`: account, user, given by, given at; one row means the agent holds the role. Administrators need no row. Every action endpoint checks it on the server before anything else; the panel reads it together with the scopes to decide what to show. Chatwoot's `custom_roles` tables and `custom_role_id` column belong to its paid edition and are not read or written. Alternative: a conversation or agent custom attribute; rejected because any agent could edit it through Chatwoot's API. The list of agents with a switch per agent lives in the panel's administrator menu, next to the connection (same reasoning as D10: no second seam in this slice).
+**D13. The order-actions role is our own record.** Table `inclamo_order_roles`: account, user, given by, given at; one row means the agent holds the role. Administrators need no row. Every action endpoint checks it on the server before anything else; the panel reads it together with the scopes to decide what to show. Chatwoot's `custom_roles` tables and `custom_role_id` column belong to its paid edition and are not read or written. Alternative: a conversation or agent custom attribute; rejected because any agent could edit it through Chatwoot's API. The list of agents with a switch per agent first lived in the panel's administrator menu; it moved to a page of the account settings (D16).
 
 **D14. The free replacement goes through a draft order, and needs `read_products`.** Found while building it, on a live store: the store rebuilds a draft's lines on every update, a line can only be named by its variant (an update that names lines by their own ids is refused with "Merchandise title is empty"), and a variant can only be read with `read_products`. So the replacement needs that scope besides `write_orders` and `write_draft_orders`; the panel itself reads orders without variants and needs no product scope. Alternatives: copying the whole order without letting the agent remove items (drops a requirement), or re-creating the lines as custom items with a title and a price (loses the link to the product and its stock); both rejected. The mechanics: Three steps under one action id: `draftOrderCreateFromOrder` (the store copies items, customer and addresses itself, so the address never passes through us), `draftOrderUpdate` (the items the agent kept, a 100 % order discount, a free shipping line, a tag and a note naming the original order), `draftOrderComplete`. The draft id is written to the action record after step one, so a repeated request continues from the recorded step instead of creating a second draft. When step two or three is refused, the draft is deleted; when the deletion fails, the message names the draft with a link. Alternative: `draftOrderCreate` with lines built by us; rejected because it needs the address and customer on our side and breaks in the limited mode.
 
@@ -83,9 +83,11 @@ The agent does not choose the location: one checkbox, as in the established e-co
 
 Locations are read when the confirmation is calculated and again when the refund is made, and only when something is to be restocked. The store is asked what it would refund without any restocking, because the money does not depend on it; in a full refund it may list a line twice, and the two are summed before the split. Both scopes are optional in the same way as the write scopes: without either the refund works, nothing is restocked, and the confirmation names what is missing. The names of the locations are kept in the action record; they are not personal data. The checkbox is off by default: a parcel is usually still on its way back when the money is returned. Not tried on a store: units of one line waiting at two locations.
 
+**D16. A second seam: a registry of settings pages.** Decided on 2026-11-06: the switches of the order-actions role belong in the account settings, where an administrator looks for who may do what, not in a menu of the orders panel. Chatwoot's settings have no hook, so `patches/0002-settings-pages.patch` adds one of the same shape as the sidebar's: an empty list `dashboard/extensions/settingsPages.js`, which `settings.routes.js` turns into routes under `settings/<path>` inside Chatwoot's own settings frame and `Sidebar.vue` into entries of its Settings group. Two core files touched by a few lines each, one file added. Our page is built from Chatwoot's settings layout and header, so it looks like its neighbours; it is open to administrators only, by the route's permissions, and the server refuses anyone else as before. The panel keeps a link to it for administrators. The connection form stays in the panel (D10).
+
 ## Risks / Trade-offs
 
-- [Upstream rewrites `ContactPanel.vue`] → the seam is two small patches; CI catches a failed apply at build time, and the patch is redone for that release.
+- [Upstream rewrites `ContactPanel.vue`, `Sidebar.vue` or the settings routes] → each seam is a small patch; CI catches a failed apply at build time, and the patch is redone for that release.
 - [Upstream removes or renames a hook our overlay relies on] → this slice prepends nothing in core classes (own controllers, own tables, Chatwoot's public builders), so its exposure is the base controller and the message builder interfaces; covered by tests on every upstream tag.
 - [A wrong refund is money gone] → confirmation with amount and destination, refusal above the refundable, idempotency, action record. No amount limit for humans in this slice is a deliberate non-goal.
 - [Token leak] → encrypted at rest, never returned, never logged; connection refused without encryption keys.

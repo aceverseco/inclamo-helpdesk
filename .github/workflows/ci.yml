@@ -140,7 +140,7 @@ jobs:
         working-directory: build/chatwoot
         run: pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/inclamo
 
-      - name: Chatwoot's own sidebar tests still pass with the seam
+      - name: Chatwoot's own tests around the two seams still pass
         working-directory: build/chatwoot
-        run: pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/composables/spec/useUISettings.spec.js
+        run: pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/composables/spec/useUISettings.spec.js app/javascript/dashboard/components-next/sidebar/specs
 

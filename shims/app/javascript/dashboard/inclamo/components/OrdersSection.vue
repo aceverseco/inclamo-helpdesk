@@ -5,7 +5,7 @@ import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import InclamoAPI from '../api';
 import OrderCard from './OrderCard.vue';
 import ConnectDialog from './ConnectDialog.vue';
-import RolesDialog from './RolesDialog.vue';
+import { ORDER_ROLES_ROUTE } from '../routes';
 import { t } from '../i18n';
 import { money } from '../format';
 
@@ -23,7 +23,6 @@ const lookupNumber = ref('');
 const lookupBusy = ref(false);
 const lookupResult = ref(null);
 const connectDialog = ref(null);
-const rolesDialog = ref(null);
 const confirmingRemoval = ref(false);
 
 const state = computed(() => panel.value?.state);
@@ -244,7 +243,7 @@ watch(
       <div v-if="viewer.administrator" class="mt-3 flex flex-wrap items-center gap-3 border-t border-n-weak pt-2 text-xs" data-testid="inclamo-manage">
         <span class="text-n-slate-11">{{ connection.shop_name }}</span>
         <button type="button" class="text-n-blue-text" data-testid="inclamo-manage-recheck" @click="recheck">{{ t('ORDERS.MANAGE.CHECK_AGAIN') }}</button>
-        <button type="button" class="text-n-blue-text" data-testid="inclamo-manage-roles" @click="rolesDialog.open()">{{ t('ORDERS.MANAGE.WHO_CAN_ACT') }}</button>
+        <router-link :to="{ name: ORDER_ROLES_ROUTE }" class="text-n-blue-text" data-testid="inclamo-manage-roles">{{ t('ORDERS.MANAGE.WHO_CAN_ACT') }}</router-link>
         <button v-if="!confirmingRemoval" type="button" class="text-n-ruby-11" data-testid="inclamo-manage-remove" @click="confirmingRemoval = true">{{ t('ORDERS.MANAGE.REMOVE') }}</button>
         <span v-else class="flex flex-col gap-1">
           <span>{{ t('ORDERS.MANAGE.REMOVE_CONFIRM') }}</span>
@@ -257,6 +256,5 @@ watch(
     </template>
 
     <ConnectDialog ref="connectDialog" @connected="load" />
-    <RolesDialog ref="rolesDialog" />
   </div>
 </template>

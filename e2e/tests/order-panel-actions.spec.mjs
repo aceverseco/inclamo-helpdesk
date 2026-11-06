@@ -87,7 +87,10 @@ test.describe('Order actions need a role given by an administrator', () => {
 
   test('Administrator gives the role', async ({ page }) => {
     const { section } = await open(page, users.admin, orders.view.number);
+    // The panel links to the page of the account settings that holds the switches.
     await section.getByTestId('inclamo-manage-roles').click();
+    await expect(page).toHaveURL(/\/settings\/order-actions$/);
+    await expect(page.getByRole('link', { name: 'Order actions' })).toBeVisible();
     await page.getByTestId(`inclamo-role-${agent.userId}`).locator('input').check();
     await expect.poll(async () => (await admin.get('/inclamo/order_roles')).body.members.find(member => member.user_id === agent.userId).can_act).toBe(true);
 

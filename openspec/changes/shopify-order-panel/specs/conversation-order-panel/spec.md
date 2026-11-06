@@ -72,14 +72,14 @@ The agent SHALL be able to mark one order as the order the conversation is about
 - **THEN** no order is marked automatically
 
 ### Requirement: Order actions need a role given by an administrator
-Administrators SHALL always be able to perform order actions. An agent SHALL be able to perform them only while holding the order-actions role, which only an administrator can give and take away. One role SHALL cover every order action of this capability. A newly added agent SHALL NOT hold it. An agent without the role SHALL see the panel and the order data in full, SHALL see each action as unavailable with the reason, and a request to perform an action SHALL be refused without calling the store.
+Administrators SHALL always be able to perform order actions. An agent SHALL be able to perform them only while holding the order-actions role, which only an administrator can give and take away. One role SHALL cover every order action of this capability. A newly added agent SHALL NOT hold it. The administrator SHALL give and take the role on a page of the account settings that lists the team with a switch for each agent; the panel SHALL link to that page for administrators. An agent without the role SHALL see the panel and the order data in full, SHALL see each action as unavailable with the reason, and a request to perform an action SHALL be refused without calling the store.
 
 #### Scenario: Agent without the role
 - **WHEN** an agent who does not hold the role opens a conversation with a matched customer
 - **THEN** the orders are shown, every action is shown as unavailable with the reason "an administrator has not allowed you to act on orders", and a direct request to refund is refused
 
 #### Scenario: Administrator gives the role
-- **WHEN** an administrator gives the role to an agent
+- **WHEN** an administrator follows the panel's link to the settings page and switches the role on for an agent
 - **THEN** on that agent's next panel load the actions allowed by the store's scopes are available
 
 #### Scenario: Role taken away during a confirmation

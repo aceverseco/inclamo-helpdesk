@@ -185,12 +185,17 @@
       "SCOPES_READ": "read_customers, read_orders: required",
       "SCOPES_WRITE": "write_orders: cancel, refund, address. write_draft_orders and read_products: replacement orders. read_locations and read_merchant_managed_fulfillment_orders: putting refunded items back in stock.",
       "CONFIRM": "Connect"
-    },
-    "ROLES": {
+    }
+  },
+  "SETTINGS": {
+    "ORDER_ROLES": {
+      "MENU": "Order actions",
       "TITLE": "Who can act on orders",
       "INTRO": "Administrators can always cancel, refund, change addresses and send replacements. Agents can only after you switch it on for them.",
       "ADMIN": "Administrator",
-      "ALLOW": "Can act on orders"
+      "ALLOW": "Can act on orders",
+      "LOADING": "Loading the team…",
+      "FAILED": "The list could not be loaded. Reload the page to try again."
     }
   }
 }
