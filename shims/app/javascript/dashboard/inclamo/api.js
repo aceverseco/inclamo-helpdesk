@@ -62,6 +62,11 @@ class InclamoAPI extends ApiClient {
     return axios.delete(`${this.conversation(conversationId)}/order`);
   }
 
+  // What the order steps of a macro would do in a conversation.
+  macroPreview(macroId, conversationId) {
+    return axios.post(`${this.url}/macro_previews`, { macro_id: macroId, conversation_id: conversationId });
+  }
+
   refundPreview(conversationId, orderId, params) {
     return axios.post(`${this.conversation(conversationId)}/actions/refund_preview`, { order_id: orderId, params });
   }
