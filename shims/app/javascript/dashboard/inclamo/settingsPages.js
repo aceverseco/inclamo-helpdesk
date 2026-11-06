@@ -16,7 +16,8 @@ export default [
   },
   {
     name: SLA_POLICIES_ROUTE,
-    path: 'sla',
+    // Not settings/sla: Chatwoot's own (paid) SLA page owns that address.
+    path: 'sla-policies',
     label: () => t('SETTINGS.SLA.MENU'),
     icon: 'i-lucide-timer',
     component: SlaPoliciesPage,

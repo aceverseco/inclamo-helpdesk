@@ -28,4 +28,4 @@
 - [x] 5.1 Add `sla-timers` to the coverage check's capability map with `e2e/tests/sla-timers.spec.mjs`; set the check interval to a few seconds in the test stack; verify the check lists its fourteen scenarios
 - [ ] 5.2 Write the fourteen tests named after the scenarios, creating short-target policies through the API for the "missed" ones and an inbox closed now for the business-hours one; verify they pass on the stand
 - [ ] 5.3 Run the full suite in CI on an `e2e/**` branch; verify all tests pass
-- [ ] 5.4 Describe policies, timers and the label in `docs/`; verify each requirement of the spec has a paragraph
+- [x] 5.4 Describe policies, timers and the label in `docs/`; verify each requirement of the spec has a paragraph

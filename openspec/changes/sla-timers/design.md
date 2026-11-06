@@ -1,6 +1,6 @@
 ## Context
 
-See proposal.md. Chatwoot v4.19.1 keeps its SLA feature behind a paid-edition flag; its server code is in `enterprise/`, which this project never uses, patches or ships. Its tables (`sla_policies`, `applied_slas`, `sla_events`) and dashboard screens exist in the open part of the tree. The release plan says paid-edition features are written by us in our code, so none of that is reused: no flag is switched, no table of theirs is written, no screen of theirs is shown.
+See proposal.md. Chatwoot v4.19.1 keeps its SLA feature behind a paid-edition flag; its server code is in `enterprise/`, which this project never uses, patches or ships. Its tables (`sla_policies`, `applied_slas`, `sla_events`) and dashboard screens exist in the open part of the tree. The release plan says paid-edition features are written by us in our code, so none of that is reused: no flag is switched, no table of theirs is written, no screen of theirs is shown. Their settings page owns the address `settings/sla` (an upgrade notice in Community Edition), so ours is `settings/sla-policies`; the menu entry still reads "SLA".
 
 We already have two dashboard seams that fit: sidebar sections and settings pages. The sidebar seam always draws a section's header, so it needs one addition (D8). Inboxes have business hours with a time zone in Chatwoot's open code.
 

@@ -39,7 +39,7 @@ describe('SlaPoliciesPage', () => {
 
   it('is a settings page for administrators only', () => {
     const page = settingsPages.find(entry => entry.name === SLA_POLICIES_ROUTE);
-    expect(page).toMatchObject({ path: 'sla', permissions: ['administrator'], component: SlaPoliciesPage });
+    expect(page).toMatchObject({ path: 'sla-policies', permissions: ['administrator'], component: SlaPoliciesPage });
     expect(page.label()).toBe('SLA');
   });
 

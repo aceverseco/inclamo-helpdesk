@@ -102,8 +102,8 @@ test.describe('Administrators define SLA policies', () => {
     await signIn(page, users.admin);
     // The page is reached from the Settings group of the sidebar.
     await page.goto(`/app/accounts/${account}/settings/order-actions`);
-    await page.locator(`a[href$="/settings/sla"]`).first().click();
-    await expect(page).toHaveURL(/\/settings\/sla$/);
+    await page.locator(`a[href$="/settings/sla-policies"]`).first().click();
+    await expect(page).toHaveURL(/\/settings\/sla-policies$/);
     await page.getByTestId('inclamo-sla-page').waitFor();
 
     await page.getByTestId('inclamo-sla-add').click();
@@ -126,7 +126,7 @@ test.describe('Administrators define SLA policies', () => {
 
   test('Policy without a target', async ({ page }) => {
     await signIn(page, users.admin);
-    await page.goto(`/app/accounts/${account}/settings/sla`);
+    await page.goto(`/app/accounts/${account}/settings/sla-policies`);
     await page.getByTestId('inclamo-sla-page').waitFor();
 
     await page.getByTestId('inclamo-sla-add').click();
@@ -140,14 +140,14 @@ test.describe('Administrators define SLA policies', () => {
 
   test('Agent cannot manage policies', async ({ page }) => {
     await signIn(page, users.agent);
-    await page.goto(`/app/accounts/${account}/settings/sla`);
+    await page.goto(`/app/accounts/${account}/settings/sla-policies`);
 
-    await expect(page).not.toHaveURL(/\/settings\/sla$/, { timeout: 20_000 });
+    await expect(page).not.toHaveURL(/\/settings\/sla-policies$/, { timeout: 20_000 });
     await expect(page.getByTestId('inclamo-sla-page')).toHaveCount(0);
     // The Settings group of the sidebar, opened if the agent has one, has no entry for the page.
     const settings = page.getByRole('button', { name: /^Settings$/ });
     if (await settings.count()) await settings.first().click();
-    await expect(page.locator('a[href$="/settings/sla"]')).toHaveCount(0);
+    await expect(page.locator('a[href$="/settings/sla-policies"]')).toHaveCount(0);
     expect((await agent.get('/inclamo/sla_policies')).status).toBe(403);
   });
 });
@@ -335,7 +335,7 @@ test.describe('Summary per policy', () => {
     await eventually(() => labelsOf(unanswered.id), labels => labels.includes(LABEL), { timeout: 60_000 });
 
     await signIn(page, users.admin);
-    await page.goto(`/app/accounts/${account}/settings/sla`);
+    await page.goto(`/app/accounts/${account}/settings/sla-policies`);
     const summary = page.getByTestId(`inclamo-sla-summary-${watched.id}`);
     await expect(summary).toContainText('2 conversations');
     await expect(summary).toContainText('first response: 50 % met');
