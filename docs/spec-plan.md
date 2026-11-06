@@ -28,7 +28,7 @@ telephony providers other than Telnyx, Chatwoot Enterprise features.
   files are not edited for features.
 - Our UI lives in our own components. Where Chatwoot's dashboard has no hook
   for a surface, a slice may take a small seam in the core UI; each seam is
-  recorded in that slice's design and proposed upstream.
+  recorded in that slice's design and carried as a patch in `patches/`.
 - We ship our own image: the official CE tag plus `custom/` plus built assets.
 - Everything else (Shopify access, classifier, AI connector, MCP server,
   installer) runs next to Chatwoot as our services and talks to it over its

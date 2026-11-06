@@ -17,7 +17,7 @@ See `proposal.md` for motivation and the settled items (action set, native sideb
 
 **Goals:**
 - The whole backend of this change in `custom/`, with no edit to a Chatwoot core Ruby file.
-- One seam in the dashboard, generic enough to carry later sections, proposed upstream.
+- One seam in the dashboard, generic enough to carry later sections, carried as a patch.
 - A store connection that the hosted edition can later satisfy with OAuth without touching the panel.
 - No order or customer data at rest in the helpdesk beyond the conversation attributes named in the spec.
 
@@ -35,7 +35,7 @@ See `proposal.md` for motivation and the settled items (action set, native sideb
 
 **D1. Backend as a `custom/` overlay with its own loader, routes and migrations.** Two small files are added to Chatwoot's tree, neither replacing a file of Chatwoot's: `config/initializers/00_inclamo_overlay.rb`, which hands over to `custom/config/overlay.rb`, and `lib/tasks/inclamo_overlay.rake`, which loads `custom/lib/tasks/*.rake` (rake collects tasks before the application initializes, so an initializer cannot register them). `custom/config/overlay.rb` pushes `custom/app/*` and `custom/lib` into the main autoloader, prepends `custom/config/routes.rb` to the route set, adds the overlay's locales and keeps `inclamo_` tables out of Chatwoot's schema dump. Our tables are prefixed `inclamo_`.
 - *Migrations are recorded apart from Chatwoot's.* `custom/db/migrate` is run by our own migration context with its own record table, `inclamo_schema_migrations`, hooked after every task with which Chatwoot prepares its database: `db:migrate`, `db:chatwoot_prepare`, `db:setup`, `db:prepare` and `db:test:prepare`. (`db:chatwoot_prepare` on a server without a database runs `db:setup` and never reaches `db:migrate`; the end-to-end run on a fresh stack caught the first installation coming up without the overlay's tables.) Reason, found while building this: a fresh install loads Chatwoot's `schema.rb`, and Rails then marks every known migration older than that schema as already run; in a shared record an overlay migration older than the next Chatwoot release would be marked as run without its table being created. Alternative, appending `custom/db/migrate` to Chatwoot's migration paths: rejected for that reason. Alternative, putting migrations and routes into Chatwoot's own `db/migrate` and `config/routes.rb` as its paid editions do: rejected because every such file is a merge conflict waiting for the next upstream release.
-- *Two empty namespaces.* Chatwoot's extension hook walks `Enterprise` and `Custom` whenever `custom/` exists and raises when either is not defined at all (v4.19.1, `false&.const_defined?` in `01_inject_enterprise_edition_module.rb`); upstream never meets this because its `custom/` only exists next to `enterprise/`. The overlay defines both as empty modules. The one-line fix is a candidate for an upstream pull request.
+- *Two empty namespaces.* Chatwoot's extension hook walks `Enterprise` and `Custom` whenever `custom/` exists and raises when either is not defined at all (v4.19.1, `false&.const_defined?` in `01_inject_enterprise_edition_module.rb`); upstream never meets this because its `custom/` only exists next to `enterprise/`. The overlay defines both as empty modules.
 
 **D2. Our own API namespace.** `/api/v1/accounts/:account_id/inclamo/shopify/...`: `connection` (show, create, recheck, destroy), `customers` (match, choose), `orders` (list, show, lookup by number), `orders/:id/cancel|refund|address|replacement`, `conversations/:id/order` (mark, clear), `order_roles` (list, give, take). Authentication and account scoping reuse Chatwoot's base controllers by inheritance, not by editing them.
 
@@ -51,7 +51,7 @@ See `proposal.md` for motivation and the settled items (action set, native sideb
 
 **D8. Record of actions.** Table `inclamo_order_actions`: account, conversation, agent, order id and number, action, parameters without personal data (amounts, reason, flags; never the address), outcome (`accepted`, `refused`, `unknown`), Shopify's message, timestamps. The private note is created through Chatwoot's own message builder as the acting agent, so it appears in the timeline like any note. Chatwoot CE has no audit log; this table is ours.
 
-**D9. One dashboard seam: a registry of sidebar sections.** `ContactPanel.vue` gets one extra branch that renders any section found in a registry, inside the same accordion wrapper as the built-in sections; `useUISettings.js` appends the registry's names to the default order. Our components, store module, API client and locale strings live in a directory of our own and are reached only through the registry file. Two core files touched, both by a few lines. Alternative: a Dashboard App iframe; rejected for this feature (orders and messages must be visible together).
+**D9. One dashboard seam: a registry of sidebar sections.** `ContactPanel.vue` gets one extra branch that renders any section found in a registry, inside the same accordion wrapper as the built-in sections; `useUISettings.js` appends the registry's names to the default order. Our components, store module, API client and locale strings live in a directory of our own and are reached only through the registry file. Two core files touched, both by a few lines. Alternative: a Dashboard App iframe; rejected for this feature (orders and messages must be visible together). The seam stays a patch in `patches/`: decided on 2026-11-06 that nothing is proposed to the Chatwoot repository, neither the registry nor the fix for the namespaces in D1.
 
 **D10. The connection form lives in the panel for now.** Not connected: administrators see "Connect Shopify" in the section, which opens a dialog with the domain, the credentials (client ID and secret, or a legacy token) and the list of scopes to grant. This avoids a second seam (settings navigation) in this slice.
 
@@ -71,7 +71,7 @@ See `proposal.md` for motivation and the settled items (action set, native sideb
 
 ## Risks / Trade-offs
 
-- [Upstream rewrites `ContactPanel.vue`] → the seam is two small patches; CI catches a failed apply at build time; the registry is proposed upstream so the patch can disappear.
+- [Upstream rewrites `ContactPanel.vue`] → the seam is two small patches; CI catches a failed apply at build time, and the patch is redone for that release.
 - [Upstream removes or renames a hook our overlay relies on] → this slice prepends nothing in core classes (own controllers, own tables, Chatwoot's public builders), so its exposure is the base controller and the message builder interfaces; covered by tests on every upstream tag.
 - [A wrong refund is money gone] → confirmation with amount and destination, refusal above the refundable, idempotency, action record. No amount limit for humans in this slice is a deliberate non-goal.
 - [Token leak] → encrypted at rest, never returned, never logged; connection refused without encryption keys.

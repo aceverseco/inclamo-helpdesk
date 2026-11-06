@@ -77,4 +77,3 @@
 - [x] 10.1 Write the merchant guide: creating the custom app in the Dev Dashboard, the scopes to grant, where to find the client ID and secret, what the limited mode means; verify by following it on the development store from scratch
 - [x] 10.2 Record in the design what the end-to-end runs showed for the items left open: whether a Dev Dashboard custom app can take `read_all_orders`, how completing a zero-total draft behaves and which notification the store sends, and whether an app without protected customer data is possible on a development store
 - [ ] 10.3 Check once on a real Basic-plan store what a merchant's own custom app receives and whether the free replacement works there; update the design and the limited-mode scenarios if the result differs
-- [ ] 10.4 Open the upstream proposal for the sidebar section registry in the Chatwoot repository and link it from the design
