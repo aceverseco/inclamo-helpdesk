@@ -68,7 +68,8 @@ module Inclamo
           return { marked_order: nil }
         end
         marker.mark!(node)
-        { marked_order: present_order(node) }
+        # With the values of the reply variables, for the dashboard's editor.
+        { marked_order: present_order(node).merge(variables: OrderVariables.new(node).to_h) }
       end
 
       # Actions of this conversation that are not settled yet: a cancellation

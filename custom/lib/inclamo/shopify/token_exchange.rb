@@ -9,13 +9,13 @@ module Inclamo
       Result = Struct.new(:access_token, :expires_at, keyword_init: true)
       TIME_LIMIT = 10
 
-      def self.call(domain:, client_id:, client_secret:)
+      def self.call(domain:, client_id:, client_secret:, time_limit: TIME_LIMIT)
         raise Error::InvalidDomain, 'not a myshopify.com domain' unless Shopify.valid_domain?(domain)
 
         uri = URI.join(Shopify.base_url(domain), '/admin/oauth/access_token')
         body = URI.encode_www_form(grant_type: 'client_credentials', client_id: client_id, client_secret: client_secret)
         headers = { 'Content-Type' => 'application/x-www-form-urlencoded', 'Accept' => 'application/json', 'X-Shopify-Shop-Domain' => domain }
-        result_of(Http.post(uri, headers: headers, body: body, time_limit: TIME_LIMIT))
+        result_of(Http.post(uri, headers: headers, body: body, time_limit: time_limit))
       end
 
       def self.result_of(response)

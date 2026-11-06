@@ -11,16 +11,20 @@ module Inclamo
 
       attr_reader :record
 
-      def initialize(record)
+      # `time_limit` (seconds) bounds a whole query, a token renewal included;
+      # without it every request has its own default limit.
+      def initialize(record, time_limit: nil)
         @record = record
+        @time_limit = time_limit
       end
 
       def query(document_name, variables = {})
         raise Error::ConnectionBroken, 'the store connection needs attention' if record.broken?
 
+        @deadline = @time_limit && (now + @time_limit)
         renewed = false
         begin
-          Client.new(domain: record.shop_domain, access_token: access_token).query(document_name, variables)
+          Client.new(domain: record.shop_domain, access_token: access_token, **remaining).query(document_name, variables)
         rescue Error::Unauthorized
           # A refused request was not executed, so one retry with a fresh token is safe.
           if record.client_credentials? && !renewed
@@ -30,6 +34,8 @@ module Inclamo
           end
           broken!
           raise
+        ensure
+          @deadline = nil
         end
       end
 
@@ -55,6 +61,15 @@ module Inclamo
 
       private
 
+      def now
+        Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      end
+
+      # What is left of the time limit of the query in progress, if it has one.
+      def remaining
+        @deadline ? { time_limit: @deadline - now } : {}
+      end
+
       def credentials
         base = { domain: record.shop_domain }
         record.client_credentials? ? base.merge(client_id: record.client_id, client_secret: record.client_secret) : base.merge(access_token: record.access_token)
@@ -69,7 +84,7 @@ module Inclamo
           # Another process may have renewed it while we waited for the lock.
           next if !force && token_fresh?
 
-          exchange = TokenExchange.call(domain: record.shop_domain, client_id: record.client_id, client_secret: record.client_secret)
+          exchange = TokenExchange.call(domain: record.shop_domain, client_id: record.client_id, client_secret: record.client_secret, **remaining)
           record.update!(access_token: exchange.access_token, token_expires_at: exchange.expires_at)
         end
       rescue Error::Unauthorized

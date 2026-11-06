@@ -6,6 +6,7 @@ import InclamoAPI from '../api';
 import OrderCard from './OrderCard.vue';
 import ConnectDialog from './ConnectDialog.vue';
 import { ORDER_ROLES_ROUTE } from '../routes';
+import { notePanel } from '../orderState';
 import { t } from '../i18n';
 import { money } from '../format';
 
@@ -42,6 +43,7 @@ const load = async () => {
     const { data } = await InclamoAPI.getPanel(props.conversationId);
     panel.value = data;
     orders.value = data.orders || [];
+    notePanel(props.conversationId, data);
   } catch (error) {
     failed.value = true;
   } finally {
@@ -63,6 +65,7 @@ const loadMore = async () => {
 const apply = data => {
   panel.value = data;
   orders.value = data.orders || [];
+  notePanel(props.conversationId, data);
 };
 
 const findOrder = async () => {

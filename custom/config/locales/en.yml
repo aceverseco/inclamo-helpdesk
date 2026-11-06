@@ -13,6 +13,24 @@ en:
         orders_refused: Shopify refuses this app the store's orders. In the Dev Dashboard open the app's Distribution, choose custom distribution, then try again.
         shop_unavailable: This store cannot be reached. Check the domain.
         store_unreachable: Shopify did not answer. Try again in a moment.
+    # The words for an order's payment and fulfilment status, in the panel and
+    # in the reply variables. Keys are Shopify's display statuses.
+    order_statuses:
+      PAID: Paid
+      PENDING: Payment pending
+      AUTHORIZED: Authorized
+      PARTIALLY_PAID: Partially paid
+      PARTIALLY_REFUNDED: Partially refunded
+      REFUNDED: Refunded
+      VOIDED: Voided
+      EXPIRED: Expired
+      FULFILLED: Shipped
+      UNFULFILLED: Not shipped
+      PARTIALLY_FULFILLED: Partially shipped
+      IN_PROGRESS: In progress
+      ON_HOLD: On hold
+      SCHEDULED: Scheduled
+      RESTOCKED: Restocked
     order_roles:
       errors:
         forbidden: Only an administrator can decide who acts on orders.

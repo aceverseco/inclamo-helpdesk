@@ -42,6 +42,9 @@ export const order = (overrides = {}) => ({
   cancelled_at: null,
   financial_status: 'PAID',
   fulfillment_status: 'UNFULFILLED',
+  // The words for the two statuses come from the server (one table for the panel and the reply variables).
+  financial_status_text: 'Paid',
+  fulfillment_status_text: 'Not shipped',
   currency: 'EUR',
   total: { amount: '54.0', currency: 'EUR' },
   refunded: { amount: '0.0', currency: 'EUR' },

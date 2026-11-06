@@ -87,23 +87,6 @@
       "nothing_to_refund": "Nothing left to refund."
     }
   },
-  "STATUS": {
-    "PAID": "Paid",
-    "PENDING": "Payment pending",
-    "AUTHORIZED": "Authorized",
-    "PARTIALLY_PAID": "Partially paid",
-    "PARTIALLY_REFUNDED": "Partially refunded",
-    "REFUNDED": "Refunded",
-    "VOIDED": "Voided",
-    "EXPIRED": "Expired",
-    "FULFILLED": "Shipped",
-    "UNFULFILLED": "Not shipped",
-    "PARTIALLY_FULFILLED": "Partially shipped",
-    "IN_PROGRESS": "In progress",
-    "ON_HOLD": "On hold",
-    "SCHEDULED": "Scheduled",
-    "RESTOCKED": "Restocked"
-  },
   "DIALOG": {
     "CLOSE": "Close",
     "BACK": "Back",
@@ -197,5 +180,16 @@
       "LOADING": "Loading the team…",
       "FAILED": "The list could not be loaded. Reload the page to try again."
     }
+  },
+  "REPLY_VARIABLES": {
+    "number": "Order number",
+    "date": "Date the order was placed",
+    "total": "Order total with its currency",
+    "payment_status": "Payment status of the order",
+    "fulfillment_status": "Shipping status of the order",
+    "tracking_number": "Tracking number of the first shipment",
+    "tracking_link": "Tracking link of the first shipment",
+    "status_link": "Order status page for the customer",
+    "items": "Items of the order, one per line"
   }
 }

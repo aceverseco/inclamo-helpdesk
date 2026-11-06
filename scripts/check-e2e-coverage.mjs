@@ -3,22 +3,33 @@
 // e2e/tests, and fails when a scenario has no test or a test names a scenario
 // that does not exist.
 //
+// A change counts from its first ticked task: one that is only proposed has
+// no code to test yet. The changes left out are printed.
+//
 //   node scripts/check-e2e-coverage.mjs [directory with specs/<capability>/spec.md]
+//   E2E_COVERAGE_ROOT=<dir> overrides the repository root (used to try the check itself)
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const root = process.env.E2E_COVERAGE_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..');
 const changes = join(root, 'openspec', 'changes');
+const started = name => {
+  const tasks = join(changes, name, 'tasks.md');
+  return existsSync(tasks) && /^\s*- \[x\] /im.test(readFileSync(tasks, 'utf8'));
+};
+const proposed = existsSync(changes) ? readdirSync(changes).filter(name => name !== 'archive' && existsSync(join(changes, name, 'specs'))) : [];
+const skipped = process.argv[2] ? [] : proposed.filter(name => !started(name));
 const specsDirs = process.argv[2]
   ? [process.argv[2]]
-  : [join(root, 'openspec', 'specs'), ...(existsSync(changes) ? readdirSync(changes).filter(name => name !== 'archive').map(name => join(changes, name, 'specs')) : [])].filter(existsSync);
+  : [join(root, 'openspec', 'specs'), ...proposed.filter(started).map(name => join(changes, name, 'specs'))].filter(existsSync);
 
 // Which test file carries which capability; a file may be flat (tests named
 // after scenarios) or grouped by requirement (describe blocks).
 const FILES = {
   'shopify-connection': ['shopify-connection.spec.mjs'],
   'conversation-order-panel': ['order-panel-reading.spec.mjs', 'order-panel-actions.spec.mjs'],
+  'reply-order-variables': ['reply-order-variables.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each
@@ -76,6 +87,7 @@ for (const name of Object.keys(ELSEWHERE)) {
   if (!scenarios.some(entry => key(entry) === name)) problems.push(`the exception "${name}" names no scenario`);
 }
 
+if (skipped.length > 0) console.log(`not started, left out: ${skipped.join(', ')}`);
 if (problems.length > 0) {
   console.error(problems.join('\n'));
   process.exit(1);
