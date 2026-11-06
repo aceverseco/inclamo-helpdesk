@@ -101,6 +101,9 @@ module Inclamo
         # Units of a line that have not shipped, spread over the locations
         # that keep them, in the order the store lists its fulfilment orders.
         def cancelled(line_id, units)
+          # Nothing waits to ship: the fulfilment orders are not asked for.
+          return [] unless units.positive?
+
           entries = []
           (assigned_locations[line_id] || []).each do |place|
             taken = [units, place[:left]].min
