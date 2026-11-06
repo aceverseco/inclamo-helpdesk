@@ -17,5 +17,5 @@
 
 - [x] 3.1 Add `macro-order-actions` to the coverage check's capability map with `e2e/tests/macro-order-actions.spec.mjs`; seed orders for refund, shipping refund, cancel and replacement; verify the seed and the replacement orders are removed after the run
 - [x] 3.2 Write the eleven tests named after the scenarios, checking refunds, cancellation and the new order through the Admin API; verify they pass on the stand
-- [ ] 3.3 Run the full suite in CI on an `e2e/**` branch; verify all tests pass and the log holds no token-shaped string and no store domain
+- [x] 3.3 Run the full suite in CI on an `e2e/**` branch; verify all tests pass and the log holds no token-shaped string and no store domain
 - [x] 3.4 Describe the steps and their fixed behaviour in `docs/`; verify each step of the spec is listed
