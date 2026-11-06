@@ -16,6 +16,7 @@ query seeded_order($id: ID!) {
     }
     shippingAddress { address1 zip city }
     fulfillments(first: 5) { location { id name } }
+    fulfillmentOrders(first: 5) { nodes { assignedLocation { name location { id } } } }
     lineItems(first: 20) { nodes { title quantity } }
   }
 }

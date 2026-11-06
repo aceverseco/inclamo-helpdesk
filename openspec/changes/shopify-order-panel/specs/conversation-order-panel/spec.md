@@ -102,7 +102,7 @@ The agent SHALL be able to cancel an order that the store allows to be cancelled
 - **THEN** the action is not offered, or if the state changed meanwhile, the store's refusal is shown in words and nothing else changes
 
 ### Requirement: Refund an order fully or partly
-The agent SHALL be able to refund an order: the full remaining amount, selected line items with quantities, shipping, or a custom amount up to what remains refundable. The confirmation SHALL show the amount and currency, where the money goes, whether items are restocked and whether the customer is notified. An amount above what remains refundable SHALL be refused before the store is called. One confirmation SHALL result in at most one refund, also when the request is repeated after a network failure. When the agent asks for the items to be put back in stock, they SHALL go back to a location of the store, whether they have shipped or not: its only location, or the one the agent chooses when the store has several; with several locations the refund SHALL NOT be confirmable until one is chosen. The confirmation SHALL name the location. Putting items back in stock needs the scope `read_locations`: without it the refund SHALL remain available, the items SHALL stay out of stock, and the confirmation SHALL say so and name the scope.
+The agent SHALL be able to refund an order: the full remaining amount, selected line items with quantities, shipping, or a custom amount up to what remains refundable. The confirmation SHALL show the amount and currency, where the money goes, whether items are restocked and whether the customer is notified. An amount above what remains refundable SHALL be refused before the store is called. One confirmation SHALL result in at most one refund, also when the request is repeated after a network failure. When the agent asks for the items to be put back in stock, they SHALL go back into stock without the agent choosing where: items that have shipped at the location the store proposes for their return, items that have not shipped at the location that keeps them for shipping. The confirmation SHALL name the location. An item the store names no location for SHALL be refunded without restocking, and the confirmation SHALL say so. Putting items back in stock needs the scopes `read_locations` and `read_merchant_managed_fulfillment_orders`: without either the refund SHALL remain available, the items SHALL stay out of stock, and the confirmation SHALL say so and name the missing scope.
 
 #### Scenario: Partial refund by amount
 - **WHEN** the agent refunds 20.00 EUR of an order with 54.00 EUR refundable and confirms
@@ -110,11 +110,15 @@ The agent SHALL be able to refund an order: the full remaining amount, selected 
 
 #### Scenario: Shipped item put back in stock
 - **WHEN** the agent refunds an item that has shipped, asks for it to be put back in stock, and confirms
-- **THEN** the confirmation named the store's location, and the store records the refund with the item returned to that location
+- **THEN** the confirmation named the location the item was shipped from, nothing more was asked of the agent, and the store records the refund with the item returned to that location
 
-#### Scenario: Store with several locations
-- **WHEN** the store has several locations and the agent refunds an item that has not shipped, with restocking
-- **THEN** the refund cannot be confirmed until the agent chooses a location, and the item goes back into stock at the chosen one
+#### Scenario: Unshipped item put back in stock
+- **WHEN** the agent refunds an item that has not shipped, asks for it to be put back in stock, and confirms
+- **THEN** the confirmation named the location that kept the item, and the store records the refund with the item back in stock there
+
+#### Scenario: Item the store names no location for
+- **WHEN** the agent refunds, with restocking, an item that has not shipped and whose location the store does not show
+- **THEN** the confirmation says the item stays out of stock, and the refund is made without restocking it
 
 #### Scenario: Locations scope missing
 - **WHEN** the connection lacks `read_locations` and the agent refunds an item with restocking

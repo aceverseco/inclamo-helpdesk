@@ -21,7 +21,7 @@ in the store's admin.
 5. **Scopes**: paste this list.
 
    ```
-   read_customers,read_orders,write_orders,write_draft_orders,read_products,read_locations
+   read_customers,read_orders,write_orders,write_draft_orders,read_products,read_locations,read_merchant_managed_fulfillment_orders
    ```
 
 6. **Create app**, then **Release**.
@@ -36,12 +36,13 @@ What each scope is for:
 | `write_draft_orders` | sending a free replacement | the replacement is unavailable |
 | `read_products` | sending a free replacement | the replacement is unavailable |
 | `read_locations` | putting refunded items back in stock | a refund still works; the items stay out of stock |
+| `read_merchant_managed_fulfillment_orders` | putting refunded items back in stock | a refund still works; the items stay out of stock |
 
 When you approve `read_locations`, Shopify describes it as access to your
 locations and to the store owner's phone number and physical address. The
-helpdesk reads only the names of your locations.
+helpdesk reads only which location a refunded item goes back to.
 
-You can leave out the last four and add them later: the panel shows orders
+You can leave out the last five and add them later: the panel shows orders
 with the first two alone, and names the missing scope next to each action it
 cannot offer.
 

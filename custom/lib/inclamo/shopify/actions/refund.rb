@@ -12,13 +12,16 @@ module Inclamo
       # location, also in a store that has one; units that have not shipped go
       # back as a cancellation and units that have shipped as a return, and a
       # unit sent as the wrong kind is silently not restocked. So a line is
-      # sent as up to two entries, both at the store's only location or the one
-      # the agent chose. Locations can only be read with read_locations;
-      # without it nothing is restocked.
+      # sent as several entries. The agent does not choose where: shipped
+      # units go back to the location the store proposes (the one they were
+      # shipped from), units that have not shipped to the location their
+      # fulfilment order keeps them at. A unit the store names no location for
+      # is refunded without restocking. Reading these needs two scopes;
+      # without either nothing is restocked.
       class Refund < Base
         MODES = %w[full items amount].freeze
-        RECORDED = %w[mode amount items shipping restock notify location_id].freeze
-        LOCATIONS_SCOPE = 'read_locations'
+        RECORDED = %w[mode amount items shipping restock notify].freeze
+        RESTOCK_SCOPES = %w[read_locations read_merchant_managed_fulfillment_orders].freeze
 
         # What the confirmation shows: the amount, its currency and where the money goes.
         def preview
@@ -32,12 +35,11 @@ module Inclamo
 
         def call
           plan = build_plan
-          raise Refused, 'location_needed' if plan[:items].any? { |item| item[:restock] && item[:locationId].nil? }
-
           answer = @store.query(:refund_create, { key: @record.action_id, input: input_for(plan) })['refundCreate']
           user_errors!(answer['userErrors'])
           refunded = answer.dig('refund', 'totalRefundedSet', 'shopMoney') || {}
-          remember!(refund_id: answer.dig('refund', 'id'), refunded: "#{refunded['amount'] || plan[:total].to_s('F')} #{refunded['currencyCode'] || currency}")
+          remember!(refund_id: answer.dig('refund', 'id'), refunded: "#{refunded['amount'] || plan[:total].to_s('F')} #{refunded['currencyCode'] || currency}",
+                    restocked_at: restocked_at(plan))
           :accepted
         end
 
@@ -82,45 +84,89 @@ module Inclamo
         end
 
         # One refunded line as the entries the store takes: units that have not
-        # shipped are counted first.
+        # shipped are counted first, each kind at its location.
         def entries_for(line, quantity)
           base = { lineItemId: line['id'] }
           return [base.merge(quantity: quantity, restockType: 'NO_RESTOCK')] unless params['restock'] == true
-          return [base.merge(quantity: quantity, restockType: 'NO_RESTOCK', left_out: true)] unless locations_readable?
+          return [base.merge(quantity: quantity, restockType: 'NO_RESTOCK', left_out: true)] if missing_restock_scopes.any?
 
-          location = restock_location&.dig('id')
           unshipped = [line['unfulfilledQuantity'].to_i, quantity].min
-          [['CANCEL', unshipped], ['RETURN', quantity - unshipped]].filter_map do |kind, units|
-            base.merge(quantity: units, restockType: kind, locationId: location, restock: true) if units.positive?
+          cancelled(line['id'], unshipped) + [base.merge(quantity: quantity - unshipped, restockType: 'RETURN', restock: true)].select { |entry| entry[:quantity].positive? }
+        end
+
+        def missing_restock_scopes
+          RESTOCK_SCOPES - @store.record.scopes
+        end
+
+        # Units of a line that have not shipped, spread over the locations
+        # that keep them, in the order the store lists its fulfilment orders.
+        def cancelled(line_id, units)
+          entries = []
+          (assigned_locations[line_id] || []).each do |place|
+            taken = [units, place[:left]].min
+            next unless taken.positive?
+
+            place[:left] -= taken
+            units -= taken
+            entries << { lineItemId: line_id, quantity: taken, restockType: 'CANCEL', restock: true, locationId: place[:id], location: place[:name] }
+          end
+          entries << { lineItemId: line_id, quantity: units, restockType: 'NO_RESTOCK', unplaced: true } if units.positive?
+          entries
+        end
+
+        # line item id => [{ id:, name:, left: }], from the fulfilment orders.
+        def assigned_locations
+          @assigned_locations ||= begin
+            orders = Array(@store.query(:refund_assigned_locations, { id: @record.order_id }).dig('order', 'fulfillmentOrders', 'nodes'))
+            orders.each_with_object({}) do |order, found|
+              location = order['assignedLocation'] || {}
+              next unless location.dig('location', 'id')
+
+              Array(order.dig('lineItems', 'nodes')).each do |line|
+                next unless line['remainingQuantity'].to_i.positive?
+
+                (found[line.dig('lineItem', 'id')] ||= []) << { id: location.dig('location', 'id'), name: location['name'], left: line['remainingQuantity'].to_i }
+              end
+            end
           end
         end
 
-        def locations_readable?
-          @store.record.scopes.include?(LOCATIONS_SCOPE)
+        # Gives every returned entry the location the store proposes for it.
+        def placed(items)
+          returned = items.select { |item| item[:restock] && item[:restockType] == 'RETURN' }
+          return items if returned.empty?
+
+          proposed = return_locations(returned)
+          items.map do |item|
+            next item unless returned.include?(item)
+
+            location = proposed[item[:lineItemId]]
+            next item.except(:restock).merge(restockType: 'NO_RESTOCK', unplaced: true) unless location
+
+            item.merge(locationId: location['id'], location: location['name'])
+          end
         end
 
-        def locations
-          @locations ||= Array(@store.query(:locations).dig('locations', 'nodes'))
+        # line item id => the location the store would return it to.
+        def return_locations(entries)
+          variables = { id: @record.order_id, refundLineItems: entries.map { |entry| entry.slice(:lineItemId, :quantity, :restockType) } }
+          suggested = @store.query(:refund_return_locations, variables).dig('order', 'suggestedRefund', 'refundLineItems')
+          Array(suggested).select { |item| item['restockType'] == 'RETURN' && item['location'] }.to_h { |item| [item.dig('lineItem', 'id'), item['location']] }
         end
 
-        # The location the agent chose, or the store's only one. Nil when the
-        # store has several and none is chosen yet: the confirmation asks.
-        def restock_location
-          wanted = params['location_id'].presence
-          return locations.find { |location| location['id'] == wanted } || (raise Refused, 'unknown_location') if wanted
-
-          locations.first if locations.size == 1
+        def restocked_at(plan)
+          plan[:items].filter_map { |item| item[:location] }.uniq
         end
 
         # What the confirmation says about stock: how many lines go back and
-        # where, or how many stay out for want of the scope.
+        # where, how many stay out for want of a scope, and how many because
+        # the store names no location for them.
         def restock_preview(plan)
-          restocked = plan[:items].select { |item| item[:restock] }.pluck(:lineItemId).uniq.size
-          left_out = plan[:items].count { |item| item[:left_out] }
+          lines = ->(mark) { plan[:items].select { |item| item[mark] }.pluck(:lineItemId).uniq.size }
           {
-            restocked_items: restocked, locations: restocked.positive? ? locations.map { |location| location.slice('id', 'name') } : [],
-            location_id: (restock_location&.dig('id') if restocked.positive?),
-            left_out_items: left_out, missing_scope: (LOCATIONS_SCOPE if left_out.positive?)
+            restocked_items: lines.call(:restock), restock_locations: restocked_at(plan),
+            left_out_items: lines.call(:left_out), missing_scopes: (lines.call(:left_out).positive? ? missing_restock_scopes : []),
+            unplaced_items: lines.call(:unplaced)
           }
         end
 
@@ -137,17 +183,18 @@ module Inclamo
           raise Refused, 'nothing_to_refund' if transactions.empty?
 
           {
-            items: items || (mode == 'full' ? suggested_items(suggestion) : []),
+            items: placed(items || (mode == 'full' ? suggested_items(suggestion) : [])),
             shipping: (mode == 'full' || (mode == 'items' && params['shipping'] == true)) && suggestion.dig('shipping', 'maximumRefundableSet', 'shopMoney', 'amount').to_d.positive?,
             transactions: transactions, total: transactions.sum { |transaction| BigDecimal(transaction[:amount]) }
           }
         end
 
+        # Everything the store would refund, line by line. The store may list
+        # a line twice (its shipped and its unshipped units): they are summed.
         def suggested_items(suggestion)
           lines = Array(@order.dig('lineItems', 'nodes')).index_by { |line| line['id'] }
-          Array(suggestion['refundLineItems']).flat_map do |item|
-            entries_for(lines[item.dig('lineItem', 'id')] || { 'id' => item.dig('lineItem', 'id') }, item['quantity'].to_i)
-          end
+          wanted = Array(suggestion['refundLineItems']).each_with_object(Hash.new(0)) { |item, sums| sums[item.dig('lineItem', 'id')] += item['quantity'].to_i }
+          wanted.flat_map { |id, quantity| entries_for(lines[id] || { 'id' => id }, quantity) }
         end
 
         # The store's proposal, or for a custom amount that amount spread over

@@ -145,9 +145,8 @@
       "GOES_TO": "{amount} back to {gateway}",
       "RESTOCKED": "{count} items go back in stock",
       "RETURNED_TO": "They go back to {location}.",
-      "CHOOSE_LOCATION": "Where do the items go back?",
-      "NO_LOCATION": "Choose a location",
-      "LEFT_OUT": "The items stay out of stock: the connected app lacks {scope}.",
+      "LEFT_OUT": "The items stay out of stock: the connected app lacks {scopes}.",
+      "UNPLACED": "{count} items stay out of stock: Shopify names no location for them.",
       "CALCULATE": "Calculate",
       "CONFIRM": "Refund {amount}"
     },
@@ -184,7 +183,7 @@
       "ACCESS_TOKEN": "Admin API access token",
       "SCOPES": "Access the app needs",
       "SCOPES_READ": "read_customers, read_orders: required",
-      "SCOPES_WRITE": "write_orders: cancel, refund, address. write_draft_orders and read_products: replacement orders. read_locations: putting refunded items back in stock.",
+      "SCOPES_WRITE": "write_orders: cancel, refund, address. write_draft_orders and read_products: replacement orders. read_locations and read_merchant_managed_fulfillment_orders: putting refunded items back in stock.",
       "CONFIRM": "Connect"
     },
     "ROLES": {
