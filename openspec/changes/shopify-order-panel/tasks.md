@@ -80,7 +80,7 @@
 
 ## 11. Refunded items back in stock
 
-- [ ] 11.1 Restock refunded items at a location of the store (the only one, or the chosen one), read with `read_locations`: unshipped units as a cancellation, shipped units as a return, a partly shipped line as both; without the scope refund without restocking; verify by specs for one location, several, an unknown one, a partly shipped line and the missing scope
-- [ ] 11.2 Show in the refund confirmation where the items go back, ask for the location when the store has several, and say when the scope is missing; verify by component tests
-- [ ] 11.3 Add `read_locations` to the helpdesk test apps and write the end-to-end tests of the three scenarios (shipped item put back in stock, store with several locations, locations scope missing)
-- [ ] 11.4 Add `read_locations` to the merchant guide and to the list of scopes in the connection form
+- [x] 11.1 Restock refunded items at a location of the store (the only one, or the chosen one), read with `read_locations`: unshipped units as a cancellation, shipped units as a return, a partly shipped line as both; without the scope refund without restocking; verify by specs for one location, several, an unknown one, a partly shipped line and the missing scope
+- [x] 11.2 Show in the refund confirmation where the items go back, ask for the location when the store has several, and say when the scope is missing; verify by component tests
+- [x] 11.3 Add `read_locations` to the helpdesk test apps and write the end-to-end tests of the three scenarios (shipped item put back in stock, store with several locations, locations scope missing)
+- [x] 11.4 Add `read_locations` to the merchant guide and to the list of scopes in the connection form
