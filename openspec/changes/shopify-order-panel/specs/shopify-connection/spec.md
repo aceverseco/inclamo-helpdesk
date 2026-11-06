@@ -43,7 +43,7 @@ The connection SHALL require the scopes `read_customers` and `read_orders`. A to
 - **THEN** nothing is saved, and the form names `read_orders` as missing
 
 ### Requirement: Write scopes decide which actions exist
-Each order action SHALL be available only when the connection holds the scope it needs: `write_orders` for cancel, refund and address change, `write_orders` together with `write_draft_orders` and `read_products` for the replacement order. An action whose scope is missing SHALL be shown as unavailable with the name of the missing scope, and a request to perform it SHALL be refused without calling Shopify.
+Each order action SHALL be available only when the connection holds the scope it needs: `write_orders` for cancel, refund and address change, `write_orders` together with `write_draft_orders` and `read_products` for the replacement order. Putting items back in stock during a refund additionally needs `read_locations`; its absence SHALL NOT make the refund unavailable. An action whose scope is missing SHALL be shown as unavailable with the name of the missing scope, and a request to perform it SHALL be refused without calling Shopify.
 
 #### Scenario: Read-only token
 - **WHEN** the connection holds only `read_customers` and `read_orders`

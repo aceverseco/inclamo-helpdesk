@@ -139,11 +139,15 @@
       "AMOUNT": "Amount ({currency})",
       "ABOVE": "At most {amount} can be refunded.",
       "SHIPPING": "Refund shipping",
-      "RESTOCK": "Put items that have not shipped back in stock",
+      "RESTOCK": "Put the items back in stock",
       "NOTIFY": "Notify the customer",
       "SUMMARY": "Refund {amount}",
       "GOES_TO": "{amount} back to {gateway}",
       "RESTOCKED": "{count} items go back in stock",
+      "RETURNED_TO": "They go back to {location}.",
+      "CHOOSE_LOCATION": "Where do the items go back?",
+      "NO_LOCATION": "Choose a location",
+      "LEFT_OUT": "The items stay out of stock: the connected app lacks {scope}.",
       "CALCULATE": "Calculate",
       "CONFIRM": "Refund {amount}"
     },
@@ -180,7 +184,7 @@
       "ACCESS_TOKEN": "Admin API access token",
       "SCOPES": "Access the app needs",
       "SCOPES_READ": "read_customers, read_orders: required",
-      "SCOPES_WRITE": "write_orders: cancel, refund, address. write_draft_orders and read_products: replacement orders.",
+      "SCOPES_WRITE": "write_orders: cancel, refund, address. write_draft_orders and read_products: replacement orders. read_locations: putting refunded items back in stock.",
       "CONFIRM": "Connect"
     },
     "ROLES": {

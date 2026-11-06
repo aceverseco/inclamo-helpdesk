@@ -77,3 +77,10 @@
 - [x] 10.1 Write the merchant guide: creating the custom app in the Dev Dashboard, the scopes to grant, where to find the client ID and secret, what the limited mode means; verify by following it on the development store from scratch
 - [x] 10.2 Record in the design what the end-to-end runs showed for the items left open: whether a Dev Dashboard custom app can take `read_all_orders`, how completing a zero-total draft behaves and which notification the store sends, and whether an app without protected customer data is possible on a development store
 - [ ] 10.3 Check once on a real Basic-plan store what a merchant's own custom app receives and whether the free replacement works there; update the design and the limited-mode scenarios if the result differs
+
+## 11. Refunded items back in stock
+
+- [ ] 11.1 Restock refunded items at a location of the store (the only one, or the chosen one), read with `read_locations`: unshipped units as a cancellation, shipped units as a return, a partly shipped line as both; without the scope refund without restocking; verify by specs for one location, several, an unknown one, a partly shipped line and the missing scope
+- [ ] 11.2 Show in the refund confirmation where the items go back, ask for the location when the store has several, and say when the scope is missing; verify by component tests
+- [ ] 11.3 Add `read_locations` to the helpdesk test apps and write the end-to-end tests of the three scenarios (shipped item put back in stock, store with several locations, locations scope missing)
+- [ ] 11.4 Add `read_locations` to the merchant guide and to the list of scopes in the connection form

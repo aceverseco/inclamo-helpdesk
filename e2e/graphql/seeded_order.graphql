@@ -9,8 +9,13 @@ query seeded_order($id: ID!) {
     note
     totalPriceSet { shopMoney { amount currencyCode } }
     totalRefundedSet { shopMoney { amount currencyCode } }
-    refunds(first: 20) { id totalRefundedSet { shopMoney { amount } } }
+    refunds(first: 20) {
+      id
+      totalRefundedSet { shopMoney { amount } }
+      refundLineItems(first: 10) { nodes { quantity restockType location { id name } } }
+    }
     shippingAddress { address1 zip city }
+    fulfillments(first: 5) { location { id name } }
     lineItems(first: 20) { nodes { title quantity } }
   }
 }

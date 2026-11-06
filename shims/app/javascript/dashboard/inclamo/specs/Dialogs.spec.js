@@ -138,6 +138,50 @@ describe('RefundDialog', () => {
     expect(wrapper.find('[data-testid="inclamo-refund-preview"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="dialog-confirm"]').attributes('disabled')).toBeDefined();
   });
+
+  const returning = extra => ({ data: { ...preview.data, restocked_items: 1, left_out_items: 0, ...extra } });
+  const calculateWithRestock = async wrapper => {
+    await wrapper.find('[data-testid="inclamo-refund-restock"]').setValue(true);
+    await wrapper.find('[data-testid="inclamo-refund-calculate"]').trigger('click');
+    await flush();
+  };
+
+  it('names the only location the items go back to, and sends it', async () => {
+    InclamoAPI.refundPreview.mockResolvedValue(returning({ locations: [{ id: 'gid://shopify/Location/1', name: 'Shop location' }], location_id: 'gid://shopify/Location/1' }));
+    InclamoAPI.performAction.mockResolvedValue(accepted);
+    const wrapper = await open(RefundDialog);
+    await calculateWithRestock(wrapper);
+
+    expect(wrapper.find('[data-testid="inclamo-refund-location"]').text()).toContain('Shop location');
+    expect(wrapper.find('[data-testid="inclamo-refund-location-choice"]').exists()).toBe(false);
+    await confirm(wrapper);
+    expect(sent()).toMatchObject({ action_name: 'refund', params: { mode: 'full', restock: true, location_id: 'gid://shopify/Location/1' } });
+  });
+
+  it('cannot be confirmed until a location is chosen when the store has several', async () => {
+    const locations = [{ id: 'gid://shopify/Location/1', name: 'Shop location' }, { id: 'gid://shopify/Location/2', name: 'Warehouse' }];
+    InclamoAPI.refundPreview.mockResolvedValue(returning({ locations, location_id: null }));
+    InclamoAPI.performAction.mockResolvedValue(accepted);
+    const wrapper = await open(RefundDialog);
+    await calculateWithRestock(wrapper);
+
+    expect(wrapper.find('[data-testid="dialog-confirm"]').attributes('disabled')).toBeDefined();
+    await wrapper.find('[data-testid="inclamo-refund-location-choice"]').setValue('gid://shopify/Location/2');
+    expect(wrapper.find('[data-testid="inclamo-refund-preview"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="dialog-confirm"]').attributes('disabled')).toBeUndefined();
+
+    await confirm(wrapper);
+    expect(sent()).toMatchObject({ params: { restock: true, location_id: 'gid://shopify/Location/2' } });
+  });
+
+  it('says that the items stay out of stock when the app cannot read locations', async () => {
+    InclamoAPI.refundPreview.mockResolvedValue(returning({ restocked_items: 0, locations: [], location_id: null, left_out_items: 1, missing_scope: 'read_locations' }));
+    const wrapper = await open(RefundDialog);
+    await calculateWithRestock(wrapper);
+
+    expect(wrapper.find('[data-testid="inclamo-refund-left-out"]').text()).toContain('read_locations');
+    expect(wrapper.find('[data-testid="dialog-confirm"]').attributes('disabled')).toBeUndefined();
+  });
 });
 
 describe('AddressDialog', () => {

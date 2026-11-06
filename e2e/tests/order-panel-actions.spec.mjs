@@ -31,10 +31,11 @@ test.beforeAll(async ({ playwright }) => {
   maya = await store.customer('Maya');
   noah = await store.customer('Noah');
   orders = {};
-  for (const [name, items] of [['view', 3], ['cancel', 1], ['refund', 1], ['address', 1], ['shipped', 1], ['replace', 3], ['stock', 2], ['lostRefund', 1], ['running', 1]]) {
+  for (const [name, items] of [['view', 3], ['cancel', 1], ['refund', 1], ['address', 1], ['shipped', 1], ['replace', 3], ['stock', 2], ['lostRefund', 1], ['running', 1], ['returns', 3]]) {
     orders[name] = await store.order(maya, { items });
   }
   await store.ship(orders.shipped, [0], { company: 'DHL Express', number: 'E2ED4', url: 'https://example.com/track/E2ED4' });
+  await store.ship(orders.returns, [0, 1], { company: 'DHL Express', number: 'E2ED5', url: 'https://example.com/track/E2ED5' });
   conversation = await admin.conversation(inbox, { name: 'Actions Example', email: maya.email });
 });
 
@@ -61,6 +62,8 @@ const act = (api, action, order, params, id = `e2e-${action}-${Date.now()}`) =>
 const refunded = async order => Number((await store.read(order)).totalRefundedSet.shopMoney.amount);
 const lastRecord = async () => (await admin.actions(conversation.id))[0];
 const calls = async operation => (await proxy.log()).filter(entry => entry.operation === operation);
+// What the store lists for the app of the merchant guide.
+const GUIDE_SCOPES = ['read_customers', 'read_orders', 'write_orders', 'write_draft_orders', 'read_draft_orders', 'read_products', 'read_locations'];
 
 test.describe('Order actions need a role given by an administrator', () => {
   test('Agent without the role', async ({ page }) => {
@@ -166,6 +169,74 @@ test.describe('Refund an order fully or partly', () => {
     expect(Number(held.totalRefundedSet.shopMoney.amount)).toBe(20);
     expect((await after.getByTestId('inclamo-order-refunds').innerText()).replace(/,/g, '')).toContain((orders.refund.total - 20).toFixed(2));
     expect((await admin.notes(conversation.id)).some(note => /^Refunded 20(\.0+)? \w+ on order /.test(note) && note.includes(orders.refund.number))).toBe(true);
+  });
+
+  // One item of the order that is kept for this, refunded with restocking, up
+  // to the confirmation. Its first two items have shipped, the third has not;
+  // a refunded item leaves the list.
+  const startReturn = async (page, index = 0) => {
+    const { card } = await open(page, users.admin, orders.returns.number);
+    await card.getByTestId('inclamo-action-refund').click();
+    await page.getByTestId('inclamo-refund-mode-items').check();
+    await page.getByTestId(`inclamo-refund-quantity-${index}`).fill('1');
+    await page.getByTestId('inclamo-refund-restock').check();
+    await page.getByTestId('inclamo-refund-calculate').click();
+    await expect(page.getByTestId('inclamo-refund-preview')).toBeVisible();
+  };
+  const returnsMade = async () => (await store.read(orders.returns)).refunds.map(refund => refund.refundLineItems.nodes[0]);
+  // The location the order was shipped from: one its items can go back to.
+  const place = async () => (await store.read(orders.returns)).fulfillments[0].location;
+
+  test('Shipped item put back in stock', async ({ page }) => {
+    const location = await place();
+    // The test store may have several locations: here it has this one only.
+    await proxy.rule({ match: { operation: 'locations' }, effect: 'patch', value: { patch: 'one_location', id: location.id } });
+    await startReturn(page);
+    await expect(page.getByTestId('inclamo-refund-location')).toContainText(location.name);
+    await expect(page.getByTestId('inclamo-refund-location-choice')).toHaveCount(0);
+    await confirm(page, /^Refund .+/);
+
+    await expect.poll(async () => (await returnsMade()).length, { timeout: 30_000 }).toBe(1);
+    expect((await returnsMade())[0]).toMatchObject({ quantity: 1, restockType: 'RETURN', location: { id: location.id } });
+  });
+
+  test('Store with several locations', async ({ page }) => {
+    const location = await place();
+    const before = (await returnsMade()).length;
+    await proxy.rule({ match: { operation: 'locations' }, effect: 'patch', value: { patch: 'second_location' } });
+    // Of the two items left, the second has not shipped.
+    await startReturn(page, 1);
+
+    const choice = page.getByTestId('inclamo-refund-location-choice');
+    await expect(choice).toBeVisible();
+    expect(await choice.locator('option').count()).toBeGreaterThanOrEqual(3);
+    await expect(choice).toHaveValue('');
+    await expect(page.getByRole('button', { name: /^Refund .+/ })).toBeDisabled();
+    expect((await returnsMade()).length).toBe(before);
+
+    await choice.selectOption({ label: location.name });
+    await confirm(page, /^Refund .+/);
+
+    await expect.poll(async () => (await returnsMade()).length, { timeout: 30_000 }).toBe(before + 1);
+    expect((await returnsMade()).at(-1)).toMatchObject({ quantity: 1, restockType: 'CANCEL', location: { id: location.id } });
+  });
+
+  test('Locations scope missing', async ({ page }) => {
+    const before = (await returnsMade()).length;
+    await proxy.rule({ match: { operation: 'shop_info' }, effect: 'patch', value: { patch: 'scopes', scopes: GUIDE_SCOPES.filter(scope => scope !== 'read_locations') } });
+    await admin.recheck();
+    await startReturn(page);
+
+    await expect(page.getByTestId('inclamo-refund-left-out')).toContainText('read_locations');
+    await expect(page.getByTestId('inclamo-refund-location')).toHaveCount(0);
+    await confirm(page, /^Refund .+/);
+
+    await expect.poll(async () => (await returnsMade()).length, { timeout: 30_000 }).toBe(before + 1);
+    expect((await returnsMade()).at(-1)).toMatchObject({ quantity: 1, restockType: 'NO_RESTOCK' });
+    expect(await calls('locations')).toEqual([]);
+
+    await proxy.reset();
+    await admin.recheck();
   });
 
   test('Amount above the refundable', async ({ page }) => {
@@ -298,8 +369,7 @@ test.describe('Duplicate an order as a free replacement', () => {
 
   // The store's answer is changed so that the app seems to lack one scope.
   const withoutScope = missing => async ({ page }) => {
-    const all = ['read_customers', 'read_orders', 'write_orders', 'write_draft_orders', 'read_draft_orders', 'read_products'];
-    const kept = all.filter(scope => scope !== missing && !(missing === 'write_draft_orders' && scope === 'read_draft_orders'));
+    const kept = GUIDE_SCOPES.filter(scope => scope !== missing && !(missing === 'write_draft_orders' && scope === 'read_draft_orders'));
     await proxy.rule({ match: { operation: 'shop_info' }, effect: 'patch', value: { patch: 'scopes', scopes: kept } });
     await admin.recheck();
     const { section, card } = await open(page, users.admin, orders.view.number);

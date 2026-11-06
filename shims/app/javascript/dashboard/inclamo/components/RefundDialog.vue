@@ -12,7 +12,7 @@ const props = defineProps({
 const emit = defineEmits(['done']);
 
 const frame = ref(null);
-const form = reactive({ mode: 'full', amount: '', shipping: false, restock: false, notify: false, quantities: {} });
+const form = reactive({ mode: 'full', amount: '', shipping: false, restock: false, notify: false, quantities: {}, location: '' });
 const preview = ref(null);
 const previewError = ref('');
 const calculating = ref(false);
@@ -31,8 +31,13 @@ const valid = computed(() => {
   return maximum.value > 0;
 });
 
+// Items go back in stock at a location: the store's only one, or a chosen one.
+const needsLocation = computed(() => (preview.value?.restocked_items || 0) > 0);
+const onlyLocation = computed(() => (preview.value?.locations?.length === 1 ? preview.value.locations[0] : null));
+
 const params = () => {
   const base = { mode: form.mode, restock: form.restock, notify: form.notify };
+  if (needsLocation.value && form.location) base.location_id = form.location;
   if (form.mode === 'amount') return { ...base, amount: String(form.amount) };
   if (form.mode === 'items') return { ...base, items: chosenItems.value, shipping: form.shipping };
   return base;
@@ -40,7 +45,7 @@ const params = () => {
 const build = () => ({ action_name: 'refund', order_id: props.order.id, params: params() });
 
 const reset = () => {
-  Object.assign(form, { mode: 'full', amount: '', shipping: false, restock: false, notify: false, quantities: {} });
+  Object.assign(form, { mode: 'full', amount: '', shipping: false, restock: false, notify: false, quantities: {}, location: '' });
   preview.value = null;
   previewError.value = '';
 };
@@ -50,9 +55,11 @@ const calculate = async () => {
   if (!valid.value) return;
   calculating.value = true;
   previewError.value = '';
+  form.location = '';
   try {
     const { data } = await InclamoAPI.refundPreview(props.conversationId, props.order.id, params());
     preview.value = data;
+    form.location = data.location_id || '';
   } catch (error) {
     preview.value = null;
     previewError.value = error.response?.data?.message || t('DIALOG.FAILED_PLAIN');
@@ -74,7 +81,7 @@ defineExpose({ open: () => frame.value.open() });
     :conversation-id="conversationId"
     :title="t('DIALOG.REFUND.TITLE', { number: order.number })"
     :confirm-label="confirmLabel"
-    :can-confirm="valid && !!preview"
+    :can-confirm="valid && !!preview && (!needsLocation || !!form.location)"
     :build="build"
     @opened="reset"
     @done="record => emit('done', record)"
@@ -101,7 +108,7 @@ defineExpose({ open: () => frame.value.open() });
       </span>
     </label>
     <div v-if="form.mode === 'items'" class="flex flex-col gap-2">
-      <label v-for="item in refundableItems" :key="item.id" class="flex items-center justify-between gap-2">
+      <label v-for="(item, index) in refundableItems" :key="item.id" class="flex items-center justify-between gap-2">
         <span class="truncate">{{ item.title }}</span>
         <input
           v-model="form.quantities[item.id]"
@@ -109,12 +116,13 @@ defineExpose({ open: () => frame.value.open() });
           min="0"
           :max="item.refundable_quantity"
           class="w-16 rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1"
+          :data-testid="`inclamo-refund-quantity-${index}`"
           @input="preview = null"
         />
       </label>
       <label class="flex items-center gap-2"><input v-model="form.shipping" type="checkbox" @change="preview = null" />{{ t('DIALOG.REFUND.SHIPPING') }}</label>
     </div>
-    <label class="flex items-center gap-2"><input v-model="form.restock" type="checkbox" @change="preview = null" />{{ t('DIALOG.REFUND.RESTOCK') }}</label>
+    <label class="flex items-center gap-2"><input v-model="form.restock" type="checkbox" data-testid="inclamo-refund-restock" @change="preview = null" />{{ t('DIALOG.REFUND.RESTOCK') }}</label>
     <label class="flex items-center gap-2"><input v-model="form.notify" type="checkbox" @change="preview = null" />{{ t('DIALOG.REFUND.NOTIFY') }}</label>
     <button
       v-if="!preview"
@@ -132,6 +140,19 @@ defineExpose({ open: () => frame.value.open() });
         {{ t('DIALOG.REFUND.GOES_TO', { amount: money(destination.amount, preview.currency), gateway: destination.gateway }) }}
       </p>
       <p v-if="preview.restocked_items">{{ t('DIALOG.REFUND.RESTOCKED', { count: preview.restocked_items }) }}</p>
+      <p v-if="needsLocation && onlyLocation" data-testid="inclamo-refund-location">
+        {{ t('DIALOG.REFUND.RETURNED_TO', { location: onlyLocation.name }) }}
+      </p>
+      <label v-else-if="needsLocation" class="flex flex-col gap-1 mt-1">
+        <span>{{ t('DIALOG.REFUND.CHOOSE_LOCATION') }}</span>
+        <select v-model="form.location" class="rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-refund-location-choice">
+          <option value="" disabled>{{ t('DIALOG.REFUND.NO_LOCATION') }}</option>
+          <option v-for="location in preview.locations" :key="location.id" :value="location.id">{{ location.name }}</option>
+        </select>
+      </label>
+      <p v-if="preview.left_out_items" class="text-n-amber-11" data-testid="inclamo-refund-left-out">
+        {{ t('DIALOG.REFUND.LEFT_OUT', { scope: preview.missing_scope }) }}
+      </p>
     </div>
     <p v-if="previewError" class="text-n-ruby-11">{{ previewError }}</p>
   </ActionDialog>

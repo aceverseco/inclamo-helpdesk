@@ -82,17 +82,125 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
       expect(refund({ 'mode' => 'amount', 'amount' => 'ten' }, id: 'action-refund-0003').refusal).to eq('invalid_amount')
     end
 
-    it 'refunds everything that remains, restocking only items that have not shipped' do
-      stub_suggestion
-      stub_refund(total)
+    context 'when items are put back in stock' do
+      let(:here) { { 'id' => 'gid://shopify/Location/1', 'name' => 'Shop location' } }
+      let(:there) { { 'id' => 'gid://shopify/Location/2', 'name' => 'Warehouse' } }
+      let(:with_locations) { record.update!(scopes: record.scopes + %w[read_locations]) }
 
-      refund({ 'mode' => 'full', 'restock' => true, 'notify' => true })
+      def stub_locations(*found)
+        stub_shopify(:locations, data: { locations: { nodes: found } })
+      end
 
-      expect(mutation_requests('refund_create') do |variables|
-        input = variables['input']
-        input['notify'] == true && input['refundLineItems'].size == lines.size && input['refundLineItems'].all? { |item| item['restockType'] == 'CANCEL' } &&
-          input['transactions'].first['amount'] == total
-      end).to have_been_made.once
+      def locations_requests
+        a_request(:post, shopify_graphql_url).with { |request| JSON.parse(request.body)['query'].match?(/^query locations\b/) }
+      end
+
+      # A refund whose lines are exactly these [kind, quantity] pairs, each at the location.
+      def restocked(location, *entries)
+        mutation_requests('refund_create') do |variables|
+          items = variables.dig('input', 'refundLineItems')
+          items.map { |item| [item['restockType'], item['quantity']] } == entries && items.all? { |item| item['locationId'] == location['id'] }
+        end
+      end
+
+      before do
+        stub_suggestion
+        stub_refund(total)
+      end
+
+      it 'sends items that have not shipped back as cancellations at the only location of the store' do
+        with_locations
+        stub_locations(here)
+
+        refund({ 'mode' => 'full', 'restock' => true, 'notify' => true })
+
+        expect(restocked(here, *lines.map { ['CANCEL', 1] })).to have_been_made.once
+        expect(mutation_requests('refund_create') { |variables| variables.dig('input', 'notify') == true && variables.dig('input', 'transactions').first['amount'] == total })
+          .to have_been_made.once
+      end
+
+      context 'when they have shipped' do
+        let(:order) { shopify_fixture('order_details_shipped')['order'] }
+
+        it 'sends them back as returns, and names the location in the confirmation' do
+          with_locations
+          stub_locations(here)
+
+          preview = runner.refund_preview(order_id: order['id'], params: { 'mode' => 'full', 'restock' => true })
+          expect(preview).to include(restocked_items: lines.size, locations: [here], location_id: here['id'], left_out_items: 0, missing_scope: nil)
+
+          expect(refund({ 'mode' => 'full', 'restock' => true }).outcome).to eq('accepted')
+          expect(restocked(here, *lines.map { ['RETURN', 1] })).to have_been_made.once
+        end
+
+        it 'asks which location when the store has several, and refunds nothing until one is chosen' do
+          with_locations
+          stub_locations(here, there)
+
+          preview = runner.refund_preview(order_id: order['id'], params: { 'mode' => 'full', 'restock' => true })
+          expect(preview).to include(restocked_items: lines.size, locations: [here, there], location_id: nil)
+
+          expect(refund({ 'mode' => 'full', 'restock' => true })).to have_attributes(outcome: 'refused', refusal: 'location_needed')
+          expect(mutation_requests('refund_create')).not_to have_been_made
+
+          chosen = refund({ 'mode' => 'full', 'restock' => true, 'location_id' => there['id'] }, id: 'action-refund-0006')
+          expect(chosen).to have_attributes(outcome: 'accepted', params: include('location_id' => there['id']))
+          expect(restocked(there, *lines.map { ['RETURN', 1] })).to have_been_made.once
+        end
+
+        it 'refuses a location the store does not have' do
+          with_locations
+          stub_locations(here, there)
+
+          expect(refund({ 'mode' => 'full', 'restock' => true, 'location_id' => 'gid://shopify/Location/3' }).refusal).to eq('unknown_location')
+          expect(mutation_requests('refund_create')).not_to have_been_made
+        end
+
+        it 'does not ask for locations when nothing is to be restocked' do
+          with_locations
+
+          expect(refund({ 'mode' => 'full' }).outcome).to eq('accepted')
+          expect(locations_requests).not_to have_been_made
+          expect(mutation_requests('refund_create') { |variables| variables.dig('input', 'refundLineItems').all? { |item| item['restockType'] == 'NO_RESTOCK' && !item.key?('locationId') } })
+            .to have_been_made.once
+        end
+      end
+
+      context 'when a line has shipped in part' do
+        let(:order) do
+          shopify_fixture('order_details_open')['order'].tap do |found|
+            found['lineItems']['nodes'] = [found['lineItems']['nodes'].first.merge('quantity' => 3, 'refundableQuantity' => 3, 'unfulfilledQuantity' => 1)]
+          end
+        end
+
+        it 'sends the unit that has not shipped as a cancellation and the others as a return' do
+          with_locations
+          stub_locations(here)
+
+          refund({ 'mode' => 'items', 'restock' => true, 'items' => [{ 'line_item_id' => lines.first['id'], 'quantity' => 3 }] })
+
+          expect(restocked(here, ['CANCEL', 1], ['RETURN', 2])).to have_been_made.once
+        end
+
+        it 'counts units that have not shipped first' do
+          with_locations
+          stub_locations(here)
+
+          refund({ 'mode' => 'items', 'restock' => true, 'items' => [{ 'line_item_id' => lines.first['id'], 'quantity' => 1 }] })
+
+          expect(restocked(here, ['CANCEL', 1])).to have_been_made.once
+        end
+      end
+
+      it 'restocks nothing when the app cannot read locations, and says so in the confirmation' do
+        preview = runner.refund_preview(order_id: order['id'], params: { 'mode' => 'full', 'restock' => true })
+        expect(preview).to include(restocked_items: 0, locations: [], left_out_items: lines.size, missing_scope: 'read_locations')
+
+        expect(refund({ 'mode' => 'full', 'restock' => true }).outcome).to eq('accepted')
+        expect(locations_requests).not_to have_been_made
+        expect(mutation_requests('refund_create') { |variables| variables.dig('input', 'refundLineItems').all? { |item| item['restockType'] == 'NO_RESTOCK' && !item.key?('locationId') } })
+          .to have_been_made.once
+      end
     end
 
     it 'refunds chosen items, within the quantity that can still be refunded' do

@@ -12,7 +12,7 @@
 //                   store refuses only what exists, so it must hold an order.
 import { connect } from './lib/shopify.mjs';
 
-const GUIDE = ['read_customers', 'read_orders', 'write_orders', 'write_draft_orders', 'read_products'];
+const GUIDE = ['read_customers', 'read_orders', 'write_orders', 'write_draft_orders', 'read_products', 'read_locations'];
 const SEEDER = ['write_customers', 'write_products', 'write_orders', 'write_draft_orders', 'write_inventory', 'read_locations', 'write_fulfillments', 'write_merchant_managed_fulfillment_orders'];
 // A write scope brings its read scope along; the store lists both.
 const implied = scopes => [...new Set(scopes.flatMap(scope => (scope.startsWith('write_') ? [scope, scope.replace('write_', 'read_')] : [scope])))].sort();
@@ -20,7 +20,8 @@ const implied = scopes => [...new Set(scopes.flatMap(scope => (scope.startsWith(
 const apps = [
   { prefix: 'SHOPIFY_BENCH', scopes: GUIDE, exact: true, customers: true },
   { prefix: 'SHOPIFY_SEEDER', scopes: SEEDER, exact: false, customers: true },
-  { prefix: 'SHOPIFY_LIMITED', scopes: GUIDE, exact: true, customers: false, optional: true },
+  // Its scopes do not matter beyond the two the connection asks for first.
+  { prefix: 'SHOPIFY_LIMITED', scopes: ['read_customers', 'read_orders'], exact: false, customers: false, optional: true },
 ];
 
 let failed = false;

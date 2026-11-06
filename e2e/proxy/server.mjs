@@ -14,7 +14,7 @@
 //   status        answer `value.status` with `value.body`, without asking Shopify
 //   patch         let Shopify answer, then change the answer by `value.patch`:
 //                 scopes (value.scopes), customers_denied, orders_denied,
-//                 second_customer,
+//                 second_customer, second_location, one_location (value.id),
 //                 expires_in (value.seconds), job_pending, not_cancelled
 //   refuse        answer as the store does when it refuses a mutation: HTTP 200
 //                 with `value.message` as a user error of `value.mutation`,
@@ -67,6 +67,19 @@ const patches = {
   second_customer: payload => {
     const nodes = payload.data?.customers?.nodes;
     if (nodes?.length === 1) nodes.push({ ...nodes[0], id: `${nodes[0].id}9`, displayName: 'Mia Example' });
+    return payload;
+  },
+  // A store with at least two locations: one that does not exist is added
+  // to a store that has a single one.
+  second_location: payload => {
+    const nodes = payload.data?.locations?.nodes;
+    if (nodes?.length === 1) nodes.push({ id: `${nodes[0].id}9`, name: 'E2E Warehouse' });
+    return payload;
+  },
+  // A store with a single location: of its real ones, only `value.id`.
+  one_location: (payload, value) => {
+    const nodes = payload.data?.locations?.nodes;
+    if (nodes) payload.data.locations.nodes = nodes.filter(node => node.id === value.id);
     return payload;
   },
   expires_in: (payload, value) => (payload.access_token ? { ...payload, expires_in: value.seconds } : payload),
