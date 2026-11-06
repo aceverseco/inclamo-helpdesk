@@ -24,5 +24,5 @@
 
 - [x] 4.1 Add `store-data-rules` to the coverage check's capability map with `e2e/tests/store-data-rules.spec.mjs`; seed a customer above and below the amount, a tagged customer and an unknown contact; verify the seed is removed after the run
 - [x] 4.2 Write the eleven tests named after the scenarios (the limited-mode one with the store's refusal of customer data answered by the proxy, as the order panel's test does: the app without a distribution method cannot be connected at all; "store silent" with the proxy); verify they pass on the stand
-- [ ] 4.3 Run the full suite in CI on an `e2e/**` branch; verify all tests pass and the log holds no token-shaped string and no store domain
+- [x] 4.3 Run the full suite in CI on an `e2e/**` branch; verify all tests pass and the log holds no token-shaped string and no store domain (73 of 73, run 42238158519)
 - [x] 4.4 Describe the conditions and the presets in `docs/`; verify every condition of the spec is listed
