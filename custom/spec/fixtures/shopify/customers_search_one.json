@@ -18,6 +18,30 @@
           },
           "defaultPhoneNumber": {
             "phoneNumber": "+15005551011"
+          },
+          "tags": [
+            "e2e",
+            "e2e-t001"
+          ],
+          "latestOrders": {
+            "nodes": [
+              {
+                "id": "gid://shopify/Order/18985501393054",
+                "name": "#1003",
+                "displayFinancialStatus": "PARTIALLY_REFUNDED",
+                "displayFulfillmentStatus": "UNFULFILLED",
+                "totalPriceSet": {
+                  "shopMoney": {
+                    "amount": "1399.9",
+                    "currencyCode": "UAH"
+                  }
+                },
+                "tags": [
+                  "e2e",
+                  "e2e-t001"
+                ]
+              }
+            ]
           }
         }
       ]

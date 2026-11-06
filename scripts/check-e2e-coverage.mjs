@@ -30,6 +30,7 @@ const FILES = {
   'shopify-connection': ['shopify-connection.spec.mjs'],
   'conversation-order-panel': ['order-panel-reading.spec.mjs', 'order-panel-actions.spec.mjs'],
   'reply-order-variables': ['reply-order-variables.spec.mjs'],
+  'store-data-rules': ['store-data-rules.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each

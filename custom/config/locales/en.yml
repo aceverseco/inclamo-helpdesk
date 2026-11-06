@@ -45,3 +45,19 @@ en:
           refunded: Payment refunded.
           restocked: Items restocked.
           notified: Customer notified.
+    # The preset automation rules: the name and the description each rule is
+    # created with, and the refusals of the presets endpoint.
+    rule_presets:
+      vip:
+        name: VIP customers first
+        about: Gives high priority and the label "vip" to a new conversation of a customer who spent more than the amount in the condition.
+      not_shipped:
+        name: Order not shipped yet
+        about: Adds the label "awaiting-shipment" to a new conversation of a customer whose latest order has not been shipped.
+      no_orders:
+        name: No orders yet
+        about: Adds the label "pre-sale" to a new conversation of someone who has not ordered from the store yet.
+      errors:
+        forbidden: Only an administrator can manage the preset rules.
+        value_required: Enter an amount, zero or more, before switching this rule on.
+        rule_invalid: Chatwoot does not accept this rule as it is now. Open it in the automation list, correct it and try again.
