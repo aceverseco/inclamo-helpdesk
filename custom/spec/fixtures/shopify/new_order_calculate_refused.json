@@ -1,0 +1,31 @@
+{
+  "variables": {
+    "input": {
+      "purchasingEntity": {
+        "customerId": "gid://shopify/Customer/31352101142686"
+      },
+      "useCustomerDefaultAddress": true,
+      "lineItems": [
+        {
+          "variantId": "gid://shopify/ProductVariant/67919900934302",
+          "quantity": 0
+        }
+      ]
+    }
+  },
+  "data": {
+    "draftOrderCalculate": {
+      "calculatedDraftOrder": null,
+      "userErrors": [
+        {
+          "field": [
+            "lineItems",
+            "0",
+            "quantity"
+          ],
+          "message": "Quantity must be greater than or equal to 1"
+        }
+      ]
+    }
+  }
+}

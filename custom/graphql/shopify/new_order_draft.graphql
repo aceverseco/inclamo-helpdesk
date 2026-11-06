@@ -1,0 +1,17 @@
+# Where a new order stands: the draft, whether its invoice went out and
+# whether the customer paid it (then it is an order).
+query new_order_draft($id: ID!) {
+  draftOrder(id: $id) {
+    id
+    legacyResourceId
+    name
+    status
+    invoiceUrl
+    invoiceSentAt
+    totalPriceSet { shopMoney { amount currencyCode } }
+    order {
+      id
+      name
+    }
+  }
+}

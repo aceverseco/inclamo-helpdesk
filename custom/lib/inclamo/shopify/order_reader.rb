@@ -44,6 +44,14 @@ module Inclamo
         end
       end
 
+      # The customer's orders awaiting payment made from the helpdesk, newest first.
+      def awaiting_payment(customer_id)
+        return [] unless customer_id.to_s.match?(CUSTOMER_ID)
+
+        query = Actions::NewOrder.drafts_query(customer_id)
+        Array(cached("awaiting:#{customer_id}") { @store.query(:awaiting_payment, { query: query, first: Actions::NewOrder::AWAITING }).dig('draftOrders', 'nodes') })
+      end
+
       def order(order_id)
         return unless order_id.to_s.match?(ORDER_ID)
 

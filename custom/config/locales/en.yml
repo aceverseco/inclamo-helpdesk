@@ -22,8 +22,11 @@ en:
         address: "Changed the shipping address of order %{number}."
         refund: "Refunded %{refunded} on order %{number}."
         replacement: "Created replacement order %{new_order_number} for order %{number}, free of charge."
+        new_order: "Created order %{draft_name} for %{total}, awaiting payment. %{delivery}"
         details:
           reason: "Reason: %{reason}."
           refunded: Payment refunded.
           restocked: Items restocked.
           notified: Customer notified.
+          invoice_emailed: The store emailed its invoice to the customer.
+          link_in_reply: The payment link was put into the reply.

@@ -10,8 +10,14 @@ module Inclamo
     #   3. the order is read; it does not allow the action  -> refused
     #   4. the record is written, then the store is asked
     # An accepted action leaves a private note in the conversation.
+    #
+    # An order-less action (OrderAction::ORDER_LESS, e.g. a new order) skips
+    # step 3: it is about the customer matched to the conversation, whom its
+    # handler gets with `customer:`. The handler's `refusal` replaces the
+    # order's, and its record has no order id.
     class OrderActionRunner
-      HANDLERS = { 'cancel' => Actions::Cancel, 'address' => Actions::Address, 'refund' => Actions::Refund, 'replacement' => Actions::Replacement }.freeze
+      HANDLERS = { 'cancel' => Actions::Cancel, 'address' => Actions::Address, 'refund' => Actions::Refund, 'replacement' => Actions::Replacement,
+                   'new_order' => Actions::NewOrder }.freeze
 
       def initialize(account:, account_user:, conversation:)
         @account = account
@@ -20,16 +26,17 @@ module Inclamo
         @connection = ShopifyConnection.find_by(account_id: account.id)
       end
 
-      # `extra` is what must not be recorded (the new address).
+      # `extra` is what must not be recorded (the new address, a new order's note).
       def perform(action:, action_id:, order_id:, params: {}, extra: {})
         action = action.to_s
         existing = OrderAction.find_by(account_id: @account.id, action_id: action_id.to_s)
         return settle(existing, extra) if existing
 
         record = OrderAction.new(account: @account, conversation: @conversation, user: @account_user&.user, action_id: action_id.to_s,
-                                 action: action, order_id: order_id.to_s, params: recordable(action, params))
+                                 action: action, order_id: order_id.to_s.presence, params: recordable(action, params))
         refusal = gate(action)
         return refuse!(record, refusal) if refusal
+        return perform_order_less(record, extra) if record.order_less?
 
         order = reader.order(order_id.to_s)
         return refuse!(record, 'unknown_order') unless order
@@ -60,6 +67,37 @@ module Inclamo
         Actions::Refund.new(store: StoreConnection.new(@connection), record: draft, order: order).preview
       end
 
+      # What a new order would cost, as the store calculates it, for the
+      # summary: nothing is created and nothing is recorded. Raises
+      # Actions::Refused like refund_preview.
+      def new_order_preview(params:)
+        refusal = gate('new_order')
+        raise Actions::Refused, refusal if refusal
+
+        draft = OrderAction.new(action: 'new_order', action_id: 'preview', params: recordable('new_order', params))
+        handler = Actions::NewOrder.new(store: StoreConnection.new(@connection), record: draft, customer: matched_customer)
+        refusal = handler.refusal(preview: true)
+        raise Actions::Refused, refusal if refusal
+
+        handler.preview
+      end
+
+      # The items of an order of the matched customer, to start a new order
+      # from ("order again"). Raises Actions::Refused like refund_preview.
+      def new_order_prefill(order_id:)
+        refusal = gate('new_order')
+        raise Actions::Refused, refusal if refusal
+
+        customer = matched_customer or raise Actions::Refused, 'no_customer'
+        raise Actions::Refused, 'unknown_order' unless order_id.to_s.match?(OrderReader::ORDER_ID)
+
+        order = StoreConnection.new(@connection).query(:new_order_from_order, { id: order_id.to_s })['order']
+        raise Actions::Refused, 'unknown_order' unless order
+        raise Actions::Refused, 'not_customers_order' unless order.dig('customer', 'id') == customer['id']
+
+        Actions::NewOrder.prefill(order, currency: @connection.shop_currency)
+      end
+
       # Finishes what an earlier request left open, e.g. a cancellation the
       # store was still working on. Called when the panel is read.
       def settle_open!
@@ -70,6 +108,25 @@ module Inclamo
 
       def reader
         @reader ||= OrderReader.new(@connection)
+      end
+
+      def perform_order_less(record, extra)
+        customer = matched_customer
+        refusal = HANDLERS.fetch(record.action).new(store: StoreConnection.new(@connection), record: record, customer: customer).refusal
+        return refuse!(record, refusal) if refusal
+
+        record.save! # before the store is asked to change anything
+        run(record, nil, extra.merge(customer: customer))
+      end
+
+      # The store's customer matched to the conversation's contact, with their
+      # email and phone, or nil when there is no single match.
+      def matched_customer
+        contact = @conversation&.contact
+        return unless contact
+
+        match = CustomerMatcher.new(reader, contact, limited: @connection.customer_data_limited?).call
+        reader.customer_with_orders(match.customer_id) if match.state == 'matched'
       end
 
       def recordable(action, params)
@@ -100,8 +157,8 @@ module Inclamo
         return record if record.action == 'address' && extra.blank?
         return record if gate(record.action)
 
-        order = reader.order(record.order_id)
-        return record unless order
+        order = record.order_less? ? nil : reader.order(record.order_id)
+        return record unless order || record.order_less?
 
         run(record, order, extra)
       rescue Error
@@ -113,8 +170,14 @@ module Inclamo
         arguments = { store: StoreConnection.new(@connection), record: record, order: order }
         arguments[:address] = extra[:address] || extra['address'] if record.action == 'address'
         arguments[:shop_domain] = @connection.shop_domain if record.action == 'replacement'
+        arguments.merge!(customer: extra[:customer], note: extra[:note] || extra['note']) if record.action == 'new_order'
         state = handler.new(**arguments).call
-        state == :running ? record.update!(outcome: 'running') : accept!(record)
+        case state
+        when :running then record.update!(outcome: 'running')
+        # Not decided yet (a lost new order the store's search may not show yet).
+        when :unknown then record.update!(outcome: 'unknown')
+        else accept!(record)
+        end
         record
       rescue Actions::Refused => e
         record.update!(outcome: 'refused', refusal: e.code, store_message: (e.message unless e.message == e.code), completed_at: Time.current)
@@ -156,7 +219,16 @@ module Inclamo
         details << I18n.t('inclamo.order_actions.notes.details.refunded') if params['refund'] == true
         details << I18n.t('inclamo.order_actions.notes.details.restocked') if params['restock'] == true
         details << I18n.t('inclamo.order_actions.notes.details.notified') if params['notify'] == true
-        { number: record.order_number, details: details.join(' ') }.merge(record.progress.slice('new_order_number', 'refunded').symbolize_keys)
+        facts = { number: record.order_number, details: details.join(' ') }.merge(record.progress.slice('new_order_number', 'refunded').symbolize_keys)
+        record.action == 'new_order' ? facts.merge(new_order_facts(record)) : facts
+      end
+
+      # The draft, its total and how the payment link reached the customer; no customer data.
+      def new_order_facts(record)
+        total = record.progress['total'] || {}
+        delivered = record.progress['invoice_sent'] ? 'invoice_emailed' : 'link_in_reply'
+        { draft_name: record.progress['draft_name'], total: [total['amount'], total['currency']].compact.join(' '),
+          delivery: I18n.t("inclamo.order_actions.notes.details.#{delivered}") }
       end
     end
   end

@@ -77,6 +77,16 @@ module Inclamo
         { open_actions: OrderAction.unsettled.where(account_id: @account.id, conversation_id: @conversation.id).order(:id).map(&:as_json) }
       end
 
+      # Orders the customer has not paid yet, made from the helpdesk; nil when
+      # the store did not give them, so that the rest of the panel still shows.
+      def awaiting_payment(customer_id)
+        return [] if @record.unavailable_reason('new_order')
+
+        reader.awaiting_payment(customer_id).map { |node| Actions::NewOrder.present_awaiting(node, shop_domain: @record.shop_domain) }
+      rescue Error::QueryError, Error::Timeout, Error::Unavailable, Error::Throttled
+        nil
+      end
+
       def body(after)
         match = CustomerMatcher.new(reader, @conversation.contact, limited: @record.customer_data_limited?).call
         return { state: match.state, candidates: match.candidates } unless match.state == 'matched'
@@ -90,6 +100,7 @@ module Inclamo
           state: 'matched', candidates: [],
           customer: CustomerMatcher.candidate(customer),
           orders: Array(orders['nodes']).map { |node| present_order(node) },
+          awaiting_payment: awaiting_payment(customer['id']),
           page: { has_more: orders.dig('pageInfo', 'hasNextPage') || false, cursor: orders.dig('pageInfo', 'endCursor') }
         }
       end

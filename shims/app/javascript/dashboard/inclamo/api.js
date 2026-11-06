@@ -66,6 +66,21 @@ class InclamoAPI extends ApiClient {
     return axios.post(`${this.conversation(conversationId)}/actions/refund_preview`, { order_id: orderId, params });
   }
 
+  // The store's catalogue by title or SKU; `after` asks for the next page.
+  searchProducts(conversationId, { query, after } = {}) {
+    return axios.get(`${this.conversation(conversationId)}/products`, { params: after ? { query, after } : { query } });
+  }
+
+  // What a new order would cost, as the store calculates it; nothing is created.
+  newOrderPreview(conversationId, params) {
+    return axios.post(`${this.conversation(conversationId)}/actions/new_order_preview`, { params });
+  }
+
+  // The items of an order of the customer, to start a new order from.
+  newOrderPrefill(conversationId, orderId) {
+    return axios.get(`${this.conversation(conversationId)}/actions/new_order_prefill`, { params: { order_id: orderId } });
+  }
+
   // Resolves with the action record whatever its outcome: a refusal is an
   // answer, not a failure of the request.
   performAction(conversationId, payload) {

@@ -15,6 +15,8 @@ RSpec.describe 'Inclamo conversation order panel API', type: :request do
   before do
     create(:inbox_member, inbox: inbox, user: agent)
     Inclamo::Shopify::OrderReader.forget!(account.id)
+    # A matched customer's panel also lists their orders awaiting payment (new-order-with-invoice).
+    stub_shopify_fixture(:awaiting_payment, 'awaiting_payment_none')
   end
 
   def panel(params = {})

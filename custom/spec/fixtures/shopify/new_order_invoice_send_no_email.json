@@ -1,0 +1,20 @@
+{
+  "variables": {
+    "id": "gid://shopify/DraftOrder/1630539219102"
+  },
+  "data": {
+    "draftOrderInvoiceSend": {
+      "draftOrder": {
+        "id": "gid://shopify/DraftOrder/1630539219102",
+        "status": "OPEN",
+        "invoiceSentAt": null
+      },
+      "userErrors": [
+        {
+          "field": null,
+          "message": "To can't be blank"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,19 @@
+# A new order for a customer, left as a draft: it becomes an order when the
+# customer pays through its invoice link. The store does not deduplicate this
+# call, so the draft carries the action id in a metafield (see awaiting_payment).
+mutation new_order_create($input: DraftOrderInput!) {
+  draftOrderCreate(input: $input) {
+    draftOrder {
+      id
+      legacyResourceId
+      name
+      status
+      invoiceUrl
+      totalPriceSet { shopMoney { amount currencyCode } }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

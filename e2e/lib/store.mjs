@@ -60,14 +60,15 @@ export async function openStore(run) {
     domain: shopify.domain,
     shopify,
 
-    async customer(first, { phone = true } = {}) {
+    async customer(first, { phone = true, email = true } = {}) {
       counter += 1;
       const number = String(Math.floor(Math.random() * 9000) + 1000);
+      const address = email ? `${first}.example.${run}.${counter}@example.com`.toLowerCase() : undefined;
       const data = await shopify('seed_customer', {
-        input: { firstName: first, lastName: 'Example', email: `${first}.example.${run}.${counter}@example.com`.toLowerCase(), phone: phone ? `+1500555${number}` : undefined, tags },
+        input: { firstName: first, lastName: 'Example', email: address, phone: phone ? `+1500555${number}` : undefined, tags },
       });
       const customer = data.customerCreate.customer;
-      return { ...customer, email: `${first}.example.${run}.${counter}@example.com`.toLowerCase(), phone: phone ? `+1500555${number}` : null };
+      return { ...customer, email: address || null, phone: phone ? `+1500555${number}` : null };
     },
 
     async order(customer, { items = 1, quantity = 1, note } = {}) {
@@ -144,6 +145,19 @@ export async function openStore(run) {
         }
       }
       const customers = (await shopify('seeded_customers', { query: `tag:'e2e-${run}'` })).customers.nodes.filter(customer => customer.tags.includes(`e2e-${run}`));
+      // Drafts the helpdesk made for the run's customers carry its own tag, not the run's.
+      removed.drafts = removed.drafts || 0;
+      for (const customer of customers) {
+        const drafts = (await shopify('seeded_drafts', { query: `customer_id:${customer.id.split('/').pop()}` })).draftOrders.nodes;
+        for (const draft of drafts) {
+          try {
+            await shopify('delete_draft', { input: { id: draft.id } });
+            removed.drafts += 1;
+          } catch (error) {
+            removed.kept.push(`${draft.name}: ${error.message.slice(0, 120)}`);
+          }
+        }
+      }
       for (const customer of customers) {
         try {
           await shopify('delete_customer', { id: customer.id });

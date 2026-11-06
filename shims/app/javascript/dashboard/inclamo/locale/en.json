@@ -84,8 +84,21 @@
       "customer_data_hidden": "Unavailable: the store does not share customers' addresses.",
       "already_cancelled": "The order is cancelled.",
       "already_shipped": "Already shipped.",
-      "nothing_to_refund": "Nothing left to refund."
-    }
+      "nothing_to_refund": "Nothing left to refund.",
+      "unknown_order": "The store no longer has this order.",
+      "no_customer": "Choose the customer of this conversation first.",
+      "not_customers_order": "This order belongs to another customer.",
+      "no_items": "Add at least one item.",
+      "too_many_items": "An order can hold at most 50 different items.",
+      "invalid_item": "An item is not a product of the store.",
+      "invalid_quantity": "Each quantity must be a whole number from 1 to 999.",
+      "invalid_discount": "The discount must be a percentage up to 100 or a positive amount.",
+      "invalid_shipping": "The shipping charge must be an amount, like 5.00.",
+      "invalid_delivery": "Choose how the customer gets the payment link.",
+      "no_email": "The customer has no email: put the link into the reply instead.",
+      "not_created": "The store did not create the order. Nothing was charged; you can try again."
+    },
+    "ORDER_AGAIN": "Order again"
   },
   "STATUS": {
     "PAID": "Paid",
@@ -197,5 +210,56 @@
       "LOADING": "Loading the team…",
       "FAILED": "The list could not be loaded. Reload the page to try again."
     }
+  },
+  "PRODUCTS": {
+    "LABEL": "Search the catalogue",
+    "PLACEHOLDER": "Product name or SKU",
+    "SEARCHING": "Searching…",
+    "NONE": "No products found.",
+    "MORE": "More products",
+    "UNAVAILABLE": "The store did not answer. Try again.",
+    "MISSING_SCOPE": "The connected app lacks access: {scopes}.",
+    "UNAVAILABLE_VARIANT": "Not available"
+  },
+  "NEW_ORDER": {
+    "OPEN": "New order",
+    "UNAVAILABLE": "New order unavailable. {reason}",
+    "TITLE": "New order for {name}",
+    "INTRO": "The order is created in Shopify unpaid. The customer pays through the store's payment link; nothing is charged here.",
+    "CONFIRM": "Create order",
+    "PREFILLING": "Loading the items of the order…",
+    "SKIPPED": "No longer sold, not added: {items}.",
+    "NO_LINES": "No items yet. Search the catalogue above.",
+    "QUANTITY": "Quantity",
+    "REMOVE": "Remove",
+    "DISCOUNT": "Discount",
+    "DISCOUNT_NONE": "None",
+    "DISCOUNT_PERCENTAGE": "Percentage",
+    "DISCOUNT_AMOUNT": "Amount ({currency})",
+    "DISCOUNT_VALUE": "Discount value",
+    "SHIPPING": "Shipping charge ({currency})",
+    "SHIPPING_NONE": "None",
+    "SHIPPING_LINE": "Shipping",
+    "NOTE": "Note for the store",
+    "CALCULATE": "Calculate the total",
+    "SUBTOTAL": "Items",
+    "TAX": "Taxes",
+    "TAX_INCLUDED": "Taxes included",
+    "TOTAL": "Total",
+    "STALE": "The order changed. Calculate the total again.",
+    "DELIVERY": "Payment link",
+    "DELIVERY_EMAIL": "The store emails its invoice to {email}",
+    "DELIVERY_EMAIL_HINT": "The email is the store's own invoice template, as set in Shopify.",
+    "DELIVERY_REPLY": "Put the link into the reply",
+    "DELIVERY_REPLY_HINT": "The link goes where the cursor is in the reply box. Check that it is set to reply, not to a private note, and send it yourself."
+  },
+  "AWAITING": {
+    "TITLE": "Awaiting payment",
+    "CREATED": "Created {date}",
+    "INVOICE_SENT": "Invoice sent",
+    "NOT_SENT": "Invoice not sent",
+    "PAYMENT_LINK": "Payment link",
+    "INSERT": "Put into the reply",
+    "UNCONFIRMED": "The store did not confirm a new order yet. It shows here once Shopify has it."
   }
 }
