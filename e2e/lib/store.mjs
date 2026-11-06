@@ -70,9 +70,10 @@ export async function openStore(run) {
       return { ...customer, email: `${first}.example.${run}.${counter}@example.com`.toLowerCase(), phone: phone ? `+1500555${number}` : null };
     },
 
-    async order(customer, { items = 1, quantity = 1, note } = {}) {
+    // `shipping` is a paid shipping cost; without it shipping is free.
+    async order(customer, { items = 1, quantity = 1, note, shipping } = {}) {
       const chosen = variants.slice(0, items);
-      const total = chosen.reduce((sum, variant) => sum + Number(variant.price) * quantity, 0);
+      const total = chosen.reduce((sum, variant) => sum + Number(variant.price) * quantity, 0) + (shipping || 0);
       const [firstName, ...rest] = customer.displayName.split(' ');
       const data = await paced(() => shopify('seed_order', {
         order: {
@@ -81,6 +82,7 @@ export async function openStore(run) {
           financialStatus: 'PAID',
           transactions: [{ kind: 'SALE', status: 'SUCCESS', gateway: 'manual', amountSet: money(total, currency) }],
           shippingAddress: { firstName, lastName: rest.join(' '), ...ADDRESS },
+          shippingLines: shipping ? [{ title: 'E2E shipping', priceSet: money(shipping, currency) }] : undefined,
           tags,
           note: note || `e2e ${run}`,
         },
