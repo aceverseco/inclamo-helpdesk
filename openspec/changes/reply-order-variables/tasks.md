@@ -21,5 +21,5 @@
 ## 4. End to end
 
 - [x] 4.1 Write the nine tests named after the scenarios, using the seeded store and the proxy for "store unreachable"; verify they pass on the stand after an image rebuild
-- [ ] 4.2 Run the full suite in CI on an `e2e/**` branch; verify all tests pass and the log holds no token-shaped string and no store domain
+- [x] 4.2 Run the full suite in CI on an `e2e/**` branch; verify all tests pass and the log holds no token-shaped string and no store domain
 - [x] 4.3 Add a section on order variables to `docs/`; verify every variable of the spec is listed there
