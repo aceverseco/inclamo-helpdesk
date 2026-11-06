@@ -1,0 +1,78 @@
+# frozen_string_literal: true
+
+# Targets for how fast the conversations of some inboxes get a first answer
+# and are resolved (capability sla-timers). Chatwoot's own SLA policies belong
+# to its paid edition and are not used.
+class Inclamo::SlaPolicy < ApplicationRecord
+  # A year; the page offers minutes, hours and days.
+  MAX_TARGET_SECONDS = 365 * 86_400
+
+  belongs_to :account
+  has_many :timers, class_name: 'Inclamo::SlaTimer', foreign_key: :policy_id, inverse_of: :policy, dependent: nil
+
+  before_validation :normalise_inboxes
+  validates :name, presence: true, length: { maximum: 120 }
+  validates :first_response_seconds, :resolution_seconds,
+            numericality: { only_integer: true, greater_than: 0, less_than_or_equal_to: MAX_TARGET_SECONDS }, allow_nil: true
+  validate :a_target_is_set
+  validate :inboxes_belong_to_the_account
+
+  before_create :place_last
+  before_destroy :stop_running_timers
+
+  scope :ordered, -> { order(:position, :id) }
+
+  # The policy a new conversation gets: the first in the list that covers its
+  # inbox, among the policies that existed when the conversation was created.
+  def self.covering(conversation)
+    where(account_id: conversation.account_id).where(created_at: ..conversation.created_at).ordered
+                                               .find { |policy| policy.covers?(conversation.inbox_id) }
+  end
+
+  # Puts the account's policies in the order of `ids`; policies not named keep
+  # their order after them.
+  def self.reorder!(account, ids)
+    ids = Array(ids).map(&:to_i)
+    policies = where(account_id: account.id).ordered.to_a
+    named = ids.filter_map { |id| policies.find { |policy| policy.id == id } }
+    transaction do
+      (named + (policies - named)).each_with_index do |policy, index|
+        policy.update_columns(position: index, updated_at: Time.current) if policy.position != index # rubocop:disable Rails/SkipsModelValidations
+      end
+    end
+  end
+
+  def covers?(inbox_id)
+    all_inboxes? || inbox_ids.include?(inbox_id)
+  end
+
+  private
+
+  def normalise_inboxes
+    self.inbox_ids = all_inboxes? ? [] : Array(inbox_ids).compact_blank.map(&:to_i).uniq
+  end
+
+  def a_target_is_set
+    return if first_response_seconds.present? || resolution_seconds.present?
+
+    errors.add(:base, :target_needed, message: I18n.t('inclamo.sla.errors.target_needed'))
+  end
+
+  def inboxes_belong_to_the_account
+    return if all_inboxes?
+    return errors.add(:inbox_ids, :blank, message: I18n.t('inclamo.sla.errors.inboxes_needed')) if inbox_ids.empty?
+    return if account.nil? || account.inboxes.where(id: inbox_ids).count == inbox_ids.size
+
+    errors.add(:inbox_ids, :invalid, message: I18n.t('inclamo.sla.errors.unknown_inbox'))
+  end
+
+  def place_last
+    self.position = (self.class.where(account_id: account_id).maximum(:position) || -1) + 1
+  end
+
+  # Timers already applied keep their targets; those still running stop, so
+  # nothing is marked as missed after the policy is gone.
+  def stop_running_timers
+    timers.running.update_all(stopped_at: Time.current, updated_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
+  end
+end

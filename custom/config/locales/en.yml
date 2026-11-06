@@ -27,3 +27,13 @@ en:
           refunded: Payment refunded.
           restocked: Items restocked.
           notified: Customer notified.
+    sla:
+      label_description: A target of an SLA policy was missed in this conversation.
+      notes:
+        first_response: "SLA \"%{policy}\": the first-response target of %{target} was missed."
+        resolution: "SLA \"%{policy}\": the resolution target of %{target} was missed."
+      errors:
+        forbidden: Only an administrator can manage SLA policies.
+        target_needed: Set a first-response target, a resolution target or both.
+        inboxes_needed: Choose at least one inbox, or let the policy cover all inboxes.
+        unknown_inbox: One of the chosen inboxes is not in this account.

@@ -1,0 +1,51 @@
+# frozen_string_literal: true
+
+# The policy applied to one conversation, with its targets copied at that
+# moment, and what happened to each target (capability sla-timers).
+class Inclamo::SlaTimer < ApplicationRecord
+  TARGETS = %w[first_response resolution].freeze
+
+  # A target still running; each condition matches a partial index of the table.
+  RUNNING = {
+    'first_response' => 'stopped_at IS NULL AND first_response_seconds IS NOT NULL ' \
+                        'AND first_response_at IS NULL AND first_response_missed_at IS NULL',
+    'resolution' => 'stopped_at IS NULL AND resolution_seconds IS NOT NULL ' \
+                    'AND resolved_at IS NULL AND resolution_missed_at IS NULL'
+  }.freeze
+
+  belongs_to :conversation
+  belongs_to :policy, class_name: 'Inclamo::SlaPolicy', optional: true, inverse_of: :timers
+
+  scope :running, -> { where(RUNNING.values.map { |condition| "(#{condition})" }.join(' OR ')) }
+
+  # Timers with a target that may have passed by `now`. Counting business hours
+  # only ever makes a deadline later, so plain time is the first cut; the clock
+  # decides.
+  scope :maybe_due, lambda { |now|
+    where(TARGETS.map { |target| "(#{RUNNING[target]} AND started_at + #{target}_seconds * interval '1 second' <= :now)" }.join(' OR '), now: now)
+  }
+
+  def target_seconds(target)
+    public_send("#{target}_seconds")
+  end
+
+  # When the target was reached: the first human reply, or the first resolution.
+  def reached_at(target)
+    target == 'first_response' ? first_response_at : resolved_at
+  end
+
+  def missed_at(target)
+    public_send("#{target}_missed_at")
+  end
+
+  def clock
+    @clock ||= Inclamo::Sla::Clock.new(inbox: conversation.inbox, business_hours_only: business_hours_only)
+  end
+
+  # The moment the target passes; nil without that target, or when the inbox's
+  # business hours never open.
+  def deadline(target)
+    seconds = target_seconds(target)
+    seconds && clock.deadline(started_at, seconds)
+  end
+end
