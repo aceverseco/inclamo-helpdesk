@@ -309,7 +309,10 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
 
     def stub_draft_create
       stub_shopify(:replacement_draft_create, data: { draftOrderCreateFromOrder: { draftOrder: { id: draft_id, name: '#D7', lineItems: {
-                     nodes: lines.each_with_index.map { |line, index| { id: "gid://shopify/DraftOrderLineItem/#{index}", title: line['title'], quantity: line['quantity'], custom: false, variant: { id: "gid://shopify/ProductVariant/#{index + 1}" } } }
+                     nodes: lines.each_with_index.map do |line, index|
+                       { id: "gid://shopify/DraftOrderLineItem/#{index}", title: line['title'], variantTitle: line['variantTitle'], sku: line['sku'],
+                         quantity: line['quantity'], custom: false, variant: { id: "gid://shopify/ProductVariant/#{index + 1}" } }
+                     end
                    } }, userErrors: [] } })
     end
 
@@ -374,6 +377,52 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
       expect(result).to have_attributes(outcome: 'refused', refusal: 'store_refused', store_message: 'Item is no longer available')
       expect(mutation_requests('replacement_draft_delete')).to have_been_made.once
       expect(notes).to be_empty
+    end
+
+    it 'removes the draft when the store answers the completion with errors' do
+      stub_draft_create
+      stub_draft_update
+      stub_shopify(:replacement_draft_complete, errors: [{ message: 'Internal error. Looks like something went wrong on our end.' }])
+      stub_draft_delete
+
+      result = replace
+
+      expect(result).to have_attributes(outcome: 'refused', refusal: 'store_refused', store_message: 'Internal error. Looks like something went wrong on our end.')
+      expect(mutation_requests('replacement_draft_delete')).to have_been_made.once
+    end
+
+    it 'names the draft when the store throttles both the update and the removal' do
+      stub_draft_create
+      stub_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].match?(/^mutation replacement_draft_(update|delete)\b/) }
+                                              .to_return(status: 429, headers: { 'Retry-After' => '60' })
+
+      result = replace
+
+      expect(result).to have_attributes(outcome: 'refused', refusal: 'store_unreachable')
+      expect(result.store_message).to include('throttled', '#D7', 'https://admin.shopify.com/store/example-store/draft_orders/77')
+      expect(mutation_requests('replacement_draft_complete')).not_to have_been_made
+    end
+
+    it 'names the variant of each kept line, also when variants of one product share its title' do
+      shirts = %w[S M L].each_with_index.map do |size, index|
+        lines.first.merge('id' => "gid://shopify/LineItem/#{index + 1}", 'title' => 'Shirt', 'variantTitle' => size, 'sku' => "SHIRT-#{size}")
+      end
+      order['lineItems']['nodes'] = shirts
+      stub_shopify(:order_details, data: { order: order })
+      # The store leaves out the line that was removed from the order.
+      stub_shopify(:replacement_draft_create, data: { draftOrderCreateFromOrder: { draftOrder: { id: draft_id, name: '#D7', lineItems: {
+                     nodes: [['M', 22], ['L', 33]].map do |size, variant|
+                       { id: "gid://shopify/DraftOrderLineItem/#{variant}", title: 'Shirt', variantTitle: size, sku: "SHIRT-#{size}", quantity: 1, custom: false,
+                         variant: { id: "gid://shopify/ProductVariant/#{variant}" } }
+                     end
+                   } }, userErrors: [] } })
+      stub_draft_update
+      stub_draft_complete
+
+      replace({ 'items' => [{ 'line_item_id' => 'gid://shopify/LineItem/2', 'quantity' => 1 }] })
+
+      expect(mutation_requests('replacement_draft_update') { |variables| variables.dig('input', 'lineItems') == [{ 'variantId' => 'gid://shopify/ProductVariant/22', 'quantity' => 1 }] })
+        .to have_been_made.once
     end
 
     it 'names the draft with a link when it could not be removed' do

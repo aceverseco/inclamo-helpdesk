@@ -29,6 +29,15 @@ module Inclamo
             complete_draft
           rescue Refused => e
             raise Refused.new(e.code, [e.message, cleanup_message].compact.join(' '))
+          rescue Error => e
+            # Whether the store acted is not known: the draft may be the order by now.
+            raise if e.outcome_unknown?
+
+            # The store did not act on this step (it said no, throttled, refused
+            # the token or was not reached): the draft goes, like after a refusal.
+            refused = e.is_a?(Error::QueryError)
+            raise Refused.new(refused ? 'store_refused' : 'store_unreachable',
+                              [refused ? e.message.first(500) : e.class.name.demodulize.underscore, cleanup_message].compact.join(' '))
           end
           :accepted
         end
@@ -61,19 +70,23 @@ module Inclamo
           answer = @store.query(:replacement_draft_create, { orderId: @record.order_id })['draftOrderCreateFromOrder']
           user_errors!(answer['userErrors'])
           draft = answer['draftOrder'] or raise Refused, 'store_refused'
-          remember!(draft_id: draft['id'], draft_name: draft['name'],
-                    draft_lines: Array(draft.dig('lineItems', 'nodes')).map { |line| { 'variant_id' => line.dig('variant', 'id'), 'title' => line['title'] } })
+          drafted = Array(draft.dig('lineItems', 'nodes')).map do |line|
+            { 'variant_id' => line.dig('variant', 'id'), 'title' => line['title'], 'variant_title' => line['variantTitle'], 'sku' => line['sku'] }
+          end
+          remember!(draft_id: draft['id'], draft_name: draft['name'], draft_lines: drafted)
         end
 
         # The variant of an original line, taken from the draft the store made
-        # of the order: same position, same title. The order itself is read
-        # without variants, so that the panel needs no product scope.
+        # of the order: the line with the same title and variant title, and the
+        # same SKU when several have those. Variants of one product share their
+        # title, and the draft leaves out lines that were removed, so neither the
+        # title alone nor the position names the variant. The order itself is
+        # read without variants, so that the panel needs no product scope.
         def variant_for(line)
-          originals = Array(@order.dig('lineItems', 'nodes'))
-          drafted = Array(@record.progress['draft_lines'])
-          at = originals.index { |original| original['id'] == line['id'] }
-          match = drafted[at] if at && drafted[at] && drafted[at]['title'] == line['title']
-          match ||= drafted.find { |candidate| candidate['title'] == line['title'] }
+          same = Array(@record.progress['draft_lines']).select do |candidate|
+            candidate['title'] == line['title'] && candidate['variant_title'].to_s == line['variantTitle'].to_s
+          end
+          match = same.find { |candidate| candidate['sku'].to_s == line['sku'].to_s } || same.first
           match && match['variant_id']
         end
 
