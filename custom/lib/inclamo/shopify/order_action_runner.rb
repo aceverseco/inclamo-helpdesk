@@ -37,15 +37,16 @@ module Inclamo
         @connection = connection || ShopifyConnection.find_by(account_id: account.id)
       end
 
-      # `extra` is what must not be recorded (the new address, a new order's note).
-      def perform(action:, action_id:, order_id:, params: {}, extra: {})
+      # `extra` is what must not be recorded (the new address, a new order's
+      # note). `macro_id` names the macro an order step runs in.
+      def perform(action:, action_id:, order_id:, params: {}, extra: {}, macro_id: nil)
         action = action.to_s
         existing = OrderAction.find_by(account_id: @account.id, action_id: action_id.to_s)
         return taken(action, action_id, order_id) if existing && !same_attempt?(existing, action, order_id)
         return settle(existing, extra) if existing
 
         record = OrderAction.new(account: @account, conversation: @conversation, user: @account_user&.user, action_id: action_id.to_s,
-                                 action: action, order_id: order_id.to_s.presence, params: recordable(action, params))
+                                 action: action, order_id: order_id.to_s.presence, params: recordable(action, params), macro_id: macro_id)
         refusal = gate(action)
         return refuse!(record, refusal) if refusal
         return perform_order_less(record, extra) if record.order_less?
@@ -68,15 +69,37 @@ module Inclamo
       # nothing is recorded. Raises Actions::Refused with the reason when the
       # agent, the connection or the order does not allow it.
       def refund_preview(order_id:, params:)
-        refusal = gate('refund')
-        raise Actions::Refused, refusal if refusal
+        refund_plan(allowed_order!('refund', order_id), params)
+      end
 
-        order = reader.order(order_id.to_s) or raise Actions::Refused, 'unknown_order'
-        refusal = OrderPresenter.new(order, shop_domain: @connection.shop_domain).refusal('refund')
-        raise Actions::Refused, refusal if refusal
+      # What an action with these parameters would do to the order, for the
+      # confirmation of a macro: the money a refund or a cancellation gives
+      # back, the units a replacement sends. Nothing is changed and nothing is
+      # recorded. When the action would be refused, says why instead.
+      def step_preview(action:, order_id:, params:)
+        order = allowed_order!(action, order_id)
+        case action.to_s
+        when 'refund' then refund_plan(order, params).slice(:amount, :currency)
+        when 'cancel' then cancellation_refund(order, params)
+        when 'replacement' then { units: Actions::Replacement.units_left(order) }
+        else {}
+        end
+      rescue Actions::Refused, Error => e
+        refused = self.class.refusal_for(e)
+        refused[:missing_scopes] = @connection.missing_scopes_for(action) if refused[:refusal] == 'missing_scope'
+        refused
+      end
 
-        draft = OrderAction.new(action: 'refund', order_id: order['id'], action_id: 'preview', params: recordable('refund', params))
-        Actions::Refund.new(store: StoreConnection.new(@connection), record: draft, order: order).preview
+      # The refusal an error of an order action stands for, as records and
+      # confirmations name it: the code, the store's words, and for a store
+      # that could not be reached the kind of failure.
+      def self.refusal_for(error)
+        case error
+        when Actions::Refused then { refusal: error.code, message: (error.message unless error.message == error.code) }
+        # The store understood the request and said no, in words.
+        when Error::QueryError then { refusal: 'store_refused', message: error.message.first(500) }
+        else { refusal: 'store_unreachable', message: nil, reason: error.class.name.demodulize.underscore }
+        end
       end
 
       # What a new order would cost, as the store calculates it, for the
@@ -140,6 +163,38 @@ module Inclamo
 
         match = CustomerMatcher.new(reader, contact, limited: @connection.customer_data_limited?).call
         reader.customer_with_orders(match.customer_id) if match.state == 'matched'
+      end
+
+      # The order, when this agent may perform this action on it. Raises
+      # Actions::Refused with the reason otherwise.
+      def allowed_order!(action, order_id)
+        refusal = gate(action.to_s)
+        raise Actions::Refused, refusal if refusal
+
+        order = reader.order(order_id.to_s) or raise Actions::Refused, 'unknown_order'
+        refusal = OrderPresenter.new(order, shop_domain: @connection.shop_domain).refusal(action)
+        raise Actions::Refused, refusal if refusal
+
+        order
+      end
+
+      def refund_plan(order, params)
+        draft = OrderAction.new(action: 'refund', order_id: order['id'], action_id: 'preview', params: recordable('refund', params))
+        handler_for(draft, order).preview
+      end
+
+      # What a cancellation gives back: everything that remains when it
+      # refunds. Without an amount, `refund` says why: nothing was paid,
+      # everything paid was refunded already, or the amount could not be
+      # worked out now, which does not stop the cancellation itself.
+      def cancellation_refund(order, params)
+        return {} unless params.to_h.stringify_keys['refund'] == true
+        return { refund: 'unpaid' } unless order.dig('totalReceivedSet', 'shopMoney', 'amount').to_d.positive?
+        return { refund: 'none_left' } unless OrderPresenter.new(order, shop_domain: '').refundable_amount.positive?
+
+        refund_plan(order, { 'mode' => 'full' }).slice(:amount, :currency)
+      rescue Actions::Refused, Error
+        { refund: 'unknown' }
       end
 
       def recordable(action, params)
@@ -251,19 +306,13 @@ module Inclamo
         else accept!(record)
         end
         record
-      rescue Actions::Refused => e
-        record.update!(outcome: 'refused', refusal: e.code, store_message: (e.message unless e.message == e.code), completed_at: Time.current)
-        record
-      rescue Error::QueryError => e
-        # The store understood the request and said no, in words.
-        record.update!(outcome: 'refused', refusal: 'store_refused', store_message: e.message.first(500), completed_at: Time.current)
-        record
-      rescue Error => e
-        # A lost answer is neither done nor failed; anything else never reached the store.
-        if e.outcome_unknown?
+      rescue Actions::Refused, Error => e
+        # A lost answer is neither done nor failed; anything else is a refusal.
+        if e.is_a?(Error) && e.outcome_unknown?
           record.update!(outcome: 'unknown', store_message: e.class.name.demodulize.underscore)
         else
-          record.update!(outcome: 'refused', refusal: 'store_unreachable', store_message: e.class.name.demodulize.underscore, completed_at: Time.current)
+          refused = self.class.refusal_for(e)
+          record.update!(outcome: 'refused', refusal: refused[:refusal], store_message: refused[:message] || refused[:reason], completed_at: Time.current)
         end
         record
       ensure

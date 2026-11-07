@@ -79,10 +79,8 @@ module Inclamo
         rescue Error => e
           raise if e.outcome_unknown?
 
-          refused = e.is_a?(Error::QueryError)
-          raise Refused.new(refused ? 'store_refused' : 'store_unreachable',
-                            [refused ? e.message.first(500) : e.class.name.demodulize.underscore,
-                             remove_draft(draft_id, draft_name, shop_domain)].compact.join(' '))
+          refused = OrderActionRunner.refusal_for(e)
+          raise Refused.new(refused[:refusal], [refused[:message] || refused[:reason], remove_draft(draft_id, draft_name, shop_domain)].compact.join(' '))
         end
 
         # Removes the draft; when that fails, the words that name it with a

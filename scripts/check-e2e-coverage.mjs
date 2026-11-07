@@ -20,6 +20,7 @@ const FILES = {
   'shopify-connection': ['shopify-connection.spec.mjs'],
   'conversation-order-panel': ['order-panel-reading.spec.mjs', 'order-panel-actions.spec.mjs'],
   'order-creation': ['order-creation.spec.mjs'],
+  'macro-order-actions': ['macro-order-actions.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each

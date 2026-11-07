@@ -22,6 +22,20 @@ module Inclamo
           { shop_domain: connection.shop_domain }
         end
 
+        # The units the order holds now, line by line: what was refunded or
+        # removed by an edit is no longer the customer's. A replacement asked
+        # for without items sends these.
+        def self.lines_left(order)
+          Array(order.dig('lineItems', 'nodes')).filter_map do |line|
+            left = (line['currentQuantity'] || line['quantity']).to_i
+            { 'line_item_id' => line['id'], 'quantity' => left } if left.positive?
+          end
+        end
+
+        def self.units_left(order)
+          lines_left(order).sum { |line| line['quantity'] }
+        end
+
         def call
           return :accepted if @record.progress['new_order_id']
           return finish_from_store if @record.progress['draft_id'] && completed_at_store?
@@ -52,11 +66,12 @@ module Inclamo
           @record.progress['draft_id']
         end
 
-        # The original order's lines the agent kept, with the quantity for each.
+        # The original order's lines the agent kept, with the quantity for
+        # each; when none were named, every unit the order holds now.
         def kept_lines
           originals = Array(@order.dig('lineItems', 'nodes'))
           wanted = Array(params['items']).map { |item| item.to_h.stringify_keys }
-          wanted = originals.map { |line| { 'line_item_id' => line['id'], 'quantity' => line['quantity'] } } if wanted.empty?
+          wanted = self.class.lines_left(@order) if wanted.empty?
           by_id = originals.index_by { |line| line['id'] }
           kept = wanted.map do |item|
             line = by_id[item['line_item_id']] or raise Refused, 'unknown_item'

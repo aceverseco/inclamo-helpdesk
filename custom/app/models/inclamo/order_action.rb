@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 # The record of one attempt to act on an order: who, in which conversation,
-# what, and how it ended. See Inclamo::Shopify::OrderActionRunner.
+# what, in which macro if any, and how it ended. See
+# Inclamo::Shopify::OrderActionRunner.
 class Inclamo::OrderAction < ApplicationRecord
   ACTIONS = %w[cancel refund address replacement new_order].freeze
   # Actions that are not about an existing order: their record has no order id.
@@ -39,7 +40,7 @@ class Inclamo::OrderAction < ApplicationRecord
     {
       action_id: action_id, action: action, order_id: order_id, order_number: order_number, outcome: outcome,
       refusal: refusal, store_message: store_message, result: progress.slice('new_order_number', 'new_order_id', 'refunded', *NEW_ORDER_RESULT),
-      created_at: created_at, completed_at: completed_at
+      macro_id: macro_id, created_at: created_at, completed_at: completed_at
     }
   end
 end
