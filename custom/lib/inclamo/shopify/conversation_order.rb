@@ -57,29 +57,26 @@ module Inclamo
 
       # Marks the order (as the Admin API returned it) and writes its attributes.
       # Also used to refresh them: nothing is written when nothing changed.
-      def mark!(node)
-        ours = [ID_KEY, *DEFINITIONS.keys]
-        current = @conversation.custom_attributes.to_h
-        updated = current.except(*ours).merge(self.class.attributes_for(node, shop_domain: @record.shop_domain))
-        @conversation.update!(custom_attributes: updated) unless updated == current
-        updated
+      # See ConversationAttributes for what a quiet write is.
+      def mark!(node, quiet: false)
+        attributes = self.class.attributes_for(node, shop_domain: @record.shop_domain)
+        ConversationAttributes.replace!(@conversation, [ID_KEY, *DEFINITIONS.keys], attributes, quiet: quiet)
       end
 
       def clear!
-        current = @conversation.custom_attributes.to_h
-        updated = current.except(ID_KEY, *DEFINITIONS.keys)
-        @conversation.update!(custom_attributes: updated) unless updated == current
+        ConversationAttributes.replace!(@conversation, [ID_KEY, *DEFINITIONS.keys], {})
       end
 
       # Marks the order named in `text` when it belongs to the customer matched
-      # for this conversation's contact. Returns the order, or nil.
-      def auto_mark!(text)
+      # for this conversation's contact. Returns the order, or nil. `reader`
+      # is an OrderReader or anything that reads like one.
+      def auto_mark!(text, reader: nil, quiet: false)
         return if @record.nil? || !@record.working? || @record.customer_data_limited? || marked_id.present?
 
         candidates = text.to_s.scan(NUMBER_IN_TEXT).flatten.uniq.first(MAX_CANDIDATES)
         return if candidates.empty?
 
-        reader = OrderReader.new(@record)
+        reader ||= OrderReader.new(@record)
         match = CustomerMatcher.new(reader, @conversation.contact, limited: false).call
         return unless match.state == 'matched'
 
@@ -87,7 +84,7 @@ module Inclamo
           node = reader.order_by_number(number)
           next unless node && node.dig('customer', 'id') == match.customer_id
 
-          mark!(node)
+          mark!(node, quiet: quiet)
           return node
         end
         nil

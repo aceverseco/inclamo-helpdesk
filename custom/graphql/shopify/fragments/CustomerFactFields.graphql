@@ -1,0 +1,16 @@
+# What automation rules may know about a customer besides the order count and
+# the amount spent: the tags, and the newest order the same way the panel
+# orders them. No personal data.
+fragment CustomerFactFields on Customer {
+  tags
+  latestOrders: orders(first: 1, sortKey: CREATED_AT, reverse: true) {
+    nodes {
+      id
+      name
+      displayFinancialStatus
+      displayFulfillmentStatus
+      totalPriceSet { shopMoney { amount currencyCode } }
+      tags
+    }
+  }
+}

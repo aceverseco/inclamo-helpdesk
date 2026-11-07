@@ -27,6 +27,7 @@ class Api::V1::Accounts::Inclamo::ShopifyConnectionsController < Api::V1::Accoun
     record = existing || ::Inclamo::ShopifyConnection.new(account: Current.account)
     record.update!(attributes_from(result))
     ::Inclamo::Shopify::ConversationOrder.ensure_definitions!(Current.account)
+    ::Inclamo::Shopify::CustomerFacts.ensure_definitions!(Current.account)
     render json: present(record), status: existing ? :ok : :created
   rescue ::Inclamo::Shopify::Error => e
     refuse_for(e)

@@ -140,7 +140,7 @@ jobs:
         working-directory: build/chatwoot
         run: pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/inclamo
 
-      - name: Chatwoot's own tests around the three seams still pass
+      - name: Chatwoot's own tests around the seams still pass
         working-directory: build/chatwoot
-        run: pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/composables/spec/useUISettings.spec.js app/javascript/dashboard/components-next/sidebar/specs app/javascript/dashboard/helper/specs/editorHelper.spec.js app/javascript/dashboard/components/widgets/conversation/specs/ReplyBox.spec.js
+        run: pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/composables/spec/useUISettings.spec.js app/javascript/dashboard/components-next/sidebar/specs app/javascript/dashboard/helper/specs/editorHelper.spec.js app/javascript/dashboard/components/widgets/conversation/specs/ReplyBox.spec.js app/javascript/dashboard/helper/specs/automationHelper.spec.js
 

@@ -112,7 +112,9 @@ async function newApi(request, user, accountId) {
 
     // A contact with one conversation; `message` becomes the customer's first message.
     // A contact is unique by email and phone, so an existing one is reused.
-    async conversation(inbox, { name, email, phone, message } = {}) {
+    // `together` creates the conversation and its first message in one step,
+    // the way the website widget and email do.
+    async conversation(inbox, { name, email, phone, message, together = false } = {}) {
       const made = (await api.post('/contacts', { inbox_id: inbox.id, name: name || 'E2E Contact', email, phone_number: phone })).body.payload;
       let contactId = made?.contact?.id;
       let sourceId = made?.contact_inbox?.source_id;
@@ -127,8 +129,9 @@ async function newApi(request, user, accountId) {
         sourceId = inboxes.find(entry => entry.inbox.id === inbox.id)?.source_id;
         if (!sourceId) sourceId = (await api.post(`/contacts/${contactId}/contact_inboxes`, { inbox_id: inbox.id })).body.source_id;
       }
-      const created = (await api.post('/conversations', { source_id: sourceId, inbox_id: inbox.id, contact_id: contactId })).body;
-      if (message) await api.post(`/conversations/${created.id}/messages`, { content: message, message_type: 'incoming' });
+      const first = message ? { content: message, message_type: 'incoming' } : null;
+      const created = (await api.post('/conversations', { source_id: sourceId, inbox_id: inbox.id, contact_id: contactId, ...(first && together ? { message: first } : {}) })).body;
+      if (first && !together) await api.post(`/conversations/${created.id}/messages`, first);
       return { id: created.id, contactId };
     },
   };

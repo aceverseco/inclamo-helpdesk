@@ -7,7 +7,9 @@ module Inclamo
     # are offered to the agent; nothing is ever guessed.
     class CustomerMatcher
       REMEMBERED = 'inclamo_shopify_customer_id'
-      Result = Struct.new(:state, :customer_id, :candidates, keyword_init: true)
+      # `customer` is the store's answer for the one customer found by a search;
+      # nil for a customer an agent chose earlier, who is not searched for.
+      Result = Struct.new(:state, :customer_id, :candidates, :customer, keyword_init: true)
 
       def initialize(reader, contact, limited:)
         @reader = reader
@@ -46,7 +48,7 @@ module Inclamo
       def result_for(found)
         case found.size
         when 0 then Result.new(state: 'none', candidates: [])
-        when 1 then Result.new(state: 'matched', customer_id: found.first['id'], candidates: [])
+        when 1 then Result.new(state: 'matched', customer_id: found.first['id'], candidates: [], customer: found.first)
         else Result.new(state: 'ambiguous', candidates: found.map { |node| self.class.candidate(node) })
         end
       end

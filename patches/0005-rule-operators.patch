@@ -1,0 +1,52 @@
+diff --git a/app/javascript/dashboard/extensions/ruleOperators.js b/app/javascript/dashboard/extensions/ruleOperators.js
+new file mode 100644
+index 0000000..bcba9db
+--- /dev/null
++++ b/app/javascript/dashboard/extensions/ruleOperators.js
+@@ -0,0 +1,5 @@
++// Operators that an extension offers for a custom attribute in the conditions
++// of an automation rule. Each entry is a function that takes the attribute's
++// definition and returns a list of operators, or nothing to leave Chatwoot's
++// own list for the attribute's type. Empty in Chatwoot itself.
++export default [];
+diff --git a/app/javascript/dashboard/helper/automationHelper.js b/app/javascript/dashboard/helper/automationHelper.js
+index 9a11f20..6bc302b 100644
+--- a/app/javascript/dashboard/helper/automationHelper.js
++++ b/app/javascript/dashboard/helper/automationHelper.js
+@@ -10,6 +10,7 @@ import {
+   OPERATOR_TYPES_4,
+ } from 'dashboard/routes/dashboard/settings/automation/operators';
+ import { CAPTAIN_CONDITION } from 'dashboard/routes/dashboard/settings/automation/constants';
++import extensionOperators from 'dashboard/extensions/ruleOperators';
+ import actionQueryGenerator from './actionQueryGenerator';
+ import filterQueryGenerator from './filterQueryGenerator';
+ 
+@@ -73,6 +74,10 @@ export const getOperatorTypes = key => {
+   return operatorMap[key] || OPERATOR_TYPES_1;
+ };
+ 
++const getCustomAttributeOperators = attr =>
++  extensionOperators.map(entry => entry(attr)).find(Boolean) ||
++  getOperatorTypes(attr.attribute_display_type);
++
+ export const generateCustomAttributeTypes = (customAttributes, type) => {
+   return customAttributes.map(attr => {
+     return {
+@@ -80,7 +85,7 @@ export const generateCustomAttributeTypes = (customAttributes, type) => {
+       name: attr.attribute_display_name,
+       inputType: getCustomAttributeInputType(attr.attribute_display_type),
+       attributeDisplayType: attr.attribute_display_type,
+-      filterOperators: getOperatorTypes(attr.attribute_display_type),
++      filterOperators: getCustomAttributeOperators(attr),
+       customAttributeType: type,
+     };
+   });
+@@ -392,7 +397,7 @@ export const getOperators = (
+   if (mode === 'edit') {
+     const customAttribute = isACustomAttribute(allCustomAttributes, key);
+     if (customAttribute) {
+-      return getOperatorTypes(customAttribute.attribute_display_type);
++      return getCustomAttributeOperators(customAttribute);
+     }
+   }
+   const type = getAutomationType(automationTypes, automation, key);
