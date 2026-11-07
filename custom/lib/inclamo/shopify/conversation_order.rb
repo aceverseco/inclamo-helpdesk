@@ -46,9 +46,10 @@ module Inclamo
         }.compact
       end
 
-      def initialize(conversation)
+      # `connection` is the account's store connection when the caller has it already.
+      def initialize(conversation, connection: nil)
         @conversation = conversation
-        @record = ShopifyConnection.find_by(account_id: conversation.account_id)
+        @record = connection || ShopifyConnection.find_by(account_id: conversation.account_id)
       end
 
       def marked_id
@@ -58,17 +59,12 @@ module Inclamo
       # Marks the order (as the Admin API returned it) and writes its attributes.
       # Also used to refresh them: nothing is written when nothing changed.
       def mark!(node)
-        ours = [ID_KEY, *DEFINITIONS.keys]
-        current = @conversation.custom_attributes.to_h
-        updated = current.except(*ours).merge(self.class.attributes_for(node, shop_domain: @record.shop_domain))
-        @conversation.update!(custom_attributes: updated) unless updated == current
-        updated
+        ours = self.class.attributes_for(node, shop_domain: @record.shop_domain)
+        write { |current| current.except(ID_KEY, *DEFINITIONS.keys).merge(ours) }
       end
 
       def clear!
-        current = @conversation.custom_attributes.to_h
-        updated = current.except(ID_KEY, *DEFINITIONS.keys)
-        @conversation.update!(custom_attributes: updated) unless updated == current
+        write { |current| current.except(ID_KEY, *DEFINITIONS.keys) }
       end
 
       # Marks the order named in `text` when it belongs to the customer matched
@@ -91,6 +87,25 @@ module Inclamo
           return node
         end
         nil
+      end
+
+      private
+
+      # Changes our attributes on the conversation as it is in the database
+      # now, not as this request loaded it: the store may take seconds to
+      # answer first, and whatever else was set meanwhile (by an agent, a rule
+      # or another service) is kept.
+      def write
+        Conversation.transaction do
+          fresh = Conversation.lock.find(@conversation.id)
+          current = fresh.custom_attributes.to_h
+          updated = yield(current)
+          fresh.update!(custom_attributes: updated) unless updated == current
+          # This request's copy of the conversation shows what is stored now.
+          @conversation.custom_attributes = updated
+          @conversation.clear_attribute_changes([:custom_attributes])
+          updated
+        end
       end
     end
   end
