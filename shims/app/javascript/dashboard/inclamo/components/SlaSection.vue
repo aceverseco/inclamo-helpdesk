@@ -33,17 +33,25 @@ const stopClocks = () => {
 
 const sinceRead = computed(() => Math.max(0, Math.floor((now.value - readAt.value) / 1000)));
 
+// A target that can still change: running, paused, or missed and not yet
+// reached. A met one, one missed and reached later, and a stopped one stay.
+const open = target => Boolean(target) && target.state !== 'stopped' && target.took_seconds == null;
+
+// Ticks while a shown time counts, and reads again while a target can change.
 const schedule = data => {
   stopClocks();
   if (!data || data.stopped) return;
-  ticker = setInterval(() => {
-    now.value = Date.now();
-  }, 1000);
+  const targets = ['first_response', 'resolution'].map(name => data[name]).filter(open);
+  if (targets.length === 0) return;
+  if (targets.some(target => target.counting)) {
+    ticker = setInterval(() => {
+      now.value = Date.now();
+    }, 1000);
+  }
   const waits = [REFRESH_MS];
   if (data.next_change_at) waits.push(new Date(data.next_change_at).getTime() - Date.now() + 1000);
-  ['first_response', 'resolution'].forEach(name => {
-    const target = data[name];
-    if (target?.counting && target.state === 'running') waits.push(target.remaining_seconds * 1000 + 1000);
+  targets.forEach(target => {
+    if (target.counting && target.state === 'running') waits.push(target.remaining_seconds * 1000 + 1000);
   });
   // eslint-disable-next-line no-use-before-define
   refresher = setTimeout(load, Math.max(1000, Math.min(...waits)));

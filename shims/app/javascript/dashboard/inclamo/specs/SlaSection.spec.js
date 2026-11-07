@@ -1,9 +1,9 @@
-import { nextTick } from 'vue';
+import { h, nextTick } from 'vue';
 import { mount } from '@vue/test-utils';
 import SlaSection from '../components/SlaSection.vue';
 import InclamoAPI from '../api';
 import sidebarSections from '../sidebarSections';
-import { forgetTimers } from '../slaTimers';
+import { forgetTimers, timerOf } from '../slaTimers';
 
 vi.mock('../api', () => ({ default: { getConversationSla: vi.fn() } }));
 
@@ -112,6 +112,30 @@ describe('SlaSection', () => {
     expect(row(wrapper, 'first_response').text()).toContain('Missed by 59 min 30 s');
   });
 
+  it('neither ticks nor reads again once no target can change', async () => {
+    await show(timer({
+      first_response: { state: 'met', target_seconds: 7200, took_seconds: 1500, counting: false },
+      resolution: { state: 'missed', target_seconds: 172800, took_seconds: 180000, over_seconds: 7200, counting: false },
+    }));
+
+    expect(vi.getTimerCount()).toBe(0);
+    await wait(180_000);
+    expect(InclamoAPI.getConversationSla).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not tick for paused targets, and reads them again when the hours open', async () => {
+    await show(timer({
+      business_hours_only: true,
+      next_change_at: '2026-11-06T10:32:00Z',
+      first_response: { state: 'paused', target_seconds: 7200, remaining_seconds: 7200, counting: false },
+      resolution: { state: 'paused', target_seconds: 172800, remaining_seconds: 172800, counting: false },
+    }));
+
+    expect(vi.getTimerCount()).toBe(1);
+    await wait(61_000);
+    expect(InclamoAPI.getConversationSla).toHaveBeenCalledTimes(2);
+  });
+
   it('shows the running targets of a deleted policy as stopped', async () => {
     const wrapper = await show(timer({ stopped: true, first_response: { state: 'stopped', target_seconds: 7200, remaining_seconds: 100, counting: false } }));
 
@@ -152,6 +176,41 @@ describe('SlaSection', () => {
       expect(entry().visible(7)).toBe(true);
       expect(entry().visible(8)).toBe(false);
       expect(InclamoAPI.getConversationSla).toHaveBeenCalledTimes(2);
+    });
+
+    it('reads a timer that is on its way again by itself, and the section appears without another question', async () => {
+      InclamoAPI.getConversationSla
+        .mockResolvedValueOnce({ data: { timer: null, pending: true } })
+        .mockResolvedValueOnce({ data: { timer: null, pending: true } })
+        .mockResolvedValue({ data: { timer: timer(), pending: false } });
+      // Renders like ContactPanel: only when what it read changes.
+      const sidebar = mount({ render: () => h('span', entry().visible(5) ? 'shown' : 'hidden') });
+      await settle();
+      expect(sidebar.text()).toBe('hidden');
+      expect(timerOf(5)).toMatchObject({ timer: null });
+
+      await wait(2_000);
+      expect(InclamoAPI.getConversationSla).toHaveBeenCalledTimes(2);
+      expect(sidebar.text()).toBe('hidden');
+      await wait(4_000);
+      expect(InclamoAPI.getConversationSla).toHaveBeenCalledTimes(3);
+      expect(sidebar.text()).toBe('shown');
+
+      await wait(120_000);
+      expect(InclamoAPI.getConversationSla).toHaveBeenCalledTimes(3);
+      sidebar.unmount();
+    });
+
+    it('does not read again a conversation no policy covers, and gives up on a timer that never comes', async () => {
+      InclamoAPI.getConversationSla.mockImplementation(async id => ({ data: { timer: null, pending: id === 6 } }));
+      entry().visible(4);
+      entry().visible(6);
+      await settle();
+
+      await wait(300_000);
+      const reads = id => InclamoAPI.getConversationSla.mock.calls.filter(([asked]) => asked === id).length;
+      expect(reads(4)).toBe(1);
+      expect(reads(6)).toBe(7);
     });
 
     it('asks again when its answer is a minute old', async () => {

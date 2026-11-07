@@ -27,6 +27,18 @@ RSpec.describe 'Inclamo conversation SLA API', type: :request do
 
   it 'says there is no timer when no policy applied' do
     expect(timer_shown).to be_nil
+    expect(response.parsed_body['pending']).to be(false)
+  end
+
+  it 'says a timer is on its way when a policy covers the conversation but has not been applied yet' do
+    Inclamo::SlaPolicy.create!(account: account, name: 'Standard', first_response_seconds: 7_200, created_at: conversation.created_at - 1.minute)
+
+    expect(timer_shown).to be_nil
+    expect(response.parsed_body['pending']).to be(true)
+
+    Inclamo::Sla::Timers.apply!(conversation)
+    expect(timer_shown).to include('policy_name' => 'Standard')
+    expect(response.parsed_body['pending']).to be(false)
   end
 
   it 'shows a running timer with the time left to each target' do
