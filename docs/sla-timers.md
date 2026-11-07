@@ -44,7 +44,8 @@ The targets are copied into the timer when it starts. Editing a policy later
 changes the targets of new conversations only. Deleting a policy stops the
 timers it started on conversations that are still open: they show "Stopped" and
 are never marked as missed afterwards. Results already reached (met or missed)
-stay.
+stay, and a target that had already passed when the policy is deleted is marked
+as missed at that moment.
 
 ## When the timers stop
 
@@ -56,7 +57,12 @@ Both timers start when the conversation is created.
   Private notes do not count, nor do messages sent by automation rules, bots or
   campaigns. Resolving a conversation does not stop it either.
 - The **resolution** timer stops the **first** time the conversation is
-  resolved. Reopening it later does not start new timers.
+  resolved. Reopening it later does not start new timers. A conversation
+  Chatwoot creates already resolved (one from a blocked contact) has its
+  resolution counted at once.
+
+Replies and resolutions count from the moment they happen, even when the
+helpdesk is busy and records them a little later.
 
 A target reached in time shows as **Met**, with the time it took.
 

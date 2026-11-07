@@ -71,8 +71,12 @@ class Inclamo::SlaPolicy < ApplicationRecord
   end
 
   # Timers already applied keep their targets; those still running stop, so
-  # nothing is marked as missed after the policy is gone.
+  # nothing is marked as missed after the policy is gone. A target that passed
+  # while the policy was there is marked first, as the check would have done:
+  # the check may not have run since.
   def stop_running_timers
-    timers.running.update_all(stopped_at: Time.current, updated_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
+    now = Time.current
+    Inclamo::Sla::Timers.check_due!(now, timers)
+    timers.running.update_all(stopped_at: now, updated_at: now) # rubocop:disable Rails/SkipsModelValidations
   end
 end

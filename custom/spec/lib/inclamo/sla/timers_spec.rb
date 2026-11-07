@@ -89,6 +89,35 @@ RSpec.describe Inclamo::Sla::Timers do
 
       expect(timer_of(conversation).first_response_at).to be_within(1.second).of(answer.created_at)
     end
+
+    it "counts the resolution of a conversation Chatwoot creates resolved, a blocked contact's, which has no event" do
+      policy
+      contact = create(:contact, account: account, blocked: true)
+      conversation = create(:conversation, account: account, inbox: inbox, contact: contact,
+                                           contact_inbox: create(:contact_inbox, contact: contact, inbox: inbox))
+      expect(conversation).to be_resolved
+
+      described_class.apply!(conversation)
+      described_class.check_due!(conversation.created_at + 3.days)
+
+      timer = timer_of(conversation)
+      expect(timer.resolved_at).to be_within(1.second).of(conversation.created_at)
+      expect(timer.resolution_missed_at).to be_nil
+      expect(notes(conversation)).not_to include(a_string_including('resolution target'))
+    end
+
+    it 'counts a resolution whose event was handled before the timer existed' do
+      policy
+      conversation = new_conversation
+      conversation.update!(status: :resolved)
+      described_class.resolved!(conversation, Time.current)
+      expect(timer_of(conversation)).to be_nil
+
+      described_class.apply!(conversation)
+
+      expect(timer_of(conversation).resolved_at).to be_within(1.second).of(conversation.reload.updated_at)
+      expect(timer_of(conversation).resolution_missed_at).to be_nil
+    end
   end
 
   describe 'the first human reply and the first resolution' do
@@ -215,6 +244,98 @@ RSpec.describe Inclamo::Sla::Timers do
     end
   end
 
+  describe 'the periodic check, when Chatwoot\'s events are late' do
+    let!(:standard) { policy }
+    let(:conversation) { new_conversation }
+    let(:deadline) { timer_of(conversation).started_at + 2.hours }
+
+    before { described_class.apply!(conversation) }
+
+    it 'counts a reply sent in time that its event has not recorded yet as met, and marks nothing' do
+      answer = travel_to(deadline - 2.seconds) { reply(conversation) }
+
+      described_class.check_due!(deadline + 5.seconds)
+      described_class.replied!(answer)
+
+      timer = timer_of(conversation)
+      expect(timer.first_response_at).to be_within(1.second).of(answer.created_at)
+      expect(timer.first_response_missed_at).to be_nil
+      expect(conversation.reload.label_list).to be_empty
+      expect(Inclamo::Sla::TimerPresenter.new(timer, now: deadline + 1.minute).as_json[:first_response]).to include(state: 'met')
+    end
+
+    it 'counts a late reply its event has not recorded yet as missed, once' do
+      late = travel_to(deadline + 30.seconds) { reply(conversation) }
+
+      described_class.check_due!(deadline + 40.seconds)
+      described_class.replied!(late)
+
+      expect(timer_of(conversation).first_response_missed_at).to be_within(1.second).of(deadline)
+      expect(notes(conversation)).to eq(['SLA "Standard": the first-response target of 2 hours was missed.'])
+    end
+
+    it 'does not mark a target reached after the check read the timer' do
+      stale = Inclamo::SlaTimer.find(timer_of(conversation).id)
+      described_class.replied!(travel_to(deadline - 1.second) { reply(conversation) })
+
+      described_class.missed!(stale, 'first_response', deadline)
+
+      expect(timer_of(conversation).first_response_missed_at).to be_nil
+      expect(notes(conversation)).to be_empty
+    end
+
+    describe 'a resolution its event has not recorded yet' do
+      let(:resolution_deadline) { timer_of(conversation).started_at + 2.days }
+
+      before do
+        described_class.replied!(reply(conversation))
+        travel_to(resolution_deadline - 1.minute) { conversation.update!(status: :resolved) }
+      end
+
+      it 'is left to that event, which carries its moment' do
+        described_class.check_due!(resolution_deadline + 1.minute)
+        expect(timer_of(conversation)).to have_attributes(resolved_at: nil, resolution_missed_at: nil)
+
+        described_class.resolved!(conversation, resolution_deadline - 1.minute)
+        expect(timer_of(conversation)).to have_attributes(resolved_at: be_within(1.second).of(resolution_deadline - 1.minute),
+                                                          resolution_missed_at: nil)
+        expect(notes(conversation)).to be_empty
+      end
+
+      it 'is recorded at the conversation\'s last change when the event never comes' do
+        described_class.check_due!(resolution_deadline + 11.minutes)
+
+        expect(timer_of(conversation)).to have_attributes(resolved_at: be_within(1.second).of(resolution_deadline - 1.minute),
+                                                          resolution_missed_at: nil)
+        expect(notes(conversation)).to be_empty
+      end
+    end
+
+    it 'goes on with the other timers when one cannot be marked, and marks that one on the next run' do
+      other = new_conversation
+      described_class.apply!(other)
+      broken = timer_of(conversation).conversation_id
+      allow(Messages::MessageBuilder).to receive(:new).and_wrap_original do |original, user, record, params|
+        raise ActiveRecord::RecordInvalid if record.id == broken
+
+        original.call(user, record, params)
+      end
+
+      described_class.check_due!(deadline + 1.minute)
+
+      expect(timer_of(other).first_response_missed_at).to be_present
+      expect(notes(other)).to eq(['SLA "Standard": the first-response target of 2 hours was missed.'])
+      expect(timer_of(conversation).first_response_missed_at).to be_nil
+      expect(conversation.reload.label_list).to be_empty
+
+      allow(Messages::MessageBuilder).to receive(:new).and_call_original
+      described_class.check_due!(deadline + 2.minutes)
+
+      expect(timer_of(conversation).first_response_missed_at).to be_within(1.second).of(deadline)
+      expect(notes(conversation)).to eq(['SLA "Standard": the first-response target of 2 hours was missed.'])
+    end
+  end
+
   describe 'counting business hours only' do
     # Saturday noon in Berlin: the inbox is closed until Monday 9:00.
     let(:saturday) { ActiveSupport::TimeZone['Europe/Berlin'].parse('2026-11-07 12:00') }
@@ -231,6 +352,27 @@ RSpec.describe Inclamo::Sla::Timers do
 
       described_class.check_due!(saturday + 2.days + 0.5.hours) # Monday 12:30, two and a half hours open
       expect(timer_of(@conversation).first_response_missed_at).to eq(ActiveSupport::TimeZone['Europe/Berlin'].parse('2026-11-09 11:00'))
+    end
+
+    it 'leaves the timer alone until its deadline, unless the business hours change' do
+      monday_eleven = ActiveSupport::TimeZone['Europe/Berlin'].parse('2026-11-09 11:00')
+      travel_to(saturday - 1.hour) { inbox.update!(working_hours_enabled: true, timezone: 'Europe/Berlin') }
+      travel_to(saturday) do
+        policy(business_hours_only: true)
+        described_class.apply!(@conversation = new_conversation)
+      end
+      timer = timer_of(@conversation)
+      expect(timer.first_response_due_at).to eq(monday_eleven)
+
+      expect(Inclamo::SlaTimer.maybe_due(saturday + 1.day)).to be_empty
+      expect(Inclamo::SlaTimer.maybe_due(monday_eleven)).to eq([timer])
+
+      # Open on Sundays from now on: the deadline moves, and the check works it out again.
+      travel_to(saturday + 1.day) { inbox.working_hours.find_by(day_of_week: 0).update!(closed_all_day: false, open_all_day: true) }
+      expect(Inclamo::SlaTimer.maybe_due(saturday + 1.day + 1.minute)).to eq([timer])
+      sunday_two = ActiveSupport::TimeZone['Europe/Berlin'].parse('2026-11-08 02:00')
+      travel_to(saturday + 1.day + 2.minutes) { described_class.check_due!(saturday + 1.day + 2.minutes) }
+      expect(timer_of(@conversation).first_response_missed_at).to eq(sunday_two)
     end
   end
 
@@ -251,6 +393,20 @@ RSpec.describe Inclamo::Sla::Timers do
       described_class.replied!(reply(conversation))
       expect(timer.reload).to have_attributes(first_response_missed_at: nil, resolution_missed_at: nil, first_response_at: nil)
       expect(conversation.reload.label_list).to be_empty
+    end
+
+    it 'marks a target that passed while the policy was there, though the check had not run yet' do
+      travel_to(conversation.created_at + 2.hours + 10.seconds) { standard.destroy! }
+
+      timer = timer_of(conversation)
+      expect(timer.first_response_missed_at).to be_within(1.second).of(timer.started_at + 2.hours)
+      expect(timer.stopped_at).to be_present
+      expect(conversation.reload.label_list).to eq([Inclamo::Sla::LABEL])
+      expect(notes(conversation)).to eq(['SLA "Standard": the first-response target of 2 hours was missed.'])
+
+      described_class.check_due!(conversation.created_at + 3.days)
+      expect(timer.reload.resolution_missed_at).to be_nil
+      expect(notes(conversation).size).to eq(1)
     end
 
     it 'keeps what a timer already reached' do
