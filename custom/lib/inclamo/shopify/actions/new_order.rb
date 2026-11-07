@@ -29,6 +29,7 @@ module Inclamo
         MAX_QUANTITY = 999
         NOTE_LENGTH = 1000
         AWAITING = 5
+        AWAITING_STATUSES = %w[OPEN INVOICE_SENT].freeze
         LOOK_AFTER = 30.seconds
         # A lost draft is looked for among the customer's drafts made around
         # its record: the store's clock may differ from ours by this much.
@@ -74,6 +75,14 @@ module Inclamo
         def self.drafts_query(customer_id, open: true)
           query = "customer_id:#{customer_id.to_s.split('/').last} tag:#{TAG}"
           open ? "#{query} (status:open OR status:invoice_sent)" : query
+        end
+
+        # Drafts made for the customer from the helpdesk moments ago, which the
+        # store's search may not show yet (it took 1-3 s on the test store;
+        # LOOK_AFTER is the margin the lost-attempt lookup trusts too).
+        def self.just_made(account_id, customer_id)
+          OrderAction.where(account_id: account_id, action: 'new_order', outcome: 'accepted', completed_at: LOOK_AFTER.ago..)
+                     .where("progress->>'customer_id' = ?", customer_id.to_s).filter_map { |record| record.progress['draft_id'] }
         end
 
         # One order awaiting payment, as the panel shows it.

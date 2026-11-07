@@ -159,6 +159,38 @@ RSpec.describe 'Inclamo new order API', type: :request do
       expect(graphql_requests('awaiting_payment')).to have_been_made.twice
     end
 
+    it 'shows an order made moments ago before the store search lists it, and keeps no list without it' do
+      created = shopify_fixture('new_order_create').dig('draftOrderCreate', 'draftOrder')
+      stub_shopify_fixture(:new_order_create, 'new_order_create')
+      stub_shopify_fixture(:new_order_invoice_send, 'new_order_invoice_send')
+      stub_shopify_fixture(:awaiting_payment, 'awaiting_payment_none')
+      just_made = created.merge('status' => 'INVOICE_SENT', 'createdAt' => '2026-11-06T11:29:05Z', 'invoiceSentAt' => '2026-11-06T11:29:06Z',
+                                'lineItems' => { 'nodes' => [{ 'name' => 'The Minimal Snowboard', 'quantity' => 1 }] })
+      by_id = stub_shopify(:awaiting_payment_drafts, data: { nodes: [just_made] })
+
+      post "#{base}/actions", params: { action_name: 'new_order', action_id: 'action-new-order-0103', params: order_params }, headers: admin.create_new_auth_token, as: :json
+      2.times { get "#{base}/panel", headers: agent.create_new_auth_token }
+
+      expect(response.parsed_body['awaiting_payment'].pluck('number', 'invoice_sent')).to eq([[created['name'], true]])
+      expect(by_id.with { |r| JSON.parse(r.body).dig('variables', 'ids') == [created['id']] }).to have_been_requested.twice
+      expect(graphql_requests('awaiting_payment')).to have_been_made.twice
+
+      # Once the search has caught up, the list alone is read, and kept again.
+      stub_shopify_fixture(:awaiting_payment, 'awaiting_payment')
+      travel_to(31.seconds.from_now) { 2.times { get "#{base}/panel", headers: agent.create_new_auth_token } }
+      expect(graphql_requests('awaiting_payment')).to have_been_made.times(3)
+      expect(by_id).to have_been_requested.twice
+    end
+
+    it 'is not read again for a further page of orders' do
+      get "#{base}/panel", params: { after: 'cursor-of-page-2' }, headers: agent.create_new_auth_token
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('state' => 'matched')
+      expect(response.parsed_body).not_to have_key('awaiting_payment')
+      expect(graphql_requests('awaiting_payment')).not_to have_been_made
+    end
+
     it 'is empty without the draft orders scope, and the panel still shows when the store does not give the list' do
       connection.update!(scopes: %w[read_customers read_orders write_orders read_products])
       get "#{base}/panel", headers: agent.create_new_auth_token
