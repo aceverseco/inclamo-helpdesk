@@ -73,6 +73,13 @@ Content-Type: application/json
 Keep `bot.access_token` and `bot.secret` as secrets: the token acts in the
 account, the secret checks the signature of every event.
 
+`connection_id` is a string (or a number) of at most 200 characters, and
+`webhook_url` an HTTPS address of at most 2000. A `201` without them is taken
+as no answer; when it carried a `connection_id`, the helpdesk asks, best
+effort, to remove it (§1.3). Redirects are not followed. Both calls go through
+Chatwoot's SSRF filter, so `service_url` and `webhook_url` must be public
+(`lib/safe_fetch.rb`); `helpdesk_url` is the installation's `FRONTEND_URL`.
+
 ### 1.3 Disconnecting
 
 The administrator presses **Disconnect**. The helpdesk moves every Pending
@@ -84,7 +91,10 @@ DELETE {service_url}/connections/{connection_id}
 Authorization: Bearer {the bot's former access token}
 ```
 
-The Phone inbox, its conversations and the labels stay.
+Any `2xx` counts as told; anything else is shown on the AI agent page ("the
+AI service could not be told"). The Phone inbox, its conversations and the
+labels stay. The token is refused from that moment: a call with it answers
+`401`.
 
 ## 2. Events
 
@@ -123,22 +133,26 @@ replies, the team's replies **and the team's private notes**. It also gets
 `conversation_updated` and `webwidget_triggered`.
 
 Take a turn only for a `message_created` where:
-- `message_type` is `incoming` and `sender.type` is `contact`;
+- `message_type` is `incoming` (only the shopper's messages are; the
+  contact in `sender` carries no `type`);
 - `private` is `false`;
 - `conversation.status` is `pending`;
 - `conversation.inbox_id` is one of the connected inboxes.
 
 Ignore everything else for turns: your own replies come back as events
-(`sender.type` `agent_bot`), and a private note is the team's, never the
-shopper's. `conversation_status_changed` to `open` means the team has the
-conversation: stop.
+(outgoing, `sender.type` `agent_bot`), and a private note is the team's
+(outgoing, `sender.type` `user`, `private` `true`), never the shopper's.
+`conversation_status_changed` to `open` means the team has the conversation:
+stop.
 
 ### 2.3 Fields read
 
 Message (`app/models/message.rb:184-202`): `id`, `content`, `content_type`,
 `content_attributes`, `message_type`, `private`, `created_at`, `source_id`,
-`sender` (`type`: `contact`, `user`, `agent_bot`), `inbox`, `account`,
-`conversation`, `attachments` when there are any.
+`sender`, `inbox`, `account`, `conversation`, `attachments` when there are
+any. `sender` is a person (`type` `user`), a bot (`type` `agent_bot`) or the
+contact, which has no `type` but `contact_type` (`app/models/contact.rb`,
+`webhook_data`; seen on the stand, §10).
 
 Conversation in the payload
 (`app/presenters/conversations/event_data_presenter.rb:2-50`): `id` (the
@@ -195,8 +209,9 @@ The API is throttled per IP, 3000 requests a minute by default
 ## 5. Our calls with the bot's token
 
 Under `/api/v1/accounts/{account_id}/inclamo/ai/conversations/{conversation_id}`,
-the same token, refused (`403`) for a conversation outside the connected
-inboxes.
+the same token. Any other token, a person's session, or the token of a
+disconnected account is `401`; a conversation outside the connected inboxes,
+or one that does not exist, is `403` with nothing about it in the answer.
 
 ### 5.1 History and files
 
@@ -221,8 +236,10 @@ GET …/messages?limit=30        (at most 100)
 ```
 
 The last public messages, oldest first. `role` is `shopper` (incoming),
-`agent` (our bot) or `team` (a person). Private notes and activity messages
-are left out. `shopper_files` counts the files in all the shopper's public
+`agent` (our bot) or `team` (a person, or the helpdesk's own automation).
+Private notes, activity messages and Chatwoot's template messages are left
+out. `limit` is 30 by default, 100 at most. `url` is the file's address as in
+the event's `data_url` (`app/models/attachment.rb`). `shopper_files` counts the files in all the shopper's public
 messages of the conversation.
 
 ### 5.2 Labels
@@ -231,9 +248,12 @@ messages of the conversation.
 POST …/labels {"add": ["inclamo_intent_return", "inclamo_request_ready"]}
 ```
 
-Adds the names and keeps every other label; answers the full list. Only names
-starting `inclamo_` in Chatwoot's label form (lower case letters, digits, `_`,
-`-`; `app/models/label.rb:25-34`) are accepted, others are `422`. A name the
+Adds the names and keeps every other label; answers the full list,
+`{"labels": [...]}`. Only names starting `inclamo_` in Chatwoot's label form
+(lower case letters, digits, `_`, `-`; `app/models/label.rb:25-34`), at most
+100 characters each and 20 a request, are accepted; otherwise the answer is
+`422` with `error` `invalid_label`, `too_many_labels` or `no_labels`, and none
+of the request is added. A name the
 account does not list yet is added to its labels with the description "Set by
 the AI agent", so the team sees it.
 
@@ -264,8 +284,8 @@ Created at connection; an existing label of the same title is left alone.
 | --- | --- | --- |
 | a new conversation in a connected inbox | starts it **Pending**, the bot as its AI assignee (`app/models/conversation.rb:316-333`) | answers |
 | the agent hands over (`toggle_status open`) | Open, the AI assignee cleared, auto-assignment may give it to a person | stops |
-| a person replies publicly or takes it (assigns) | **our overlay** opens it (Chatwoot CE does not, `message.rb:423-433`) | gets `conversation_status_changed`, stops |
-| a delivery fails (§2.1) | Open | — |
+| a person replies publicly or takes it (assigns; the dashboard's "Take over") | **our overlay** opens it (Chatwoot CE does not, `message.rb:423-433`) | gets `conversation_status_changed`, stops |
+| a delivery fails (§2.1) | Open, the bot still its assignee (§10.3) | — |
 | the agent fails after answering `200` | nothing by itself | **hands over with `inclamo_error`** and one message to the shopper |
 | the shopper writes in a resolved conversation | Pending again (`message.rb:435-444`) | answers |
 | the AI agent is disconnected | every Pending conversation Open | gets no more events |
@@ -275,14 +295,115 @@ list; Chatwoot's default list shows Open.
 
 ## 8. Testing against this contract
 
-The helpdesk's end-to-end tests run a stand-in agent (`e2e/stand-in-agent/`)
-that implements this contract by fixed rules, so every flow runs without the AI
-service. The tests assert what the helpdesk shows, never the agent's words: the
-same test file runs against the AI service given a connection code it issued
-(the variables are named when that test file is written).
+The helpdesk's end-to-end tests (`e2e/tests/ai-agent-connection.spec.mjs`) run
+a stand-in agent, `e2e/stand-in-agent/server.mjs`, that implements this
+contract by fixed rules on the shopper's text: "person" or "human" hands over
+with a note and `inclamo_handover`; "urgent" sets priority `urgent`, adds
+`inclamo_urgent` and hands over; "resolve" replies and resolves; "intent" adds
+`inclamo_intent_test`; a message with files gets a reply naming the files it
+received and `shopper_files`; anything else gets a reply. Its own tests
+(`node --test e2e/stand-in-agent/server.test.mjs`) show that it refuses a wrong
+signature, a timestamp older than five minutes and a repeated delivery.
+
+The tests assert what the helpdesk shows and stores, never the agent's words.
+The same file runs against the AI service:
+
+1. Run the tests against a helpdesk the AI service can reach (public, HTTPS):
+   `HELPDESK_URL`, `E2E_ACCOUNT_ID` and the test users (`STAND_ADMIN_EMAIL`,
+   `STAND_ADMIN_PASSWORD`, `STAND_AGENT_EMAIL`, `STAND_AGENT_PASSWORD`), in an
+   account that was never connected.
+2. Have the AI service issue a connection code for that helpdesk and set it as
+   `E2E_AI_CODE`. Optionally set `E2E_AI_REFUSED_CODE` to a code the AI service
+   refuses (expired, for example).
+3. `npx playwright test tests/ai-agent-connection.spec.mjs` in `e2e/`.
+
+With `E2E_AI_CODE` set, the tests connect with that code and skip what only
+the stand-in can show: what it received and with which signature, answering
+`503` on purpose, and reading or replying with the bot's token. The
+"The AI service refuses the code" test is skipped without
+`E2E_AI_REFUSED_CODE`. The AI service has to act on the same kinds of text as
+the stand-in (a request for a person, an urgent request, a closing thanks, a
+photo) for the handover, urgency and resolution tests to pass.
 
 ## 9. Versions
 
 The registration carries `"contract": 1`. A change that breaks a field or a
 call of this document raises the number; the AI service refuses a contract it
 does not know with a `4xx` and a message.
+
+## 10. Seen on the stand
+
+Recorded by the stand-in agent on the development stand, Chatwoot 4.19.1 with
+the overlay, 2026-11-07 (change `ai-agent-connection`, task 3.6). Ids are the
+test stack's; signed file addresses, tokens and names are cut.
+
+### 10.1 A widget message with one image
+
+A file the shopper sends from the widget is a message of its own, with
+`content` `null`. The top-level `sender` of a shopper has no `type`; the
+contact in `conversation.meta.sender` has `"type": "contact"`.
+
+```json
+{
+  "event": "message_created",
+  "id": 13,
+  "message_type": "incoming",
+  "private": false,
+  "content": null,
+  "content_type": "text",
+  "content_attributes": { "in_reply_to": null },
+  "created_at": "2026-11-07T17:30:22.743Z",
+  "account": { "id": 1, "name": "E2E" },
+  "inbox": { "id": 1, "name": "E2E Website" },
+  "sender": { "id": 3, "name": "…", "email": null, "phone_number": null, "contact_type": "lead", "account": { "id": 1, "name": "E2E" } },
+  "attachments": [
+    { "id": 1, "message_id": 13, "file_type": "image", "extension": "png", "content_type": "image/png", "file_size": 162,
+      "width": null, "height": null,
+      "data_url": "http://rails:3000/rails/active_storage/blobs/redirect/…/box-front.png",
+      "thumb_url": "http://rails:3000/rails/active_storage/representations/redirect/…/box-front.png" }
+  ],
+  "conversation": {
+    "id": 3, "inbox_id": 1, "status": "pending", "priority": null, "labels": [], "channel": "Channel::WebWidget",
+    "meta": { "sender": { "id": 3, "type": "contact", "…": "…" }, "assignee": { "id": 3, "name": "AI agent", "type": "agent_bot" }, "assignee_type": "AgentBot", "team": null },
+    "messages": ["the last message only, as above"],
+    "contact_inbox": { "source_id": "…", "pubsub_token": "…" }
+  }
+}
+```
+
+A new widget conversation also brings Chatwoot's own `template` messages ("Give
+the team a way to reach you.", "Get notified by email"), each as
+`message_created` and `message_updated`, with no sender: not the shopper's,
+no turn.
+
+### 10.2 After the agent hands over
+
+`toggle_status open` on a pending conversation (`bot_handoff!`), in the order
+the stand-in received them:
+
+| Event | What changed |
+| --- | --- |
+| `conversation_opened` | `status` `open` |
+| `conversation_status_changed` | `status` `open` |
+| `conversation_updated` | `status` `pending` → `open`, `assignee_agent_bot_id` → `null`, `ai_assignee_type` → `null` |
+| `message_updated` (each message) | `conversation.status` `open` |
+| `conversation_updated` | `assignee_id` → a person: Chatwoot's auto-assignment |
+
+The bot keeps getting the conversation's events after the handover: it is
+still the inbox's bot.
+
+### 10.3 A pending conversation after a `503`
+
+The stand-in answered `503`; Chatwoot does not retry it and opens the
+conversation (`lib/webhooks/trigger.rb:65-89`):
+
+| Event | What changed |
+| --- | --- |
+| `conversation_opened` | `status` `open` |
+| `conversation_status_changed` | `status` `open` |
+| `conversation_updated` | `status` `pending` → `open` |
+
+and an activity message in the conversation (Chatwoot's
+`conversations.activity.agent_bot.error_moved_to_open`). Unlike a handover,
+**the AI assignee stays**: the conversation is Open, assigned to the bot, and
+Chatwoot's auto-assignment does not give it to a person.
