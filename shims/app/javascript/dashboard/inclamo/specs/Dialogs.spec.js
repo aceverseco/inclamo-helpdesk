@@ -195,6 +195,25 @@ describe('AddressDialog', () => {
     expect(sent().params).toBeUndefined();
   });
 
+  it('starts from every field of the address, the company and a name of several words included, and sends a cleared field', async () => {
+    InclamoAPI.performAction.mockResolvedValue(accepted);
+    const current = { name: 'Mary Ann Example', first_name: 'Mary Ann', last_name: 'Example', company: 'Example Works', address1: '1 Example Street',
+      address2: 'Floor 2', city: 'Springfield', province_code: 'IL', zip: '62701', country_code: 'US', phone: null };
+    const wrapper = await open(AddressDialog, { order: order({ shipping_address: current }) });
+
+    expect(wrapper.find('[data-testid="inclamo-address-first_name"]').element.value).toBe('Mary Ann');
+    expect(wrapper.find('[data-testid="inclamo-address-last_name"]').element.value).toBe('Example');
+    expect(wrapper.find('[data-testid="inclamo-address-company"]').element.value).toBe('Example Works');
+
+    await wrapper.find('[data-testid="inclamo-address-address2"]').setValue('');
+    await confirm(wrapper);
+
+    expect(sent().address).toEqual({
+      first_name: 'Mary Ann', last_name: 'Example', company: 'Example Works', address1: '1 Example Street', address2: '',
+      city: 'Springfield', province_code: 'IL', zip: '62701', country_code: 'US', phone: '',
+    });
+  });
+
   it('cannot be confirmed without the street, the city and the country', async () => {
     const wrapper = await open(AddressDialog);
     await wrapper.find('[data-testid="inclamo-address-city"]').setValue('');

@@ -201,6 +201,19 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner do
       expect(Inclamo::OrderAction.all.to_json + private_notes.pluck(:content).join).not_to match(/Example Avenue|62702|Springfield/)
     end
 
+    it 'sends every field the form holds, a cleared one as empty, so that it is cleared at the store too' do
+      update = stub_shopify(:order_address_update, data: { orderUpdate: { order: { id: order_id }, userErrors: [] } })
+      stub_order
+
+      runner.perform(action: 'address', action_id: 'action-address-0004', order_id: order_id,
+                     extra: { address: address.merge('company' => 'Example Works', 'address2' => '  ', 'phone' => '') })
+
+      expect(update.with do |r|
+        sent = JSON.parse(r.body).dig('variables', 'input', 'shippingAddress')
+        sent.is_a?(Hash) && sent['company'] == 'Example Works' && sent.key?('address2') && sent['address2'].nil? && sent.key?('phone') && sent['phone'].nil?
+      end).to have_been_requested.once
+    end
+
     it 'is not available for an order that has shipped' do
       result = change_address(node: shopify_fixture('order_details_shipped')['order'])
 
