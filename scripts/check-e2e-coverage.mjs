@@ -19,6 +19,7 @@ const specsDirs = process.argv[2]
 const FILES = {
   'shopify-connection': ['shopify-connection.spec.mjs'],
   'conversation-order-panel': ['order-panel-reading.spec.mjs', 'order-panel-actions.spec.mjs'],
+  'sla-timers': ['sla-timers.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each
