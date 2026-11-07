@@ -163,6 +163,19 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner do
       expect(private_notes).to be_empty
     end
 
+    it 'records a cancellation the store could not be reached for as refused: it was never sent' do
+      stub_order
+      Inclamo::Shopify::OrderReader.new(record).order(order_id) # read before the store becomes unreachable
+      allow(Net::HTTP).to receive(:new).and_wrap_original do |original, *args|
+        original.call(*args).tap { |http| allow(http).to receive(:start).and_raise(SocketError) }
+      end
+
+      result = cancel
+
+      expect(result).to have_attributes(outcome: 'refused', refusal: 'store_unreachable', store_message: 'unreachable')
+      expect(WebMock).not_to have_requested(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].include?('mutation order_cancel') }
+    end
+
     it 'refuses a reason the store does not know' do
       stub_order
 

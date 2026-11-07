@@ -23,6 +23,14 @@ module Inclamo
         end
       end
 
+      # No connection to the store could be opened (name not found, refused,
+      # no answer to the connect): the request was never sent.
+      class Unreachable < Unavailable
+        def outcome_unknown?
+          false
+        end
+      end
+
       # The store kept throttling until the time limit. Nothing was executed.
       class Throttled < Error; end
 
