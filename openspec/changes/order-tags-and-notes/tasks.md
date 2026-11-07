@@ -23,5 +23,6 @@
 - [x] 4.1 Add `order-tags-and-notes` to the coverage check's capability map with `e2e/tests/order-tags-and-notes.spec.mjs`; seed an order and a customer with tags and notes; verify the seed is removed after the run
 - [x] 4.2 Write the twelve tests named after the scenarios ("store refuses" with the proxy, "without the customer permission" with an app that lacks it); verify they pass on the stand
   - No test app sees customers' data without `write_customers` (the limited app hides customers altogether), so the proxy takes `write_customers` out of the store's scope answer for that test. Passed 12/12 on the stand (run tn…marks, 2026-11-06); the run's seed was removed (0 orders, 0 customers left).
-- [ ] 4.3 Run the full suite in CI on an `e2e/**` branch; verify all tests pass and the log holds no token-shaped string and no store domain
+- [x] 4.3 Run the full suite in CI on an `e2e/**` branch; verify all tests pass and the log holds no token-shaped string and no store domain
+  - The first run (acb8ecf) failed one connection test that still expected only the four older actions in the report; 29bbd7a fixed both such expectations. Run 42355935766 on 29bbd7a passed 65/65 (2026-11-07); its log holds no token-shaped string and no store domain.
 - [x] 4.4 Add `write_customers` to `docs/connect-shopify.md` with what it is used for; verify the scope list there matches the guide app
