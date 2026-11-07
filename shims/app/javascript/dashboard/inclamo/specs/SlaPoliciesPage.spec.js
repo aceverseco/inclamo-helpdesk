@@ -205,6 +205,36 @@ describe('SlaPoliciesPage', () => {
     expect(InclamoAPI.getSlaSummary).toHaveBeenLastCalledWith(30);
   });
 
+  it('shows the period chosen last, whichever answer comes last', async () => {
+    const wrapper = await show([standard]);
+    let answerThirty;
+    InclamoAPI.getSlaSummary.mockImplementation(days => {
+      if (days === 30) return new Promise(resolve => { answerThirty = resolve; });
+      return Promise.resolve({ data: { days: 7, policies: [summaryRow(1, { conversations: 7 })] } });
+    });
+
+    await find(wrapper, 'inclamo-sla-days-30').trigger('click');
+    await find(wrapper, 'inclamo-sla-days-7').trigger('click');
+    await flush();
+    answerThirty({ data: { days: 30, policies: [summaryRow(1, { conversations: 30 })] } });
+    await flush();
+
+    expect(find(wrapper, 'inclamo-sla-summary-1').text()).toContain('7 conversations');
+  });
+
+  it('tells a target with nothing to count yet from a policy without that target', async () => {
+    InclamoAPI.getSlaPolicies.mockResolvedValue({ data: { policies: [vip], inboxes } });
+    InclamoAPI.getSlaSummary.mockResolvedValue({
+      data: { days: 7, policies: [summaryRow(2, { first_response: { total: 0, met: 0, missed: 0, running: 0, met_percent: null } })] },
+    });
+    const wrapper = mount(SlaPoliciesPage, { global: { stubs } });
+    await flush();
+
+    const text = find(wrapper, 'inclamo-sla-summary-2').text();
+    expect(text).toContain('first response: nothing to count yet');
+    expect(text).toContain('resolution: no target');
+  });
+
   it('says when the policies cannot be loaded', async () => {
     InclamoAPI.getSlaPolicies.mockRejectedValue(new Error('offline'));
     const wrapper = mount(SlaPoliciesPage, { global: { stubs } });

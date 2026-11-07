@@ -23,12 +23,17 @@ const form = reactive({});
 
 const unitNames = Object.keys(UNITS);
 
+// Only the answer to the last question is shown: a slower answer for the
+// other period must not replace it.
+let summaryAsked = 0;
 const loadSummary = async () => {
+  summaryAsked += 1;
+  const asked = summaryAsked;
   try {
     const { data } = await InclamoAPI.getSlaSummary(days.value);
-    summary.value = Object.fromEntries(data.policies.map(row => [row.id, row]));
+    if (asked === summaryAsked) summary.value = Object.fromEntries(data.policies.map(row => [row.id, row]));
   } catch (error) {
-    summary.value = {};
+    if (asked === summaryAsked) summary.value = {};
   }
 };
 
@@ -147,7 +152,11 @@ const covered = policy => {
   return policy.inbox_ids.map(id => inboxes.value.find(inbox => inbox.id === id)?.name).filter(Boolean).join(', ');
 };
 
-const share = target => (target ? t('SETTINGS.SLA.SUMMARY.MET', { percent: target.met_percent, met: target.met, missed: target.missed, running: target.running }) : t('SETTINGS.SLA.SUMMARY.NO_TARGET'));
+const share = target => {
+  if (!target) return t('SETTINGS.SLA.SUMMARY.NO_TARGET');
+  if (!target.total) return t('SETTINGS.SLA.SUMMARY.NOTHING_YET');
+  return t('SETTINGS.SLA.SUMMARY.MET', { percent: target.met_percent, met: target.met, missed: target.missed, running: target.running });
+};
 
 onMounted(load);
 </script>

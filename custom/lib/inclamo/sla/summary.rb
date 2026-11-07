@@ -39,14 +39,16 @@ module Inclamo
         first_response, resolution = by_target.each_slice(3).to_a
         {
           id: policy.id, name: policy.name, conversations: conversations,
-          first_response: share(*first_response), resolution: share(*resolution)
+          first_response: share(policy.first_response_seconds, *first_response), resolution: share(policy.resolution_seconds, *resolution)
         }
       end
 
-      def share(total, met, missed)
-        return nil if total.zero?
+      # nil when the policy has no such target and no timer of the period had
+      # one; a target without conversations in the period has no percentage.
+      def share(target_seconds, total, met, missed)
+        return nil if total.zero? && target_seconds.nil?
 
-        { total: total, met: met, missed: missed, running: total - met - missed, met_percent: (met * 100.0 / total).round }
+        { total: total, met: met, missed: missed, running: total - met - missed, met_percent: total.zero? ? nil : (met * 100.0 / total).round }
       end
     end
   end

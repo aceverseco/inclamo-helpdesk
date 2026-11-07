@@ -31,7 +31,8 @@ inbox applies.
 Below each policy is a summary for the last 7 or 30 days: how many
 conversations the policy was applied to, and the share of them that met each
 target. A conversation whose timer is still running counts as neither met nor
-missed, so the two shares can add up to less than 100 %.
+missed, so the two shares can add up to less than 100 %. A target with no
+conversations in the period shows "nothing to count yet".
 
 ## Which conversations get a timer
 

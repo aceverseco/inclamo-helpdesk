@@ -160,7 +160,11 @@ RSpec.describe 'Inclamo SLA policies API', type: :request do
       policy.update!(resolution_seconds: nil)
       Inclamo::SlaTimer.delete_all
       get "#{path}/summary", params: { days: 7 }, headers: as_admin
-      expect(response.parsed_body['policies'].first).to include('conversations' => 0, 'first_response' => nil, 'resolution' => nil)
+      # A target with nothing to count is not "no target".
+      expect(response.parsed_body['policies'].first).to include(
+        'conversations' => 0, 'resolution' => nil,
+        'first_response' => { 'total' => 0, 'met' => 0, 'missed' => 0, 'running' => 0, 'met_percent' => nil }
+      )
     end
   end
 end

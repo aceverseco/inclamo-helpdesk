@@ -249,7 +249,8 @@
         "FIRST_RESPONSE": "first response:",
         "RESOLUTION": "resolution:",
         "MET": "{percent} % met ({met} met, {missed} missed, {running} running)",
-        "NO_TARGET": "no target"
+        "NO_TARGET": "no target",
+        "NOTHING_YET": "nothing to count yet"
       }
     }
   },
