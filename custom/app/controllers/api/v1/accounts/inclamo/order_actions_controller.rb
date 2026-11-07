@@ -33,12 +33,13 @@ class Api::V1::Accounts::Inclamo::OrderActionsController < Api::V1::Accounts::Co
   def refund_preview
     preview = runner.refund_preview(order_id: params[:order_id], params: params[:params].respond_to?(:to_unsafe_h) ? params[:params].to_unsafe_h : {})
     render json: preview
-  rescue ::Inclamo::Shopify::Actions::Refused => e
-    render json: { error: e.code, message: (e.message unless e.message == e.code) }, status: e.code == 'not_allowed' ? :forbidden : :unprocessable_entity
-  rescue ::Inclamo::Shopify::Error::QueryError => e
-    render json: { error: 'store_refused', message: e.message.first(500) }, status: :unprocessable_entity
-  rescue ::Inclamo::Shopify::Error => e
-    render json: { error: 'store_unreachable', reason: e.class.name.demodulize.underscore }, status: :bad_gateway
+  rescue ::Inclamo::Shopify::Actions::Refused, ::Inclamo::Shopify::Error => e
+    refused = ::Inclamo::Shopify::OrderActionRunner.refusal_for(e)
+    status = if refused[:reason] then :bad_gateway
+             elsif refused[:refusal] == 'not_allowed' then :forbidden
+             else :unprocessable_entity
+             end
+    render json: { error: refused[:refusal], message: refused[:message], reason: refused[:reason] }.compact, status: status
   end
 
   private
