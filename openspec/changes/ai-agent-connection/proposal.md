@@ -26,6 +26,8 @@ Not in this change: subscription and billing (the AI service's), the greyed "Sum
 
 ## Assumptions for the founder
 
+> Founder, 2026-11-07: assumption 4 accepted, «Пока А» (the bot's token and our endpoints, not a user's token). The founder asked for the changes to be built in turn without further stops; the other assumptions stand as written until the founder says otherwise.
+
 1. **Pairing by a connection code** that the AI service issues to a subscribed merchant; the administrator pastes it once. The shape of the AI service's registration call (`POST {service}/connections`, `DELETE {service}/connections/{id}`, fields in `design.md` D3) is a proposal to agree with the builder of the AI service.
 2. **The bot is not attached to "Phone".** Calls are posted there after they end (`call-conversations`); the agent takes no turns in that inbox.
 3. **Pending while the agent handles, Open when the team has it.** That is Chatwoot's own behaviour for bot inboxes, and the team will look for the agent's conversations under Pending. A person's public reply or assignment also moves a pending conversation to Open (Chatwoot's Community Edition does not do this by itself). A resolved conversation the shopper writes in again goes back to the agent, as Chatwoot does.

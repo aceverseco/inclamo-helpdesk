@@ -25,6 +25,8 @@ Not in this change: the Shopify app itself, its configuration, its secret, the s
 
 ## Assumptions for the founder
 
+> Founder, 2026-11-07: both Shopify changes in this release («да»); the changes are built in turn without further stops; the assumptions stand as written until the founder says otherwise.
+
 1. **Only a store connected through our app gets the button.** A store connected with the merchant's own app credentials (the path of `shopify-order-panel`) has no "Sign in with Shopify": its app is the merchant's, not ours.
 2. **Only existing users of the account get in.** An email the account does not know is refused with "ask an administrator to invite you"; nobody is invited or created automatically, the store owner included, and the owner gets no role from being the owner.
 3. **Collaborator accounts are refused this way** (agencies, developers who reach the store as collaborators), even when their email matches a helpdesk user. They use the password.

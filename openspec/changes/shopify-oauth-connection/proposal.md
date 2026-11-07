@@ -25,6 +25,8 @@ Not in this change: signing in through Shopify (`shopify-sign-in`), a public lis
 
 ## Assumptions for the founder
 
+> Founder, 2026-11-07: both Shopify changes in this release («да»); the changes are built in turn without further stops; the assumptions stand as written until the founder says otherwise.
+
 1. **Custom distribution per merchant for now.** The operator creates one app per merchant in the operator's Partner organization, chooses custom distribution for that merchant's store and sends the install link. No Shopify review is needed and protected customer data is available to such an app; a public app (one app for every merchant) needs Shopify's review and is a later step that this design keeps open.
 2. **The operator sets the app on the server** with a console command (client ID, client secret, the store's domain, per account). A page in the super-admin console comes later.
 3. **The credentials form stays** next to the button, for merchants who prefer their own app and for installations without an operator app.

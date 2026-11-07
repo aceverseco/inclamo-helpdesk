@@ -28,6 +28,8 @@ Not in this change: the upstream-release routine (merging a Chatwoot tag, change
 
 ## Assumptions for the founder
 
+> Founder, 2026-11-07: the changes are built in turn without further stops; the assumptions stand as written until the founder says otherwise. Assumption 3 (the mail provider) needs the founder's choice before the first instance is finished, since it is a cost.
+
 1. **The image is published to the GitHub container registry** of this repository (public, like the code) on every release tag, named `<overlay version>-cw<Chatwoot version>`; an instance pins tag and digest. Building on the machine is not offered.
 2. **Attachments live in S3-compatible object storage** of the same provider as the machine, in a versioned bucket in the EU. The alternative is a volume on the machine, included in the nightly backup.
 3. **The outgoing mail provider is not chosen.** The install takes any SMTP server; choosing and paying for one is the founder's call. Without one the install does not finish.

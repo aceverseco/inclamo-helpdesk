@@ -24,6 +24,8 @@ Not in this change: telephony, recordings (stored by the AI service; the helpdes
 
 ## Assumptions for the founder
 
+> Founder, 2026-11-07: assumption 1 accepted with the same answer, «Пока А» (our endpoint with the bot's token). The founder asked for the changes to be built in turn without further stops; the other assumptions stand as written until the founder says otherwise.
+
 1. **A call is filed by one request to an endpoint of ours** (`POST /api/v1/accounts/:account_id/inclamo/calls` in the overlay), authenticated by the connection's agent bot token. The chat path stays stock Chatwoot as ADR 0068 says. For calls this narrows ADR 0068's consequence "the portal's adapter speaks stock Chatwoot only": a Chatwoot without our overlay would need a second, stock path on the AI service's side, not built. The reason, verified in Chatwoot 4.19.1: a bot token may not read or create contacts, and a call of sixty turns would be more than sixty requests with no key to find the call again (design D1).
 2. **The contact rule:** exactly one contact with the caller's number; otherwise exactly one with the email the AI service sends; otherwise a new contact of ours. Two or more contacts with the number: none is picked, a new contact gets `inclamo_match_ambiguous`. No number and no email: a nameless contact with `inclamo_no_caller_id`. A found contact's name, email and phone are never changed.
 3. **Turns are messages**, the caller's incoming and the agent's outgoing from the AI agent, dated by the call; the record is a private note written last, so the conversation list shows the outcome first.
