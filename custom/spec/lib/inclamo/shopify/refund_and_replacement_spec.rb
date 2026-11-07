@@ -285,6 +285,77 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
       expect(notes.size).to eq(1)
     end
 
+    it 'makes one refund when the answer to a full refund was lost: the same refund is sent again, not worked out again' do
+      stub_suggestion
+      lost = stub_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].include?('mutation refund_create') }.to_timeout
+
+      first = refund({ 'mode' => 'full' })
+      expect(first.outcome).to eq('unknown')
+
+      # The store made the refund: nothing is left to refund now.
+      remove_request_stub(lost)
+      stub_suggestion(amount: '0.0')
+      stub_refund(total)
+      second = refund({ 'mode' => 'full' })
+
+      expect(second).to have_attributes(id: first.id, outcome: 'accepted')
+      expect(second.progress['refunded']).to eq("#{total} #{currency}")
+      sent = WebMock::RequestRegistry.instance.requested_signatures.hash.keys.select { |signature| signature.body.to_s.include?('mutation refund_create') }
+      expect(sent.size).to eq(1) # both requests carried the very same body
+      expect(mutation_requests('refund_create')).to have_been_made.twice
+      expect(a_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].include?('query refund_suggestion') }).to have_been_made.once
+      expect(notes.size).to eq(1)
+    end
+
+    describe 'an answer that was lost, when the panel is read' do
+      def lose_refund
+        stub_suggestion
+        lost = stub_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].include?('mutation refund_create') }.to_timeout
+        refund({ 'mode' => 'amount', 'amount' => '20.00' }).tap { remove_request_stub(lost) }
+      end
+
+      def order_with_refunds(*refunds)
+        stub_shopify(:order_details_limited, data: { order: order.merge('refunds' => refunds) })
+      end
+
+      def made(amount, id: 'gid://shopify/Refund/5', at: Time.current)
+        { 'id' => id, 'createdAt' => at.iso8601, 'note' => nil, 'totalRefundedSet' => { 'shopMoney' => { 'amount' => amount, 'currencyCode' => currency } } }
+      end
+
+      it 'finds the refund in the order and asks the store for nothing' do
+        first = lose_refund
+        order_with_refunds(made('5.0', id: 'gid://shopify/Refund/4', at: 2.days.ago), made('20.0'))
+
+        runner.settle_open!
+
+        expect(first.reload).to have_attributes(outcome: 'accepted')
+        expect(first.progress).to include('refund_id' => 'gid://shopify/Refund/5', 'refunded' => "20.0 #{currency}")
+        expect(notes).to eq(["Refunded 20.0 #{currency} on order #1001."])
+        expect(mutation_requests('refund_create')).to have_been_made.once
+      end
+
+      it 'stays unknown while the order shows no such refund' do
+        first = lose_refund
+        order_with_refunds(made('20.0', at: 1.day.ago))
+
+        runner.settle_open!
+
+        expect(first.reload.outcome).to eq('unknown')
+        expect(mutation_requests('refund_create')).to have_been_made.once
+      end
+
+      it 'is refused when the store was never asked for the refund' do
+        stub_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].include?('query refund_suggestion') }.to_timeout
+        first = refund({ 'mode' => 'amount', 'amount' => '20.00' })
+        expect(first.outcome).to eq('unknown')
+
+        runner.settle_open!
+
+        expect(first.reload).to have_attributes(outcome: 'refused', refusal: 'store_unreachable')
+        expect(mutation_requests('refund_create')).not_to have_been_made
+      end
+    end
+
     it 'shows the reason of the store when it refuses the refund' do
       stub_suggestion
       stub_shopify(:refund_create, data: { refundCreate: { refund: nil, userErrors: [{ field: ['transactions'], message: 'Refund amount exceeds the amount available' }] } })
@@ -423,6 +494,32 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
 
       expect(mutation_requests('replacement_draft_update') { |variables| variables.dig('input', 'lineItems') == [{ 'variantId' => 'gid://shopify/ProductVariant/22', 'quantity' => 1 }] })
         .to have_been_made.once
+    end
+
+    it 'leaves a replacement another request is working on alone when the panel is read' do
+      in_flight = Inclamo::OrderAction.create!(account: account, conversation: conversation, user: admin, action_id: 'action-replacement-0009', action: 'replacement',
+                                               order_id: order['id'], order_number: '#1001', outcome: 'pending')
+
+      runner.settle_open!
+
+      expect(in_flight.reload.outcome).to eq('pending')
+      expect(WebMock).not_to have_requested(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].include?('mutation') }
+    end
+
+    it 'settles a replacement whose answer was lost by reading its draft, when the panel is read' do
+      stub_draft_create
+      stub_draft_update
+      lost = stub_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].include?('mutation replacement_draft_complete') }.to_timeout
+      first = replace
+      remove_request_stub(lost)
+      stub_shopify(:replacement_draft, data: { draftOrder: { id: draft_id, name: '#D7', status: 'COMPLETED', order: { id: 'gid://shopify/Order/9', name: '#1050' } } })
+
+      runner.settle_open!
+
+      expect(first.reload).to have_attributes(outcome: 'accepted')
+      expect(first.progress['new_order_number']).to eq('#1050')
+      expect(mutation_requests('replacement_draft_complete')).to have_been_made.once
+      expect(notes).to eq(['Created replacement order #1050 for order #1001, free of charge.'])
     end
 
     it 'names the draft with a link when it could not be removed' do

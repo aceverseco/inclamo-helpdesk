@@ -42,6 +42,15 @@ module Inclamo
           :accepted
         end
 
+        # After a lost answer, by reading the draft: completed, it is the
+        # replacement. Nothing is created, changed or completed here.
+        def resolve
+          return :accepted if @record.progress['new_order_id']
+          return unless draft_id && completed_at_store?
+
+          finish_from_store
+        end
+
         private
 
         def draft_id

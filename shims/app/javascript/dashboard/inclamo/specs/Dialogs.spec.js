@@ -79,6 +79,17 @@ describe('CancelDialog', () => {
     expect(InclamoAPI.performAction.mock.calls[1][1].action_id).toBe(first);
   });
 
+  it('lets the same id be sent again while an earlier send of it is still at the store', async () => {
+    InclamoAPI.performAction.mockResolvedValueOnce({ data: { outcome: 'pending' } }).mockResolvedValueOnce(accepted);
+    const wrapper = await open(CancelDialog);
+    await confirm(wrapper);
+
+    expect(wrapper.find('[data-testid="inclamo-action-message"]').text()).toContain('outcome is unknown');
+    expect(wrapper.find('[data-testid="dialog-confirm"]').attributes('disabled')).toBeUndefined();
+    await confirm(wrapper);
+    expect(InclamoAPI.performAction.mock.calls[1][1].action_id).toBe(InclamoAPI.performAction.mock.calls[0][1].action_id);
+  });
+
   it('says a cancellation is still running', async () => {
     InclamoAPI.performAction.mockResolvedValue({ data: { outcome: 'running' } });
     const wrapper = await open(CancelDialog);

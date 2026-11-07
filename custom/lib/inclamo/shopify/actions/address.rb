@@ -28,6 +28,12 @@ module Inclamo
           user_errors!(answer['userErrors'])
           :accepted
         end
+
+        # The address is not recorded, so the store cannot be asked again, and
+        # reading the order cannot tell whether this change was made.
+        def resolve
+          nil
+        end
       end
     end
   end
