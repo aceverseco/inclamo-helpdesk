@@ -30,3 +30,4 @@ en:
           notified: Customer notified.
           invoice_emailed: The store emailed its invoice to the customer.
           link_in_reply: The payment link was put into the reply.
+          link_not_sent: "The payment link was not sent yet: it is under Awaiting payment in the conversation's Orders section."

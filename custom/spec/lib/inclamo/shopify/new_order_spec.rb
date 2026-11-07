@@ -44,6 +44,18 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'new order' do
     as.perform(action: 'new_order', action_id: id, order_id: nil, params: params, extra: { note: note })
   end
 
+  # The store keeps throttling the operation until the time limit: it is not executed.
+  def stub_throttled(operation)
+    body = { errors: [{ message: 'Throttled', extensions: { code: 'THROTTLED' } }],
+             extensions: { cost: { requestedQueryCost: 1000, throttleStatus: { currentlyAvailable: 0, restoreRate: 50 } } } }
+    stub_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].match?(/^(query|mutation) #{operation}\b/) }
+                                            .to_return(status: 200, body: body.to_json, headers: ShopifyStubs::JSON_HEADERS)
+  end
+
+  def stub_lost(operation)
+    stub_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].match?(/^(query|mutation) #{operation}\b/) }.to_timeout
+  end
+
   describe 'preview' do
     it 'shows the store calculation and creates nothing' do
       preview = runner.new_order_preview(params: order_params)
@@ -206,6 +218,37 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'new order' do
       expect(notes).to be_empty
     end
 
+    it 'removes the draft when the invoice cannot be sent because the store keeps throttling, so that a retry makes no second order' do
+      stub_throttled(:new_order_invoice_send)
+      stub_shopify(:replacement_draft_delete, data: { draftOrderDelete: { deletedId: created['id'], userErrors: [] } })
+
+      result = create_order
+
+      expect(result).to have_attributes(outcome: 'refused', refusal: 'store_unreachable', store_message: 'throttled')
+      expect(operation_requests('replacement_draft_delete') { |variables| variables['id'] == created['id'] }).to have_been_made.once
+      expect(notes).to be_empty
+    end
+
+    it 'names the draft with a link when the invoice failed and the draft could not be removed' do
+      stub_throttled(:new_order_invoice_send)
+      stub_throttled(:replacement_draft_delete)
+
+      result = create_order
+
+      expect(result).to have_attributes(outcome: 'refused', refusal: 'store_unreachable')
+      expect(result.store_message).to include(created['name'], "https://admin.shopify.com/store/example-store/draft_orders/#{created['legacyResourceId']}")
+    end
+
+    it 'keeps the draft when the answer to the invoice was lost: the store may have sent it' do
+      stub_lost(:new_order_invoice_send)
+
+      result = create_order
+
+      expect(result.outcome).to eq('unknown')
+      expect(operation_requests('replacement_draft_delete')).not_to have_been_made
+      expect(result.progress).to include('draft_id' => created['id'], 'invoice_asked' => true, 'invoice_sent' => false)
+    end
+
     it 'records the draft, total and delivery, not the note, and leaves a private note without customer data' do
       result = create_order(note: 'Leave at the door of flat 12')
 
@@ -295,6 +338,88 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'new order' do
       travel_to(31.seconds.from_now) { runner.settle_open! }
 
       expect(Inclamo::OrderAction.last).to have_attributes(outcome: 'refused', refusal: 'not_created')
+    end
+
+    it 'stays unknown, not refused, when the store cannot be read to look for the draft' do
+      first = lose_first_attempt
+      stub_throttled(:awaiting_payment)
+
+      again = travel_to(31.seconds.from_now) { create_order }
+      expect(again).to have_attributes(id: first.id, outcome: 'unknown', refusal: nil)
+
+      travel_to(32.seconds.from_now) { runner.settle_open! }
+      expect(first.reload).to have_attributes(outcome: 'unknown', refusal: nil, completed_at: nil)
+
+      stub_shopify(:awaiting_payment, errors: [{ message: 'Internal error. Looks like something went wrong on our end.' }])
+      travel_to(33.seconds.from_now) { runner.settle_open! }
+      expect(first.reload).to have_attributes(outcome: 'unknown', refusal: nil)
+      expect(operation_requests('new_order_create')).to have_been_made.once
+    end
+
+    it 'stays unknown when the store cannot be read to learn whether the invoice went out' do
+      stub_lost(:new_order_invoice_send)
+      first = create_order
+      stub_throttled(:new_order_draft)
+
+      again = create_order
+      runner.settle_open!
+
+      expect(again).to have_attributes(id: first.id, outcome: 'unknown', refusal: nil)
+      expect(first.reload.outcome).to eq('unknown')
+      expect(operation_requests('new_order_invoice_send')).to have_been_made.once
+    end
+
+    it 'is not emailed twice when the confirmation is sent again after the answer to the invoice was lost' do
+      stub_lost(:new_order_invoice_send)
+      first = create_order
+      stub_shopify(:new_order_draft, data: { draftOrder: shopify_fixture('new_order_draft_sent')['draftOrder'].merge('id' => created['id']) })
+
+      again = create_order
+
+      expect(again).to have_attributes(id: first.id, outcome: 'accepted')
+      expect(operation_requests('new_order_invoice_send')).to have_been_made.once
+      expect(notes).to eq(["Created order #{created['name']} for 2062.27 UAH, awaiting payment. The store emailed its invoice to the customer."])
+    end
+
+    it 'sends nothing on a panel read while the first request is still asking the store for the invoice' do
+      in_flight = Inclamo::OrderAction.create!(account: account, conversation: conversation, user: admin, action_id: 'action-new-order-0043', action: 'new_order',
+                                               params: order_params, outcome: 'pending',
+                                               progress: { 'attempted' => true, 'customer_id' => customer['id'], 'draft_id' => created['id'],
+                                                           'draft_name' => created['name'], 'invoice_sent' => false, 'invoice_asked' => true })
+
+      runner.settle_open!
+
+      expect(in_flight.reload).to have_attributes(outcome: 'pending')
+      expect(operation_requests('new_order_invoice_send')).not_to have_been_made
+      expect(notes).to be_empty
+    end
+
+    it 'reads on a panel read whether the invoice went out after its answer was lost, and never sends it' do
+      stub_lost(:new_order_invoice_send)
+      first = create_order
+      stub_shopify(:new_order_draft, data: { draftOrder: shopify_fixture('new_order_draft_open')['draftOrder'].merge('id' => created['id']) })
+
+      runner.settle_open!
+
+      expect(first.reload.outcome).to eq('accepted')
+      expect(operation_requests('new_order_invoice_send')).to have_been_made.once
+      expect(notes).to eq(["Created order #{created['name']} for 2062.27 UAH, awaiting payment. " \
+                           "The payment link was not sent yet: it is under Awaiting payment in the conversation's Orders section."])
+    end
+
+    it 'does not say the link went into the reply when a panel read found the order: no dialog put it there' do
+      nodes = shopify_fixture('awaiting_payment').dig('draftOrders', 'nodes')
+      stub_shopify(:awaiting_payment, data: { draftOrders: { nodes: [nodes.last.merge('marker' => { 'value' => 'action-new-order-0002' }, 'invoiceSentAt' => nil)] } })
+      lost_create
+      create_order(order_params.merge('delivery' => 'reply'), id: 'action-new-order-0002')
+      remove_request_stub(lost_create)
+
+      travel_to(31.seconds.from_now) { runner.settle_open! }
+
+      reply_order = Inclamo::OrderAction.find_by(action_id: 'action-new-order-0002')
+      expect(reply_order.outcome).to eq('accepted')
+      expect(notes).to eq(["Created order #{nodes.last['name']} for #{nodes.last.dig('totalPriceSet', 'shopMoney', 'amount')} UAH, awaiting payment. " \
+                           "The payment link was not sent yet: it is under Awaiting payment in the conversation's Orders section."])
     end
   end
 end

@@ -47,9 +47,17 @@ module Inclamo
         # The draft, its total and how the payment link reached the customer; no customer data.
         def self.note_facts(record)
           total = record.progress['total'] || {}
-          delivered = record.progress['invoice_sent'] ? 'invoice_emailed' : 'link_in_reply'
           { draft_name: record.progress['draft_name'], total: [total['amount'], total['currency']].compact.join(' '),
-            delivery: I18n.t("inclamo.order_actions.notes.details.#{delivered}") }
+            delivery: I18n.t("inclamo.order_actions.notes.details.#{delivered(record)}") }
+        end
+
+        # The dialog puts the link into the reply when its request is answered;
+        # an attempt settled by reading the store answered no dialog.
+        def self.delivered(record)
+          return 'invoice_emailed' if record.progress['invoice_sent']
+          return 'link_in_reply' if record.params['delivery'] == 'reply' && !record.progress['found_by_reading']
+
+          'link_not_sent'
         end
 
         # The query for one customer's drafts made from the helpdesk; `open`
@@ -130,30 +138,32 @@ module Inclamo
           self.class.present_calculation(calculated)
         end
 
+        # Only the request that starts the action (given the customer) creates
+        # a draft. A repeated request settles the earlier attempt: it looks
+        # for its draft and sends the invoice only when the store did not send
+        # it. A read that fails leaves the attempt unknown, never refused.
         def call
-          unless draft_id
-            if @customer
-              create_draft
-            else
-              return :unknown if @record.created_at.present? && @record.created_at > LOOK_AFTER.ago
-
-              (@record.progress['attempted'] && find_lost_draft) or raise Refused, 'not_created'
-            end
+          if draft_id.nil? && @customer
+            create_draft
+          elsif draft_id.nil?
+            state = look_for_lost_draft
+            return state unless state == :found
           end
           deliver
-          :accepted
         end
 
         # Settles an attempt whose answer was lost by reading the store only
         # (a panel read): its draft is looked for by the marker, and whether
-        # the store emailed the invoice. Nothing is created or sent.
+        # the store emailed the invoice. Nothing is created or sent, so the
+        # payment link may have reached no one; the note then says so.
         def resolve
-          unless draft_id
-            return if @record.created_at.present? && @record.created_at > LOOK_AFTER.ago
-
-            (@record.progress['attempted'] && find_lost_draft) or raise Refused, 'not_created'
+          if draft_id.nil?
+            state = look_for_lost_draft
+            return unless state == :found
           end
-          invoice_sent_at_store? if delivery == 'email' && !@record.progress['invoice_sent']
+          return if delivery == 'email' && invoice_sent?.nil?
+
+          remember!(found_by_reading: true)
           :accepted
         end
 
@@ -232,35 +242,64 @@ module Inclamo
                     invoice_sent: draft['invoiceSentAt'].present?)
         end
 
-        # The draft an earlier attempt made, by its marker among the customer's drafts.
+        # The draft an earlier attempt made, looked for by its marker once the
+        # store's search can show it: :found; :unknown while it may not show
+        # yet, or when the store could not be read; Refused when none was made.
+        def look_for_lost_draft
+          # `attempted` is written before the store is asked: without it, it never was.
+          raise Refused, 'not_created' unless @record.progress['attempted']
+          return :unknown if @record.created_at > LOOK_AFTER.ago
+
+          find_lost_draft ? :found : raise(Refused, 'not_created')
+        rescue Error
+          :unknown
+        end
+
+        # The draft with this action's marker among the customer's drafts.
         def find_lost_draft
           nodes = @store.query(:awaiting_payment, { query: self.class.drafts_query(customer_id, open: false), first: 10 }).dig('draftOrders', 'nodes')
           found = Array(nodes).find { |node| node.dig('marker', 'value') == @record.action_id }
-          found && remember_draft!(found)
+          found.present? && remember_draft!(found)
         end
 
         # The store emails its invoice when the agent chose that; otherwise the
-        # dialog puts the link into the reply. A refused invoice removes the draft.
+        # dialog puts the link into the reply. :unknown when the store could
+        # not tell whether an earlier attempt sent it.
         def deliver
-          return unless delivery == 'email'
-          # A repeated request (no customer given) may follow an invoice the store sent already.
-          return if @record.progress['invoice_sent'] || (@customer.nil? && invoice_sent_at_store?)
+          return :accepted unless delivery == 'email'
 
-          answer = @store.query(:new_order_invoice_send, { id: draft_id })['draftOrderInvoiceSend']
-          begin
-            user_errors!(answer['userErrors'])
-          rescue Refused => e
-            raise Refused.new(e.code, [e.message, remove_draft(draft_id, @record.progress['draft_name'], @store.record.shop_domain)].compact.join(' '))
-          end
-          remember!(invoice_sent: true)
+          sent = invoice_sent?
+          return :unknown if sent.nil?
+
+          send_invoice unless sent
+          :accepted
         end
 
-        # After a lost answer: did the invoice go out anyway?
-        def invoice_sent_at_store?
+        # Whether the invoice went out; nil when the store could not be read.
+        # Only an attempt that asked for it (`invoice_asked`) can have sent it.
+        def invoice_sent?
+          return true if @record.progress['invoice_sent']
+          return false unless @record.progress['invoice_asked']
+
           draft = @store.query(:new_order_draft, { id: draft_id })['draftOrder']
-          sent = draft && draft['invoiceSentAt'].present?
+          sent = draft.present? && draft['invoiceSentAt'].present?
           remember!(invoice_sent: true) if sent
           sent
+        rescue Error
+          nil
+        end
+
+        # Written as asked before the store is asked, so that a later request
+        # reads whether it went out instead of sending it again. When the
+        # store surely did not send it, the draft goes and the action is
+        # refused; when it may have, the attempt is unknown and the draft stays.
+        def send_invoice
+          remember!(invoice_asked: true)
+          removing_draft_on_failure(draft_id, @record.progress['draft_name'], @store.record.shop_domain) do
+            answer = @store.query(:new_order_invoice_send, { id: draft_id })['draftOrderInvoiceSend']
+            user_errors!(answer['userErrors'])
+          end
+          remember!(invoice_sent: true)
         end
       end
     end
