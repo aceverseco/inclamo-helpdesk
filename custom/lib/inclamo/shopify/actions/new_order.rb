@@ -37,6 +37,9 @@ module Inclamo
         LOOK_PAGES = 10
         VARIANT_ID = %r{\Agid://shopify/ProductVariant/\d+\z}
         AMOUNT = /\A\d{1,9}(\.\d{1,2})?\z/
+        # Stands for a parameter of the wrong shape in the record; the refusal names it.
+        INVALID = 'invalid'
+        TEXT_LENGTH = 100
 
         def initialize(customer: nil, note: nil, **rest)
           super(order: nil, **rest.except(:order))
@@ -120,14 +123,57 @@ module Inclamo
           shop && { amount: shop['amount'], currency: shop['currencyCode'] }
         end
 
+        # The parameters as recorded: each in its own shape and of a bounded
+        # size, whatever was sent. A part of another shape is kept as INVALID;
+        # one line more than allowed is kept, enough to refuse too many.
+        def self.recordable(params)
+          recorded = {
+            'lines' => recordable_lines(params['lines']), 'discount' => recordable_discount(params['discount']),
+            'shipping' => scalar(params['shipping']), 'delivery' => scalar(params['delivery'])
+          }
+          recorded.slice(*(RECORDED & params.keys))
+        end
+
+        def self.recordable_lines(lines)
+          return lines if lines.nil?
+          return INVALID unless lines.is_a?(Array)
+
+          lines.first(MAX_LINES + 1).map do |line|
+            next INVALID unless line.is_a?(Hash)
+
+            line = line.to_h.stringify_keys
+            { 'variant_id' => scalar(line['variant_id']), 'quantity' => scalar(line['quantity']) }
+          end
+        end
+
+        def self.recordable_discount(discount)
+          return discount if discount.blank?
+          return INVALID unless discount.is_a?(Hash)
+
+          discount.to_h.stringify_keys.slice('type', 'value').transform_values { |value| scalar(value) }
+        end
+
+        def self.scalar(value)
+          case value
+          when nil, Integer then value
+          when String then value.first(TEXT_LENGTH)
+          when Numeric, true, false then value.to_s
+          else INVALID
+          end
+        end
+        private_class_method :recordable_lines, :recordable_discount, :scalar
+
         # Why this order cannot be made, decided before the store is asked; nil
         # when it can. A preview does not need to know how the link is delivered.
         def refusal(preview: false)
           return 'no_customer' unless @customer
-          return 'no_items' if lines.empty?
-          return 'too_many_items' if lines.size > MAX_LINES
-          return 'invalid_item' unless lines.all? { |line| line['variant_id'].to_s.match?(VARIANT_ID) }
-          return 'invalid_quantity' unless lines.all? { |line| line['quantity'].between?(1, MAX_QUANTITY) }
+
+          sent = params['lines']
+          return 'invalid_item' unless sent.nil? || sent.is_a?(Array)
+          return 'no_items' if sent.blank?
+          return 'too_many_items' if sent.size > MAX_LINES
+          return 'invalid_item' unless sent.all? { |line| line.is_a?(Hash) && line['variant_id'].to_s.match?(VARIANT_ID) }
+          return 'invalid_quantity' unless lines.all? { |line| line['quantity']&.between?(1, MAX_QUANTITY) }
           return 'invalid_discount' if discount_input == :invalid
           return 'invalid_shipping' if shipping_input == :invalid
           return if preview
@@ -191,19 +237,22 @@ module Inclamo
           @store.record.shop_currency
         end
 
-        # The lines as recorded: one per variant, quantities of repeated variants added up.
+        # The lines as recorded: one per variant, quantities of repeated
+        # variants added up. A quantity that is not a whole number of at least
+        # one makes its line's quantity nil.
         def lines
-          @lines ||= Array(params['lines']).map { |line| line.to_h.stringify_keys }
-                                           .group_by { |line| line['variant_id'].to_s }
-                                           .map { |variant, same| { 'variant_id' => variant, 'quantity' => same.sum { |line| line['quantity'].to_i } } }
+          @lines ||= params['lines'].group_by { |line| line['variant_id'].to_s }.map do |variant, same|
+            quantities = same.map { |line| Integer(line['quantity'].to_s, 10, exception: false) }
+            { 'variant_id' => variant, 'quantity' => (quantities.sum if quantities.all? { |quantity| quantity&.positive? }) }
+          end
         end
 
         # One discount for the whole order, a percentage or an amount; nil for none.
         def discount_input
           discount = params['discount']
           return if discount.blank?
+          return :invalid unless discount.is_a?(Hash)
 
-          discount = discount.to_h.stringify_keys
           type = DISCOUNT_TYPES[discount['type'].to_s]
           value = discount['value'].to_s
           return :invalid unless type && value.match?(AMOUNT) && value.to_d.positive?

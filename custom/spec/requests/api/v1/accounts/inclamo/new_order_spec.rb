@@ -81,6 +81,46 @@ RSpec.describe 'Inclamo new order API', type: :request do
     expect(Inclamo::OrderAction.last.params.to_json).not_to include('Gift wrap')
   end
 
+  describe 'parameters of the wrong shape' do
+    shapes = {
+      'lines as an object' => [{ lines: { '0' => { variant_id: 'gid://shopify/ProductVariant/1', quantity: 1 } } }, 'invalid_item'],
+      'a line as a string' => [{ lines: ['gid://shopify/ProductVariant/1'] }, 'invalid_item'],
+      'a line as a number' => [{ lines: [7] }, 'invalid_item'],
+      'a quantity as true' => [{ lines: [{ variant_id: 'gid://shopify/ProductVariant/1', quantity: true }] }, 'invalid_quantity'],
+      'a quantity as an object' => [{ lines: [{ variant_id: 'gid://shopify/ProductVariant/1', quantity: { much: 1 } }] }, 'invalid_quantity'],
+      'a quantity in another base' => [{ lines: [{ variant_id: 'gid://shopify/ProductVariant/1', quantity: '0x10' }] }, 'invalid_quantity'],
+      'a discount as text' => [{ discount: '10' }, 'invalid_discount'],
+      'a shipping charge as an object' => [{ shipping: { amount: '5' } }, 'invalid_shipping']
+    }
+
+    shapes.each do |name, (change, refusal)|
+      it "refuses #{name} with a reason, before asking the store" do
+        post "#{base}/actions/new_order_preview", params: { params: order_params.merge(change) }, headers: admin.create_new_auth_token, as: :json
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['error']).to eq(refusal)
+
+        post "#{base}/actions", params: { action_name: 'new_order', action_id: 'action-new-order-0201', params: order_params.merge(change) },
+                                headers: admin.create_new_auth_token, as: :json
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body).to include('outcome' => 'refused', 'refusal' => refusal)
+        expect(graphql_requests('new_order_calculate')).not_to have_been_made
+        expect(graphql_requests('new_order_create')).not_to have_been_made
+      end
+    end
+
+    it 'records no more of a request with too many lines than it takes to refuse it' do
+      lines = Array.new(5000) { |index| { variant_id: "gid://shopify/ProductVariant/#{index + 1}", quantity: 1, extra: 'x' * 50 } }
+
+      post "#{base}/actions", params: { action_name: 'new_order', action_id: 'action-new-order-0202', params: order_params.merge(lines: lines) },
+                              headers: admin.create_new_auth_token, as: :json
+
+      expect(response.parsed_body).to include('outcome' => 'refused', 'refusal' => 'too_many_items')
+      recorded = Inclamo::OrderAction.find_by(action_id: 'action-new-order-0202').params
+      expect(recorded['lines'].size).to eq(Inclamo::Shopify::Actions::NewOrder::MAX_LINES + 1)
+      expect(recorded['lines'].first.keys).to match_array(%w[variant_id quantity])
+    end
+  end
+
   describe 'orders awaiting payment in the panel' do
     let(:nodes) { shopify_fixture('awaiting_payment').dig('draftOrders', 'nodes') }
 
