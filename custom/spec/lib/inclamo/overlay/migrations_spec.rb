@@ -69,6 +69,38 @@ RSpec.describe Inclamo::Overlay::Migrations do
     end
   end
 
+  describe 'a VERSION given to a task of Chatwoot' do
+    around do |example|
+      with_modified_env(VERSION: '20250101000000') { example.run }
+    end
+
+    it 'is not taken as a version of the overlay: its migrations go to the newest' do
+      allow(described_class).to receive(:migrate)
+      hook = Rake::Task['db:migrate'].actions.find { |action| action.source_location.first.end_with?('custom/lib/tasks/inclamo_db.rake') }
+
+      hook.call(Rake::Task['db:migrate'], Rake::TaskArguments.new([], []))
+
+      expect(described_class).to have_received(:migrate).with(no_args)
+    end
+  end
+
+  it 'takes an empty VERSION given to its own task as none, not as version 0' do
+    allow(described_class).to receive(:migrate)
+    task = Rake::Task['inclamo:db:migrate']
+
+    with_modified_env(VERSION: '') do
+      task.reenable
+      task.invoke
+    end
+    with_modified_env(VERSION: '20990101000000') do
+      task.reenable
+      task.invoke
+    end
+
+    expect(described_class).to have_received(:migrate).with(nil).ordered
+    expect(described_class).to have_received(:migrate).with(20_990_101_000_000).ordered
+  end
+
   it 'keeps its tables out of the schema dump of Chatwoot' do
     expect(ActiveRecord::SchemaDumper.ignore_tables).to include(/\Ainclamo_/)
   end
