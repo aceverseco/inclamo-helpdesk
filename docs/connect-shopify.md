@@ -21,7 +21,7 @@ in the store's admin.
 5. **Scopes**: paste this list.
 
    ```
-   read_customers,read_orders,write_orders,write_draft_orders,read_products,read_locations,read_merchant_managed_fulfillment_orders
+   read_customers,read_orders,write_orders,write_draft_orders,read_products,read_locations,read_merchant_managed_fulfillment_orders,write_discounts
    ```
 
 6. **Create app**, then **Release**.

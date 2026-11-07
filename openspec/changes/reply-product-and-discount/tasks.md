@@ -26,4 +26,4 @@
 - [x] 4.1 Add `reply-inserts` to the coverage check's capability map with `e2e/tests/reply-inserts.spec.mjs`; verify the check lists its eighteen scenarios
 - [x] 4.2 Write the eighteen tests named after the scenarios, checking each created code through the Admin API; verify they pass on the stand
 - [x] 4.3 Run the full suite in CI on an `e2e/**` branch under the `ci-e2e` lock; verify all tests pass and the log holds no token-shaped string and no store domain
-- [ ] 4.4 Add the `write_discounts` row to `docs/connect-shopify.md` and describe the settings page and both controls; verify the scope list matches the guide app
+- [x] 4.4 Add the `write_discounts` row to `docs/connect-shopify.md` and describe the settings page and both controls; verify the scope list matches the guide app
