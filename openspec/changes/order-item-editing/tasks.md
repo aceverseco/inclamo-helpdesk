@@ -24,5 +24,5 @@
 
 - [x] 4.1 Add `order-item-editing` to the coverage check's capability map with `e2e/tests/order-item-editing.spec.mjs`; verify the check lists its fourteen scenarios
 - [x] 4.2 Write the fourteen tests named after the scenarios, checking lines, stock and the sent invoice through the Admin API ("store refuses" with the proxy); verify they pass on the stand
-- [ ] 4.3 Run the full suite in CI on an `e2e/**` branch; verify all tests pass and the log holds no token-shaped string and no store domain
+- [x] 4.3 Run the full suite in CI on an `e2e/**` branch; verify all tests pass and the log holds no token-shaped string and no store domain
 - [x] 4.4 Add `write_order_edits` to `docs/connect-shopify.md` and describe the action; verify the scope list matches the guide app
