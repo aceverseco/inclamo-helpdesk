@@ -100,23 +100,35 @@ module Inclamo
           }
         end
 
-        # The items of an existing order as lines of a new one ("order again").
-        # Items whose product is gone or no longer sold are named, not added.
+        # The items of an existing order as lines of a new one ("order again"),
+        # one per variant, at their current quantity: units refunded or removed
+        # since are left out. Items the catalogue search would not offer (the
+        # product is gone, not active or a gift card, or the variant cannot be
+        # sold) are named, not added.
         def self.prefill(order, currency:)
-          lines = []
+          lines = {}
           skipped = []
           Array(order.dig('lineItems', 'nodes')).each do |line|
+            quantity = line['currentQuantity'].to_i
+            next unless quantity.positive?
+
             variant = line['variant']
-            product = variant && variant['product']
-            if product.nil? || product['status'] != 'ACTIVE'
-              skipped << { title: line['name'], quantity: line['quantity'] }
+            unless orderable?(variant)
+              skipped << { title: line['name'], quantity: quantity }
               next
             end
-            lines << { product: ProductSearch.present_product(product, currency: currency), variant: ProductSearch.present_variant(variant, currency: currency),
-                       quantity: line['quantity'] }
+            same = lines[variant['id']] ||= { product: ProductSearch.present_product(variant['product'], currency: currency),
+                                             variant: ProductSearch.present_variant(variant, currency: currency), quantity: 0 }
+            same[:quantity] += quantity
           end
-          { order_number: order['name'], lines: lines, skipped: skipped }
+          { order_number: order['name'], lines: lines.values, skipped: skipped }
         end
+
+        def self.orderable?(variant)
+          product = variant && variant['product']
+          product.present? && product['status'] == 'ACTIVE' && product['isGiftCard'] != true && variant['availableForSale'] == true
+        end
+        private_class_method :orderable?
 
         def self.money(set)
           shop = set && set['shopMoney']

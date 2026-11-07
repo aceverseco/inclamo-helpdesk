@@ -147,6 +147,22 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'new order' do
       expect(prefill[:skipped]).to eq([{ title: 'The Archived Snowboard', quantity: 1 }])
     end
 
+    it 'adds only what the catalogue search would offer, at the quantity still in the order, one line per variant' do
+      first, second, archived = source.dig('lineItems', 'nodes')
+      gift = first.deep_merge('name' => 'Gift Card', 'variant' => { 'id' => 'gid://shopify/ProductVariant/501', 'product' => { 'isGiftCard' => true } })
+      sold_out = first.deep_merge('name' => 'Sold Out Board', 'variant' => { 'id' => 'gid://shopify/ProductVariant/502', 'availableForSale' => false })
+      refunded = second.merge('name' => 'Refunded Board', 'quantity' => 3, 'currentQuantity' => 0)
+      partly = second.merge('quantity' => 3, 'currentQuantity' => 1)
+      again = first.merge('quantity' => 2, 'currentQuantity' => 2)
+      nodes = [first, partly, gift, sold_out, refunded, again, archived]
+      stub_shopify(:new_order_from_order, data: { order: source.merge('customer' => { 'id' => customer['id'] }, 'lineItems' => { 'nodes' => nodes }) })
+
+      prefill = runner.new_order_prefill(order_id: source['id'])
+
+      expect(prefill[:lines].map { |line| [line[:variant][:id], line[:quantity]] }).to eq([[first.dig('variant', 'id'), 3], [second.dig('variant', 'id'), 1]])
+      expect(prefill[:skipped]).to eq([{ title: 'Gift Card', quantity: 1 }, { title: 'Sold Out Board', quantity: 1 }, { title: 'The Archived Snowboard', quantity: 1 }])
+    end
+
     it 'refuses an order of another customer' do
       stub_shopify(:new_order_from_order, data: { order: source.merge('customer' => { 'id' => 'gid://shopify/Customer/1' }) })
 

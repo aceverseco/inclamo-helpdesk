@@ -14,6 +14,7 @@
           {
             "name": "The Minimal Snowboard",
             "quantity": 1,
+            "currentQuantity": 1,
             "variant": {
               "id": "gid://shopify/ProductVariant/67919900934302",
               "title": "Default Title",
@@ -24,6 +25,7 @@
                 "id": "gid://shopify/Product/15442711707806",
                 "title": "The Minimal Snowboard",
                 "status": "ACTIVE",
+                "isGiftCard": false,
                 "featuredMedia": null
               }
             }
@@ -31,6 +33,7 @@
           {
             "name": "The Complete Snowboard - Ice",
             "quantity": 2,
+            "currentQuantity": 2,
             "variant": {
               "id": "gid://shopify/ProductVariant/67919901196446",
               "title": "Ice",
@@ -41,6 +44,7 @@
                 "id": "gid://shopify/Product/15442711740574",
                 "title": "The Complete Snowboard",
                 "status": "ACTIVE",
+                "isGiftCard": false,
                 "featuredMedia": {
                   "preview": {
                     "image": {
@@ -54,6 +58,7 @@
           {
             "name": "The Archived Snowboard",
             "quantity": 1,
+            "currentQuantity": 1,
             "variant": {
               "id": "gid://shopify/ProductVariant/67919901163678",
               "title": "Default Title",
@@ -64,6 +69,7 @@
                 "id": "gid://shopify/Product/15442711773342",
                 "title": "The Archived Snowboard",
                 "status": "ARCHIVED",
+                "isGiftCard": false,
                 "featuredMedia": {
                   "preview": {
                     "image": {

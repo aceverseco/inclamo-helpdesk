@@ -228,7 +228,7 @@
     "INTRO": "The order is created in Shopify unpaid. The customer pays through the store's payment link; nothing is charged here.",
     "CONFIRM": "Create order",
     "PREFILLING": "Loading the items of the order…",
-    "SKIPPED": "No longer sold, not added: {items}.",
+    "SKIPPED": "Not available for sale, not added: {items}.",
     "NO_LINES": "No items yet. Search the catalogue above.",
     "QUANTITY": "Quantity",
     "REMOVE": "Remove",
