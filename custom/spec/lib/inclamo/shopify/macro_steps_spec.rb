@@ -84,7 +84,10 @@ RSpec.describe Inclamo::Shopify::MacroSteps do
   def stub_replacement
     draft = 'gid://shopify/DraftOrder/77'
     stub_shopify(:replacement_draft_create, data: { draftOrderCreateFromOrder: { draftOrder: { id: draft, name: '#D7', lineItems: {
-                   nodes: lines.each_with_index.map { |line, index| { id: "gid://shopify/DraftOrderLineItem/#{index}", title: line['title'], quantity: line['quantity'], custom: false, variant: { id: "gid://shopify/ProductVariant/#{index + 1}" } } }
+                   nodes: lines.each_with_index.map do |line, index|
+                     { id: "gid://shopify/DraftOrderLineItem/#{index}", title: line['title'], variantTitle: line['variantTitle'], sku: line['sku'],
+                       quantity: line['quantity'], custom: false, variant: { id: "gid://shopify/ProductVariant/#{index + 1}" } }
+                   end
                  } }, userErrors: [] } })
     stub_shopify(:replacement_draft_update, data: { draftOrderUpdate: { draftOrder: { id: draft, totalPriceSet: { shopMoney: { amount: '0.0', currencyCode: currency } } }, userErrors: [] } })
     stub_shopify(:replacement_draft_complete, data: { draftOrderComplete: { draftOrder: { id: draft, order: { id: 'gid://shopify/Order/9', name: '#1050' } }, userErrors: [] } })

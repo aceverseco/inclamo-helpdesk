@@ -16,7 +16,8 @@ module Inclamo
       # One order action. `call` returns :accepted or :running, raises Refused
       # when the store or the order does not allow it, and lets errors of the
       # store connection through. It must be safe to call again with the same
-      # record: that is how an attempt whose answer was lost is settled.
+      # record: that is how a repeated request continues an attempt whose
+      # answer was lost.
       class Base
         def initialize(store:, record:, order:)
           @store = store
@@ -27,6 +28,14 @@ module Inclamo
         # The parameters as they may be kept in the action record: no personal data.
         def self.recordable(params)
           params.to_h.slice(*self::RECORDED).transform_values { |value| value.is_a?(String) ? value.first(200) : value }
+        end
+
+        # Where an open attempt stands, found by reading the store: :accepted,
+        # :running, nil when the store does not tell, or Refused. Used when the
+        # panel is read, so an action whose `call` would ask the store to act
+        # again overrides it to read only.
+        def resolve
+          call
         end
 
         private

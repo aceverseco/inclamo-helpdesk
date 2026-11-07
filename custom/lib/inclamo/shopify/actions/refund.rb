@@ -23,6 +23,8 @@ module Inclamo
         MODES = %w[full items shipping amount].freeze
         RECORDED = %w[mode amount items shipping restock notify].freeze
         RESTOCK_SCOPES = %w[read_locations read_merchant_managed_fulfillment_orders].freeze
+        # Clocks of the store and of the helpdesk may differ by this much.
+        CLOCK_SKEW = 1.minute
 
         # What the confirmation shows: the amount, its currency and where the money goes.
         def preview
@@ -34,17 +36,56 @@ module Inclamo
           }.merge(restock_preview(plan))
         end
 
+        # The refund is worked out once, from the order as it is then, and kept
+        # in the record before the store is asked. A repeated request sends the
+        # very same refund under the same key, which the store answers with the
+        # refund it already made; worked out again from an order that has been
+        # refunded meanwhile, it would be refused as nothing left to refund.
         def call
-          plan = build_plan
-          answer = @store.query(:refund_create, { key: @record.action_id, input: input_for(plan) })['refundCreate']
+          prepare unless @record.progress.key?('input')
+          sent = @record.progress
+          answer = @store.query(:refund_create, { key: @record.action_id, input: JSON.parse(sent['input']) })['refundCreate']
           user_errors!(answer['userErrors'])
           refunded = answer.dig('refund', 'totalRefundedSet', 'shopMoney') || {}
-          remember!(refund_id: answer.dig('refund', 'id'), refunded: "#{refunded['amount'] || plan[:total].to_s('F')} #{refunded['currencyCode'] || currency}",
-                    restocked_at: restocked_at(plan))
+          remember!(refund_id: answer.dig('refund', 'id'), refunded: "#{refunded['amount'] || sent['total']} #{refunded['currencyCode'] || sent['currency']}")
+          :accepted
+        end
+
+        # After a lost answer, by reading the order: a refund made since the
+        # attempt, of the amount the attempt was for and not already taken by
+        # another attempt, is this one. Nothing is sent to the store.
+        def resolve
+          # The attempt ended before the store was asked for the refund.
+          raise Refused, 'store_unreachable' unless @record.progress.key?('input')
+          return :accepted if @record.progress['refund_id']
+
+          order = @store.query(:order_details_limited, { id: @record.order_id })['order']
+          refund = order && made_since(order)
+          return unless refund
+
+          money = refund.dig('totalRefundedSet', 'shopMoney') || {}
+          remember!(refund_id: refund['id'], refunded: "#{money['amount']} #{money['currencyCode']}")
           :accepted
         end
 
         private
+
+        def prepare
+          plan = build_plan
+          # Kept as text, so that it is sent again byte for byte.
+          remember!(input: input_for(plan).to_json, total: plan[:total].to_s('F'), currency: currency, restocked_at: restocked_at(plan))
+        end
+
+        def made_since(order)
+          taken = OrderAction.where(account_id: @record.account_id, order_id: @record.order_id, action: 'refund').where.not(id: @record.id)
+                             .filter_map { |other| other.progress['refund_id'] }
+          since = @record.created_at - CLOCK_SKEW
+          Array(order['refunds']).find do |refund|
+            made_at = Time.zone.parse(refund['createdAt'].to_s)
+            !taken.include?(refund['id']) && made_at.present? && made_at >= since &&
+              refund.dig('totalRefundedSet', 'shopMoney', 'amount').to_d == @record.progress['total'].to_d
+          end
+        end
 
         def mode
           MODES.include?(params['mode']) ? params['mode'] : (raise Refused, 'invalid_mode')

@@ -35,7 +35,7 @@ const open = () => {
 
 const explain = record => {
   if (record.outcome === 'running') return t('DIALOG.RUNNING');
-  if (record.outcome === 'unknown') return t('DIALOG.UNKNOWN');
+  if (record.outcome === 'unknown' || record.outcome === 'pending') return t('DIALOG.UNKNOWN');
   if (record.refusal === 'not_allowed') return t('DIALOG.NOT_ALLOWED');
   if (record.store_message) return t('DIALOG.FAILED', { message: record.store_message });
   const key = `ORDER.WHY_NOT.${record.refusal}`;
@@ -55,7 +55,8 @@ const submit = async () => {
     }
     message.value = explain(data);
     // Running and unknown are final for this dialog; a refusal may be corrected and sent with a new id.
-    settled.value = data.outcome !== 'refused';
+    // Pending: an earlier send of this id is still at the store, so the same id may be sent again.
+    settled.value = !['refused', 'pending'].includes(data.outcome);
     if (data.outcome === 'refused') actionId.value = newActionId();
     else emit('done', data);
   } catch (error) {

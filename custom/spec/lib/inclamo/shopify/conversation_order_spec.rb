@@ -44,6 +44,19 @@ RSpec.describe Inclamo::Shopify::ConversationOrder do
       expect(conversation.reload.custom_attributes).to eq('priority_note' => 'vip')
     end
 
+    it 'keeps what was set on the conversation while the store was being read' do
+      loaded = Conversation.find(conversation.id)
+      Conversation.find(conversation.id).update!(custom_attributes: conversation.custom_attributes.merge('set_by_a_rule' => 'yes'))
+
+      described_class.new(loaded).mark!(shipped)
+      expect(conversation.reload.custom_attributes).to include('set_by_a_rule' => 'yes', 'priority_note' => 'vip', 'shopify_order_number' => '#1002')
+
+      stale = Conversation.find(conversation.id)
+      Conversation.find(conversation.id).update!(custom_attributes: conversation.custom_attributes.merge('set_later' => 'yes'))
+      described_class.new(stale).clear!
+      expect(conversation.reload.custom_attributes).to eq('priority_note' => 'vip', 'set_by_a_rule' => 'yes', 'set_later' => 'yes')
+    end
+
     it 'writes nothing when nothing changed' do
       marker.mark!(shipped)
 
@@ -114,6 +127,14 @@ RSpec.describe Inclamo::Shopify::ConversationOrder do
       reply = create(:message, account: account, conversation: conversation, message_type: :outgoing, content: 'order #1003')
       expect { listener.message_created(event_for(second)) }.not_to have_enqueued_job(Inclamo::AutoMarkOrderJob)
       expect { listener.message_created(event_for(reply)) }.not_to have_enqueued_job(Inclamo::AutoMarkOrderJob)
+    end
+
+    it 'takes the first message as the first one also when the next one arrived before the job ran' do
+      first = create(:message, account: account, conversation: conversation, message_type: :incoming, content: 'order #1001')
+      second = create(:message, account: account, conversation: conversation, message_type: :incoming, content: 'and #1002')
+
+      expect { listener.message_created(event_for(first)) }.to have_enqueued_job(Inclamo::AutoMarkOrderJob).with(conversation.id, first.id)
+      expect { listener.message_created(event_for(second)) }.not_to have_enqueued_job(Inclamo::AutoMarkOrderJob)
     end
 
     it 'does nothing in an account without a working store connection' do
