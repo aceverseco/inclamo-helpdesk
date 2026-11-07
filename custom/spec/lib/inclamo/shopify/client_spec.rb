@@ -62,6 +62,18 @@ RSpec.describe Inclamo::Shopify::Client do
     expect(request).to have_been_requested.once
   end
 
+  it 'reports a store it could not connect to as not reached: the request was never sent' do
+    [SocketError, Net::OpenTimeout, Errno::ECONNREFUSED].each do |failure|
+      allow(Net::HTTP).to receive(:new).and_wrap_original do |original, *args|
+        original.call(*args).tap { |http| allow(http).to receive(:start).and_raise(failure) }
+      end
+      request = stub_request(:post, url).to_return(status: 200, body: shop_answer, headers: json)
+
+      expect { client.query(:shop_info) }.to raise_error(Inclamo::Shopify::Error::Unreachable) { |error| expect(error.outcome_unknown?).to be(false) }
+      expect(request).not_to have_been_requested
+    end
+  end
+
   it 'reports a refused token' do
     stub_request(:post, url).to_return(status: 401, body: '{"errors":"[API] Invalid API key or access token"}')
 

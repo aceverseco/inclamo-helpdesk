@@ -21,10 +21,18 @@ module Inclamo
           missing = REQUIRED.select { |field| @address[field].blank? }
           raise Refused.new('address_incomplete', "missing: #{missing.join(', ')}") if missing.any?
 
+          # Every field the form holds is sent, a cleared one as null, so that
+          # what the agent cleared is cleared at the store as well.
           input = FIELDS.each_with_object({}) { |(ours, theirs), result| result[theirs] = @address[ours].to_s.strip.presence if @address.key?(ours) }
-          answer = @store.query(:order_address_update, { input: { id: @record.order_id, shippingAddress: input.compact } })['orderUpdate']
+          answer = @store.query(:order_address_update, { input: { id: @record.order_id, shippingAddress: input } })['orderUpdate']
           user_errors!(answer['userErrors'])
           :accepted
+        end
+
+        # The address is not recorded, so the store cannot be asked again, and
+        # reading the order cannot tell whether this change was made.
+        def resolve
+          nil
         end
       end
     end

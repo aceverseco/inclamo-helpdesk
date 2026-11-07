@@ -38,7 +38,50 @@ const show = async data => {
 };
 const has = (wrapper, id) => wrapper.find(`[data-testid="${id}"]`).exists();
 
+// A request whose answer the spec hands out when it chooses.
+const deferred = () => {
+  let resolve;
+  const promise = new Promise(done => {
+    resolve = done;
+  });
+  return { promise, resolve };
+};
+
 describe('OrdersSection', () => {
+  it('shows the conversation the agent is on when the answer for the one before arrives last', async () => {
+    const first = deferred();
+    const second = deferred();
+    InclamoAPI.getPanel.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const wrapper = mount(OrdersSection, { props: { conversationId: 7 }, global: { stubs } });
+    await wrapper.setProps({ conversationId: 8 });
+
+    second.resolve({ data: matched({ customer: { id: 'gid://shopify/Customer/2', name: 'Noah Example', orders_count: 1 }, orders: [order({ number: '#2001' })] }) });
+    await flush();
+    first.resolve({ data: matched() });
+    await flush();
+
+    expect(wrapper.find('[data-testid="inclamo-customer-name"]').text()).toBe('Noah Example');
+    expect(wrapper.find('[data-testid="inclamo-order-#2001"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="inclamo-order-#1001"]').exists()).toBe(false);
+  });
+
+  it('drops a mark answered after the agent left the conversation', async () => {
+    const marking = deferred();
+    InclamoAPI.getPanel.mockResolvedValueOnce({ data: matched() });
+    const wrapper = mount(OrdersSection, { props: { conversationId: 7 }, global: { stubs } });
+    await flush();
+    InclamoAPI.markOrder.mockReturnValueOnce(marking.promise);
+    wrapper.findComponent({ name: 'OrderCard' }).vm.$emit('mark', order());
+    InclamoAPI.getPanel.mockResolvedValueOnce({ data: matched({ customer: { id: 'gid://shopify/Customer/2', name: 'Noah Example', orders_count: 0 }, orders: [] }) });
+    await wrapper.setProps({ conversationId: 8 });
+    await flush();
+
+    marking.resolve({ data: matched({ marked_order: order() }) });
+    await flush();
+
+    expect(wrapper.find('[data-testid="inclamo-customer-name"]').text()).toBe('Noah Example');
+  });
+
   it('tells an agent that no store is connected, without a connect action', async () => {
     const wrapper = await show({ state: 'not_connected', viewer: agent, connection: { connected: false, encryption_configured: true } });
 

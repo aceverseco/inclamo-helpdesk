@@ -79,6 +79,17 @@ describe('CancelDialog', () => {
     expect(InclamoAPI.performAction.mock.calls[1][1].action_id).toBe(first);
   });
 
+  it('lets the same id be sent again while an earlier send of it is still at the store', async () => {
+    InclamoAPI.performAction.mockResolvedValueOnce({ data: { outcome: 'pending' } }).mockResolvedValueOnce(accepted);
+    const wrapper = await open(CancelDialog);
+    await confirm(wrapper);
+
+    expect(wrapper.find('[data-testid="inclamo-action-message"]').text()).toContain('outcome is unknown');
+    expect(wrapper.find('[data-testid="dialog-confirm"]').attributes('disabled')).toBeUndefined();
+    await confirm(wrapper);
+    expect(InclamoAPI.performAction.mock.calls[1][1].action_id).toBe(InclamoAPI.performAction.mock.calls[0][1].action_id);
+  });
+
   it('says a cancellation is still running', async () => {
     InclamoAPI.performAction.mockResolvedValue({ data: { outcome: 'running' } });
     const wrapper = await open(CancelDialog);
@@ -193,6 +204,25 @@ describe('AddressDialog', () => {
 
     expect(sent()).toMatchObject({ action_name: 'address', address: { address1: '2 Example Avenue', zip: '62702', city: 'Springfield', country_code: 'US' } });
     expect(sent().params).toBeUndefined();
+  });
+
+  it('starts from every field of the address, the company and a name of several words included, and sends a cleared field', async () => {
+    InclamoAPI.performAction.mockResolvedValue(accepted);
+    const current = { name: 'Mary Ann Example', first_name: 'Mary Ann', last_name: 'Example', company: 'Example Works', address1: '1 Example Street',
+      address2: 'Floor 2', city: 'Springfield', province_code: 'IL', zip: '62701', country_code: 'US', phone: null };
+    const wrapper = await open(AddressDialog, { order: order({ shipping_address: current }) });
+
+    expect(wrapper.find('[data-testid="inclamo-address-first_name"]').element.value).toBe('Mary Ann');
+    expect(wrapper.find('[data-testid="inclamo-address-last_name"]').element.value).toBe('Example');
+    expect(wrapper.find('[data-testid="inclamo-address-company"]').element.value).toBe('Example Works');
+
+    await wrapper.find('[data-testid="inclamo-address-address2"]').setValue('');
+    await confirm(wrapper);
+
+    expect(sent().address).toEqual({
+      first_name: 'Mary Ann', last_name: 'Example', company: 'Example Works', address1: '1 Example Street', address2: '',
+      city: 'Springfield', province_code: 'IL', zip: '62701', country_code: 'US', phone: '',
+    });
   });
 
   it('cannot be confirmed without the street, the city and the country', async () => {

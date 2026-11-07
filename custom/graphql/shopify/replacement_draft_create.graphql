@@ -9,6 +9,8 @@ mutation replacement_draft_create($orderId: ID!) {
         nodes {
           id
           title
+          variantTitle
+          sku
           quantity
           custom
           variant { id }
