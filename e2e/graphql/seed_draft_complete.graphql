@@ -1,0 +1,21 @@
+# Completes a draft into an order marked as paid. The store lets the
+# helpdesk's app edit such an order, unlike one another app made with
+# orderCreate.
+mutation seed_draft_complete($id: ID!) {
+  draftOrderComplete(id: $id) {
+    draftOrder {
+      id
+      order {
+        id
+        name
+        displayFinancialStatus
+        displayFulfillmentStatus
+        totalPriceSet { shopMoney { amount currencyCode } }
+        transactions(first: 5) { id kind status gateway amountSet { shopMoney { amount currencyCode } } }
+        lineItems(first: 20) { nodes { id title quantity } }
+        fulfillmentOrders(first: 5) { nodes { id status lineItems(first: 20) { nodes { id remainingQuantity lineItem { id } } } } }
+      }
+    }
+    userErrors { field message }
+  }
+}

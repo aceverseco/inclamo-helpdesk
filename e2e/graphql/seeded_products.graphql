@@ -1,0 +1,5 @@
+query seeded_products($query: String!) {
+  products(first: 50, query: $query) {
+    nodes { id title tags }
+  }
+}

@@ -16,7 +16,7 @@ const props = defineProps({
   build: { type: Function, required: true },
 });
 
-const emit = defineEmits(['done', 'opened']);
+const emit = defineEmits(['done', 'opened', 'refused']);
 
 const dialog = ref(null);
 const actionId = ref('');
@@ -56,8 +56,10 @@ const submit = async () => {
     message.value = explain(data);
     // Running and unknown are final for this dialog; a refusal may be corrected and sent with a new id.
     settled.value = data.outcome !== 'refused';
-    if (data.outcome === 'refused') actionId.value = newActionId();
-    else emit('done', data);
+    if (data.outcome === 'refused') {
+      actionId.value = newActionId();
+      emit('refused', data);
+    } else emit('done', data);
   } catch (error) {
     // No answer at all: the same id is kept, so trying again cannot act twice.
     message.value = t('DIALOG.UNKNOWN');

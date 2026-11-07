@@ -1,0 +1,21 @@
+# Opens an edit session on an order and returns it as the store calculates
+# it. Nothing changes in the order until the session is committed, and a
+# session left uncommitted needs no cleanup. The variants of the lines are
+# read only when products are added (they need read_products).
+mutation order_edit_begin($id: ID!, $withVariants: Boolean = false) {
+  orderEditBegin(id: $id) {
+    calculatedOrder {
+      ...CalculatedOrderFields
+      lineItems(first: 50) {
+        nodes {
+          id
+          variant @include(if: $withVariants) { id }
+        }
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

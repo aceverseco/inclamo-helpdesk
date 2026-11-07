@@ -45,7 +45,7 @@ RSpec.describe Inclamo::ShopifyConnection do
     it 'are all available with the write scopes' do
       report = build(:inclamo_shopify_connection).actions_report
 
-      expect(report.pluck(:name)).to eq(%w[cancel refund address replacement new_order])
+      expect(report.pluck(:name)).to eq(%w[cancel refund address replacement new_order edit_items])
       expect(report).to all(include(available: true, reason: nil, missing_scopes: []))
     end
 

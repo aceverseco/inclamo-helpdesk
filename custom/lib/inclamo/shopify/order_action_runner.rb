@@ -17,7 +17,9 @@ module Inclamo
     # order's, and its record has no order id.
     class OrderActionRunner
       HANDLERS = { 'cancel' => Actions::Cancel, 'address' => Actions::Address, 'refund' => Actions::Refund, 'replacement' => Actions::Replacement,
-                   'new_order' => Actions::NewOrder }.freeze
+                   'new_order' => Actions::NewOrder, 'edit_items' => Actions::EditItems }.freeze
+      # What became of the invoice after an items edit, as its note says it.
+      EDIT_INVOICE_NOTES = { 'sent' => 'invoice_emailed', 'refused' => 'invoice_refused', 'unknown' => 'invoice_unknown' }.freeze
 
       def initialize(account:, account_user:, conversation:)
         @account = account
@@ -56,13 +58,7 @@ module Inclamo
       # nothing is recorded. Raises Actions::Refused with the reason when the
       # agent, the connection or the order does not allow it.
       def refund_preview(order_id:, params:)
-        refusal = gate('refund')
-        raise Actions::Refused, refusal if refusal
-
-        order = reader.order(order_id.to_s) or raise Actions::Refused, 'unknown_order'
-        refusal = OrderPresenter.new(order, shop_domain: @connection.shop_domain).refusal('refund')
-        raise Actions::Refused, refusal if refusal
-
+        order = previewable!('refund', order_id)
         draft = OrderAction.new(action: 'refund', order_id: order['id'], action_id: 'preview', params: recordable('refund', params))
         Actions::Refund.new(store: StoreConnection.new(@connection), record: draft, order: order).preview
       end
@@ -98,6 +94,14 @@ module Inclamo
         Actions::NewOrder.prefill(order, currency: @connection.shop_currency)
       end
 
+      # What an edit of the items would make of the order, for the summary.
+      # The store calculates it in a session that is never committed.
+      def edit_items_preview(order_id:, params:)
+        order = previewable!('edit_items', order_id)
+        draft = OrderAction.new(action: 'edit_items', order_id: order['id'], action_id: 'preview', params: recordable('edit_items', params))
+        Actions::EditItems.new(store: StoreConnection.new(@connection), record: draft, order: order).preview
+      end
+
       # Finishes what an earlier request left open, e.g. a cancellation the
       # store was still working on. Called when the panel is read.
       def settle_open!
@@ -105,6 +109,19 @@ module Inclamo
       end
 
       private
+
+      # The order for a preview of an action, read when the agent, the
+      # connection and the order allow the action; Actions::Refused otherwise.
+      def previewable!(action, order_id)
+        refusal = gate(action)
+        raise Actions::Refused, refusal if refusal
+
+        order = reader.order(order_id.to_s) or raise Actions::Refused, 'unknown_order'
+        refusal = OrderPresenter.new(order, shop_domain: @connection.shop_domain).refusal(action)
+        raise Actions::Refused, refusal if refusal
+
+        order
+      end
 
       def reader
         @reader ||= OrderReader.new(@connection)
@@ -174,7 +191,8 @@ module Inclamo
         state = handler.new(**arguments).call
         case state
         when :running then record.update!(outcome: 'running')
-        # Not decided yet (a lost new order the store's search may not show yet).
+        # Not decided yet: the store may or may not have acted (a lost new order its search
+        # may not show yet, a lost edit). Settled again when the panel is read.
         when :unknown then record.update!(outcome: 'unknown')
         else accept!(record)
         end
@@ -207,7 +225,7 @@ module Inclamo
       def note!(record)
         return if record.note_message_id || @conversation.nil? || record.user.nil?
 
-        content = I18n.t("inclamo.order_actions.notes.#{record.action}", **note_facts(record))
+        content = I18n.t("inclamo.order_actions.notes.#{record.action}", **note_facts(record)).squish
         message = Messages::MessageBuilder.new(record.user, @conversation, { content: content, private: true }).perform
         record.update_columns(note_message_id: message.id) # rubocop:disable Rails/SkipsModelValidations
       end
@@ -219,8 +237,12 @@ module Inclamo
         details << I18n.t('inclamo.order_actions.notes.details.refunded') if params['refund'] == true
         details << I18n.t('inclamo.order_actions.notes.details.restocked') if params['restock'] == true
         details << I18n.t('inclamo.order_actions.notes.details.notified') if params['notify'] == true
+        invoice = EDIT_INVOICE_NOTES[record.progress['invoice']]
+        details << I18n.t("inclamo.order_actions.notes.details.#{invoice}") if invoice
         facts = { number: record.order_number, details: details.join(' ') }.merge(record.progress.slice('new_order_number', 'refunded').symbolize_keys)
-        record.action == 'new_order' ? facts.merge(new_order_facts(record)) : facts
+        return facts.merge(new_order_facts(record)) if record.action == 'new_order'
+
+        facts.merge(edit_facts(record))
       end
 
       # The draft, its total and how the payment link reached the customer; no customer data.
@@ -229,6 +251,15 @@ module Inclamo
         delivered = record.progress['invoice_sent'] ? 'invoice_emailed' : 'link_in_reply'
         { draft_name: record.progress['draft_name'], total: [total['amount'], total['currency']].compact.join(' '),
           delivery: I18n.t("inclamo.order_actions.notes.details.#{delivered}") }
+      end
+
+      # The changes of an items edit and what they mean for the money.
+      def edit_facts(record)
+        return {} unless record.action == 'edit_items'
+
+        progress = record.progress
+        money = I18n.t("inclamo.order_actions.notes.edit.money.#{progress['difference'] || 'none'}", amount: "#{progress['amount']} #{progress['currency']}")
+        { changes: Array(progress['changes']).join('; '), money: money }
       end
     end
   end

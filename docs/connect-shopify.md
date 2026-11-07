@@ -21,7 +21,7 @@ in the store's admin.
 5. **Scopes**: paste this list.
 
    ```
-   read_customers,read_orders,write_orders,write_draft_orders,read_products,read_locations,read_merchant_managed_fulfillment_orders
+   read_customers,read_orders,write_orders,write_draft_orders,read_products,read_locations,read_merchant_managed_fulfillment_orders,write_order_edits
    ```
 
 6. **Create app**, then **Release**.
@@ -37,12 +37,13 @@ What each scope is for:
 | `read_products` | sending a free replacement; searching the catalogue for a new order | the replacement and the new order are unavailable |
 | `read_locations` | putting refunded items back in stock | a refund still works; the items stay out of stock |
 | `read_merchant_managed_fulfillment_orders` | putting refunded items back in stock | a refund still works; the items stay out of stock |
+| `write_order_edits` | changing the items of an order that has not fully shipped (adding a product also needs `read_products`) | editing items is unavailable |
 
 When you approve `read_locations`, Shopify describes it as access to your
 locations and to the store owner's phone number and physical address. The
 helpdesk reads only which location a refunded item goes back to.
 
-You can leave out the last five and add them later: the panel shows orders
+You can leave out all but the first two and add them later: the panel shows orders
 with the first two alone, and names the missing scope next to each action it
 cannot offer.
 
@@ -98,8 +99,8 @@ Shopify for a fresh access token every day by itself.
 ## 6. Decide who may act on orders
 
 Every agent who can see a conversation sees the customer's orders.
-Cancelling, refunding, changing an address, sending a replacement and creating
-a new order are for administrators, and for the agents you allow: **Orders → Who can act on
+Cancelling, refunding, changing an address, sending a replacement, creating
+a new order and editing an order's items are for administrators, and for the agents you allow: **Orders → Who can act on
 orders**. A new agent is not allowed until you switch it on.
 
 Every action asks for confirmation and leaves a private note in the
@@ -149,5 +150,18 @@ steps 1 and 2 lifts that.
   `inclamo.action_id`, by which the helpdesk recognises a draft it created when
   Shopify's answer was lost. Uses `write_draft_orders` and `read_products`;
   not offered in the limited mode.
+- **Editing items.** On an order that is not cancelled and still has items
+  to ship, an agent can change the quantity of an unshipped item, take it off,
+  or add a product from your catalogue. Shipped items stay as they are.
+  Shopify calculates the new total before anything is saved, and the agent
+  sees what it means: the customer owes more, money is due back, or nothing
+  changes. Units taken off go back to stock. Saving refunds nothing: when
+  money is due back, the refund dialog opens with that amount. When the
+  customer owes more, Shopify can email an invoice for it (only when the order
+  has an email); when the agent has Shopify notify the customer of the change,
+  its email already carries the invoice, and no second one is sent. Shopify
+  refuses to let the helpdesk edit some orders, for example one another app
+  created directly; the dialog then shows Shopify's reason. Uses
+  `write_order_edits`, and `read_products` to add a product.
 - **Removing the connection** deletes the credentials from the helpdesk. Notes
   and the record of past actions stay.

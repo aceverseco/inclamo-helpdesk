@@ -1,0 +1,37 @@
+fragment CalculatedOrderFields on CalculatedOrder {
+  id
+  subtotalPriceSet { shopMoney { amount currencyCode } }
+  totalPriceSet { shopMoney { amount currencyCode } }
+  totalOutstandingSet { shopMoney { amount currencyCode } }
+  originalOrder {
+    id
+    name
+    currencyCode
+    email
+    currentTotalPriceSet { shopMoney { amount currencyCode } }
+    totalOutstandingSet { shopMoney { amount currencyCode } }
+  }
+  lineItems(first: 50) {
+    nodes {
+      id
+      title
+      variantTitle
+      sku
+      quantity
+      editableQuantity
+      editableQuantityBeforeChanges
+      restocking
+      discountedUnitPriceSet { shopMoney { amount currencyCode } }
+    }
+  }
+  addedLineItems(first: 50) {
+    nodes {
+      id
+      title
+      variantTitle
+      sku
+      quantity
+      discountedUnitPriceSet { shopMoney { amount currencyCode } }
+    }
+  }
+}

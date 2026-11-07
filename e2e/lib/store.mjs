@@ -91,17 +91,59 @@ export async function openStore(run) {
       return { ...order, number: order.name, total: Number(order.totalPriceSet.shopMoney.amount) };
     },
 
-    async ship(order, lineItemIndexes, tracking) {
-      const fulfillmentOrder = order.fulfillmentOrders.nodes[0];
-      const wanted = lineItemIndexes.map(index => order.lineItems.nodes[index].id);
-      const lines = fulfillmentOrder.lineItems.nodes.filter(line => wanted.includes(line.lineItem.id));
-      await shopify('seed_fulfillment', {
-        fulfillment: {
-          notifyCustomer: false,
-          trackingInfo: tracking,
-          lineItemsByFulfillmentOrder: [{ fulfillmentOrderId: fulfillmentOrder.id, fulfillmentOrderLineItems: lines.map(line => ({ id: line.id, quantity: line.remainingQuantity })) }],
+    // A product of this run whose stock the store tracks: `units` at the
+    // store's first location. clean() removes it.
+    async trackedProduct(title = 'E2E Tracked Mug', { units = 10 } = {}) {
+      const location = catalog.locations.nodes[0].id;
+      const data = await shopify('seed_tracked_product', {
+        input: {
+          title: `${title} ${run}`,
+          status: 'ACTIVE',
+          tags,
+          productOptions: [{ name: 'Title', values: [{ name: 'Default Title' }] }],
+          variants: [{ optionValues: [{ optionName: 'Title', name: 'Default Title' }], price: '80.00', inventoryItem: { tracked: true }, inventoryQuantities: [{ locationId: location, name: 'available', quantity: units }] }],
         },
       });
+      const product = data.productSet.product;
+      return { id: product.id, title: product.title, variantId: product.variants.nodes[0].id, price: Number(product.variants.nodes[0].price), location };
+    },
+
+    // Units of a variant available at a location, as the store counts them.
+    async available(variantId, location = catalog.locations.nodes[0].id) {
+      const level = (await shopify('seed_stock', { id: variantId, location })).productVariant.inventoryItem.inventoryLevel;
+      return level?.quantities.find(quantity => quantity.name === 'available')?.quantity ?? null;
+    },
+
+    // An order completed from a draft, paid. The store lets the helpdesk's
+    // app edit such an order, not one another app made with orderCreate.
+    // `lines` adds items beyond the first `items` of the catalogue, e.g. a
+    // tracked product: [{ variantId, quantity }].
+    async draftOrder(customer, { items = 1, quantity = 1, lines = [], note } = {}) {
+      const [firstName, ...rest] = customer.displayName.split(' ');
+      const lineItems = [...variants.slice(0, items).map(variant => ({ variantId: variant.id, quantity })), ...lines];
+      const draft = await shopify('seed_draft_order', {
+        input: { customerId: customer.id, lineItems, shippingAddress: { firstName, lastName: rest.join(' '), ...ADDRESS }, tags, note: note || `e2e ${run}` },
+      });
+      const data = await paced(() => shopify('seed_draft_complete', { id: draft.draftOrderCreate.draftOrder.id }));
+      const order = data.draftOrderComplete.draftOrder.order;
+      return { ...order, number: order.name, total: Number(order.totalPriceSet.shopMoney.amount) };
+    },
+
+    // Ships the chosen lines in full, each from the fulfilment order that holds it.
+    async ship(order, lineItemIndexes, tracking) {
+      const wanted = lineItemIndexes.map(index => order.lineItems.nodes[index].id);
+      for (const fulfillmentOrder of order.fulfillmentOrders.nodes) {
+        const lines = fulfillmentOrder.lineItems.nodes.filter(line => wanted.includes(line.lineItem.id) && line.remainingQuantity > 0);
+        // An empty list would ship the whole fulfilment order.
+        if (lines.length === 0) continue;
+        await shopify('seed_fulfillment', {
+          fulfillment: {
+            notifyCustomer: false,
+            trackingInfo: tracking,
+            lineItemsByFulfillmentOrder: [{ fulfillmentOrderId: fulfillmentOrder.id, fulfillmentOrderLineItems: lines.map(line => ({ id: line.id, quantity: line.remainingQuantity })) }],
+          },
+        });
+      }
     },
 
     async refund(order, amount) {
@@ -144,9 +186,20 @@ export async function openStore(run) {
           removed.kept.push(`${order.name}: ${error.message.slice(0, 120)}`);
         }
       }
+      removed.products = 0;
+      const products = (await shopify('seeded_products', { query: `tag:'e2e-${run}'` })).products.nodes.filter(product => product.tags.includes(`e2e-${run}`));
+      for (const product of products) {
+        try {
+          await shopify('delete_product', { id: product.id });
+          removed.products += 1;
+        } catch (error) {
+          removed.kept.push(`${product.title}: ${error.message.slice(0, 120)}`);
+        }
+      }
       const customers = (await shopify('seeded_customers', { query: `tag:'e2e-${run}'` })).customers.nodes.filter(customer => customer.tags.includes(`e2e-${run}`));
-      // Drafts the helpdesk made for the run's customers carry its own tag, not the run's.
-      removed.drafts = removed.drafts || 0;
+      // Drafts the helpdesk made for the run's customers carry its own tag, not the run's;
+      // the drafts the seed completed into orders are theirs too.
+      removed.drafts = 0;
       for (const customer of customers) {
         const drafts = (await shopify('seeded_drafts', { query: `customer_id:${customer.id.split('/').pop()}` })).draftOrders.nodes;
         for (const draft of drafts) {

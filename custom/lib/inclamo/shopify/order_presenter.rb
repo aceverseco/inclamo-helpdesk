@@ -17,7 +17,8 @@ module Inclamo
           cancelled_at: @node['cancelledAt'], cancel_reason: @node['cancelReason'],
           financial_status: @node['displayFinancialStatus'], fulfillment_status: @node['displayFulfillmentStatus'],
           return_status: @node['returnStatus'], currency: @node['currencyCode'],
-          total: money('totalPriceSet'), refunded: money('totalRefundedSet'), shipping: money('totalShippingPriceSet'),
+          total: money('totalPriceSet'), current_total: money('currentTotalPriceSet'),
+          refunded: money('totalRefundedSet'), shipping: money('totalShippingPriceSet'),
           refundable: { amount: refundable_amount.to_s('F'), currency: @node['currencyCode'] },
           items: items, shipments: shipments, refunds: refunds,
           customer: customer, shipping_address: shipping_address,
@@ -50,7 +51,16 @@ module Inclamo
           return 'already_cancelled' if cancelled?
 
           'already_shipped' if shipped?
+        when 'edit_items'
+          return 'already_cancelled' if cancelled?
+
+          'already_shipped' unless unshipped_items?
         end
+      end
+
+      # Whether some unit of the order has not shipped yet.
+      def unshipped_items?
+        Array(@node.dig('lineItems', 'nodes')).any? { |item| item['unfulfilledQuantity'].to_i.positive? }
       end
 
       private

@@ -49,15 +49,25 @@ const unconfirmedOrders = computed(() => (panel.value?.open_actions || []).filte
 const startNewOrder = order => newOrderDialog.value.open(order || null);
 
 // The spinner shows on the first read only; a refresh after an action keeps
-// what is on screen, so an expanded order stays expanded.
+// what is on screen, so an expanded order stays expanded. It reads as many
+// orders as were shown and replaces them at once: an order further down the
+// list, and a dialog its card opened after the action, stay where they were.
 const load = async () => {
   loading.value = panel.value === null;
   failed.value = false;
   lookupResult.value = null;
+  const shown = orders.value.length;
   try {
     const { data } = await InclamoAPI.getPanel(props.conversationId);
-    panel.value = data;
-    orders.value = data.orders || [];
+    let list = data.orders || [];
+    let page = data.page;
+    while (list.length < shown && page?.has_more) {
+      const next = (await InclamoAPI.getPanel(props.conversationId, page.cursor)).data;
+      list = [...list, ...(next.orders || [])];
+      page = next.page;
+    }
+    panel.value = { ...data, page };
+    orders.value = list;
   } catch (error) {
     failed.value = true;
   } finally {

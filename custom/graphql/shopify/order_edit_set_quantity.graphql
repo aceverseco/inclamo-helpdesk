@@ -1,0 +1,13 @@
+# Stages a new quantity of a line in an edit session; 0 removes the line.
+# Units taken off go back to stock when restock is true.
+mutation order_edit_set_quantity($id: ID!, $lineItemId: ID!, $quantity: Int!, $restock: Boolean!) {
+  orderEditSetQuantity(id: $id, lineItemId: $lineItemId, quantity: $quantity, restock: $restock) {
+    calculatedOrder {
+      ...CalculatedOrderFields
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

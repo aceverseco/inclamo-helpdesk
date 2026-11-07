@@ -8,7 +8,7 @@ class Api::V1::Accounts::Inclamo::OrderActionsController < Api::V1::Accounts::Co
   def create
     record = runner.perform(
       action: params[:action_name], action_id: params[:action_id], order_id: params[:order_id],
-      params: params[:params].respond_to?(:to_unsafe_h) ? params[:params].to_unsafe_h : {},
+      params: action_params,
       extra: { address: params[:address].respond_to?(:to_unsafe_h) ? params[:address].to_unsafe_h : nil, note: params[:note].presence&.to_s }
     )
     render json: record.as_json, status: status_for(record)
@@ -32,19 +32,18 @@ class Api::V1::Accounts::Inclamo::OrderActionsController < Api::V1::Accounts::Co
 
   # POST .../actions/refund_preview  { order_id, params: {...} }
   def refund_preview
-    preview = runner.refund_preview(order_id: params[:order_id], params: params[:params].respond_to?(:to_unsafe_h) ? params[:params].to_unsafe_h : {})
-    render json: preview
-  rescue ::Inclamo::Shopify::Actions::Refused => e
-    render json: { error: e.code, message: (e.message unless e.message == e.code) }, status: e.code == 'not_allowed' ? :forbidden : :unprocessable_entity
-  rescue ::Inclamo::Shopify::Error::QueryError => e
-    render json: { error: 'store_refused', message: e.message.first(500) }, status: :unprocessable_entity
-  rescue ::Inclamo::Shopify::Error => e
-    render json: { error: 'store_unreachable', reason: e.class.name.demodulize.underscore }, status: :bad_gateway
+    previewing { runner.refund_preview(order_id: params[:order_id], params: action_params) }
+  end
+
+  # POST .../actions/edit_items_preview  { order_id, params: { lines, additions } }
+  # The order as the store calculates it after the edit; nothing is changed.
+  def edit_items_preview
+    previewing { runner.edit_items_preview(order_id: params[:order_id], params: action_params) }
   end
 
   # POST .../actions/new_order_preview  { params: { lines, discount, shipping } }
   def new_order_preview
-    previewing { runner.new_order_preview(params: params[:params].respond_to?(:to_unsafe_h) ? params[:params].to_unsafe_h : {}) }
+    previewing { runner.new_order_preview(params: action_params) }
   end
 
   # GET .../actions/new_order_prefill?order_id=...  the items of an order of the customer
@@ -54,7 +53,11 @@ class Api::V1::Accounts::Inclamo::OrderActionsController < Api::V1::Accounts::Co
 
   private
 
-  # Answers what a preview returns, or why there is none.
+  def action_params
+    params[:params].respond_to?(:to_unsafe_h) ? params[:params].to_unsafe_h : {}
+  end
+
+  # Renders what the block returns, or why the action cannot be previewed.
   def previewing
     render json: yield
   rescue ::Inclamo::Shopify::Actions::Refused => e
