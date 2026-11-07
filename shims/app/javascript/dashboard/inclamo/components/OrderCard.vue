@@ -4,6 +4,7 @@ import CancelDialog from './CancelDialog.vue';
 import RefundDialog from './RefundDialog.vue';
 import AddressDialog from './AddressDialog.vue';
 import ReplacementDialog from './ReplacementDialog.vue';
+import MarksBlock from './MarksBlock.vue';
 import { t } from '../i18n';
 import { money, date, status } from '../format';
 
@@ -16,6 +17,8 @@ const props = defineProps({
   // The unsettled action record of this order, if any (cancelling, outcome unknown).
   openAction: { type: Object, default: null },
   startOpen: { type: Boolean, default: false },
+  // The panel's can.order_marks: this member may change the order's tags and note.
+  canChangeMarks: { type: Boolean, default: false },
 });
 const emit = defineEmits(['changed', 'mark', 'unmark']);
 
@@ -94,6 +97,15 @@ const start = action => dialogs[action].value.open();
           </li>
         </ul>
       </section>
+      <MarksBlock
+        subject="order"
+        :subject-id="order.id"
+        :conversation-id="conversationId"
+        :tags="order.tags || []"
+        :note="order.note || null"
+        :editable="canChangeMarks"
+        :connection="connection"
+      />
       <section v-if="order.refunds.length" data-testid="inclamo-order-refunds">
         <h4 class="text-xs uppercase text-n-slate-10">{{ t('ORDER.REFUNDS') }}</h4>
         <p>{{ t('ORDER.REFUNDED', { amount: money(order.refunded.amount, order.refunded.currency) }) }}</p>

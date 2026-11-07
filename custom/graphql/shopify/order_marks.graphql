@@ -1,0 +1,10 @@
+# The tags and note of one order as the store holds them now, read past the
+# cache when the note editor opens.
+query order_marks($id: ID!) {
+  order(id: $id) {
+    id
+    name
+    tags
+    note
+  }
+}

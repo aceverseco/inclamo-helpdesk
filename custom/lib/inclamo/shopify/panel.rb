@@ -15,7 +15,7 @@ module Inclamo
       end
 
       def as_json(after: nil)
-        base = { viewer: viewer, connection: connection }
+        base = { viewer: viewer, connection: connection, can: can }
         return base.merge(state: 'not_connected') unless @record
         return base.merge(state: 'broken') if @record.broken?
 
@@ -34,6 +34,16 @@ module Inclamo
 
       def viewer
         { administrator: @account_user&.administrator? || false, can_act_on_orders: OrderRole.allows?(@account_user) }
+      end
+
+      # What this member may change from the panel, decided by the role and the
+      # scopes of the app. The server checks again on every request.
+      def can
+        allowed = @record.present? && @record.working? && OrderRole.allows?(@account_user)
+        {
+          order_marks: allowed && @record.unavailable_reason('order_tags').nil?,
+          customer_marks: allowed && @record.unavailable_reason('customer_tags').nil?
+        }
       end
 
       def connection
@@ -88,7 +98,7 @@ module Inclamo
         orders = customer['orders'] || {}
         {
           state: 'matched', candidates: [],
-          customer: CustomerMatcher.candidate(customer),
+          customer: CustomerMatcher.candidate(customer).merge(tags: Array(customer['tags']), note: customer['note'].presence),
           orders: Array(orders['nodes']).map { |node| present_order(node) },
           page: { has_more: orders.dig('pageInfo', 'hasNextPage') || false, cursor: orders.dig('pageInfo', 'endCursor') }
         }

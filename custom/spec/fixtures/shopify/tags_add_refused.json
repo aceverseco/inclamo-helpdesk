@@ -1,0 +1,23 @@
+{
+  "variables": {
+    "id": "gid://shopify/Order/18987063804062",
+    "tags": [
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ]
+  },
+  "data": {
+    "tagsAdd": {
+      "node": {
+        "id": "gid://shopify/Order/18987063804062"
+      },
+      "userErrors": [
+        {
+          "field": [
+            "tags"
+          ],
+          "message": "Order tags is invalid"
+        }
+      ]
+    }
+  }
+}

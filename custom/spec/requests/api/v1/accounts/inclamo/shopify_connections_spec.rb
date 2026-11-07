@@ -30,7 +30,8 @@ RSpec.describe 'Inclamo Shopify connection API', type: :request do
       body = response.parsed_body
       expect(body).to include('connected' => true, 'status' => 'working', 'shop_name' => 'Example Store',
                               'shop_domain' => 'example-store.myshopify.com', 'customer_data' => 'full')
-      expect(body['actions'].pluck('name', 'available')).to eq([['cancel', true], ['refund', true], ['address', true], ['replacement', true]])
+      expect(body['actions'].pluck('name', 'available')).to eq([['cancel', true], ['refund', true], ['address', true], ['replacement', true],
+                                                                ['order_tags', true], ['order_note', true], ['customer_tags', false], ['customer_note', false]])
       expect(Inclamo::ShopifyConnection.find_by(account: account)).to be_client_credentials
     end
 

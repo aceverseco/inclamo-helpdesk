@@ -45,6 +45,19 @@ RSpec.describe 'Inclamo conversation order panel API', type: :request do
     expect(body['page']).to include('has_more' => false)
   end
 
+  it "shows the customer's tags and note, and the tags and note of each order" do
+    connect!
+    stub_shopify_fixture(:customers_search, 'customers_search_one')
+    stub_shopify_fixture(:customer_orders, 'customer_orders_marks')
+
+    body = panel
+
+    expect(body['customer']).to include('note' => 'Pays by invoice')
+    expect(body['customer']['tags']).to include('wholesale')
+    expect(body['orders'].first).to include('note' => 'Leave at the door')
+    expect(body['orders'].first['tags']).to include('gift', 'priority')
+  end
+
   it 'loads the next page of orders' do
     connect!
     stub_shopify_fixture(:customers_search, 'customers_search_one')

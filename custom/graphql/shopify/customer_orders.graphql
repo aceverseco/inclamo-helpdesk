@@ -7,6 +7,8 @@ query customer_orders($id: ID!, $first: Int!, $after: String) {
     amountSpent { amount currencyCode }
     defaultEmailAddress { emailAddress }
     defaultPhoneNumber { phoneNumber }
+    tags
+    note
     orders(first: $first, after: $after, sortKey: CREATED_AT, reverse: true) {
       pageInfo { hasNextPage endCursor }
       nodes {

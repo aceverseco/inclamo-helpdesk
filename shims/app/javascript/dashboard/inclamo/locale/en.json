@@ -87,6 +87,29 @@
       "nothing_to_refund": "Nothing left to refund."
     }
   },
+  "MARKS": {
+    "TAGS": "Tags",
+    "NO_TAGS": "No tags",
+    "NOTE": "Note",
+    "NO_NOTE": "No note",
+    "TAG_PLACEHOLDER": "New tag",
+    "ADD_TAG": "Add",
+    "REMOVE_TAG": "Remove the tag {tag}",
+    "EDIT_NOTE": "Edit",
+    "SAVE_NOTE": "Save",
+    "READ_FAILED": "The current note could not be read from Shopify. Try again.",
+    "UNKNOWN": "Shopify did not confirm the change. Check it in Shopify before trying again.",
+    "LACKS": "Tags and the note cannot be changed here: the connected app lacks {scopes}.",
+    "WHY_NOT": {
+      "tag_missing": "Enter a tag.",
+      "tag_has_comma": "A tag cannot contain a comma.",
+      "missing_scope": "The connected app lacks access: {scopes}.",
+      "customer_data_hidden": "Unavailable: the store does not share its customers with the connected app.",
+      "unknown_order": "The store no longer has this order.",
+      "unknown_customer": "The store no longer has this customer.",
+      "store_unreachable": "Shopify did not answer. Nothing was changed."
+    }
+  },
   "STATUS": {
     "PAID": "Paid",
     "PENDING": "Payment pending",
@@ -183,7 +206,7 @@
       "ACCESS_TOKEN": "Admin API access token",
       "SCOPES": "Access the app needs",
       "SCOPES_READ": "read_customers, read_orders: required",
-      "SCOPES_WRITE": "write_orders: cancel, refund, address. write_draft_orders and read_products: replacement orders. read_locations and read_merchant_managed_fulfillment_orders: putting refunded items back in stock.",
+      "SCOPES_WRITE": "write_orders: cancel, refund, address, order tags and note. write_customers: customer tags and note. write_draft_orders and read_products: replacement orders. read_locations and read_merchant_managed_fulfillment_orders: putting refunded items back in stock.",
       "CONFIRM": "Connect"
     }
   },

@@ -1,0 +1,16 @@
+{
+  "variables": {
+    "id": "gid://shopify/Customer/31352101470366"
+  },
+  "data": {
+    "customer": {
+      "id": "gid://shopify/Customer/31352101470366",
+      "tags": [
+        "e2e",
+        "e2e-probemw4w6h5h",
+        "wholesale"
+      ],
+      "note": "Pays by invoice"
+    }
+  }
+}

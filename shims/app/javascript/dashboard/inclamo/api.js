@@ -62,6 +62,12 @@ class InclamoAPI extends ApiClient {
     return axios.delete(`${this.conversation(conversationId)}/order`);
   }
 
+  // The tags and note of an order ({ order_id }) or a customer ({ customer_id })
+  // as the store holds them now, past the panel's cache.
+  marks(conversationId, target) {
+    return axios.get(`${this.conversation(conversationId)}/marks`, { params: target });
+  }
+
   refundPreview(conversationId, orderId, params) {
     return axios.post(`${this.conversation(conversationId)}/actions/refund_preview`, { order_id: orderId, params });
   }

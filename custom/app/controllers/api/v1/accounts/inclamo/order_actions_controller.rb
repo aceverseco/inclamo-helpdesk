@@ -3,12 +3,13 @@
 # Order actions from a conversation's panel. Whether the agent may act and
 # whether the store allows it is decided on the server for every request.
 class Api::V1::Accounts::Inclamo::OrderActionsController < Api::V1::Accounts::Conversations::BaseController
-  # POST .../actions  { action_name, action_id, order_id, params: {...}, address: {...} }
+  # POST .../actions  { action_name, action_id, order_id | customer_id, params: {...}, address: {...}, note: "..." }
   def create
     record = runner.perform(
-      action: params[:action_name], action_id: params[:action_id], order_id: params[:order_id],
+      action: params[:action_name], action_id: params[:action_id], order_id: params[:order_id], customer_id: params[:customer_id],
       params: params[:params].respond_to?(:to_unsafe_h) ? params[:params].to_unsafe_h : {},
-      extra: { address: params[:address].respond_to?(:to_unsafe_h) ? params[:address].to_unsafe_h : nil }
+      extra: { address: params[:address].respond_to?(:to_unsafe_h) ? params[:address].to_unsafe_h : nil,
+               note: params.key?(:note) ? params[:note].to_s : nil }
     )
     render json: record.as_json, status: status_for(record)
   rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique => e

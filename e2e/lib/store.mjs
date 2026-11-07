@@ -60,17 +60,17 @@ export async function openStore(run) {
     domain: shopify.domain,
     shopify,
 
-    async customer(first, { phone = true } = {}) {
+    async customer(first, { phone = true, tags: extra = [], note } = {}) {
       counter += 1;
       const number = String(Math.floor(Math.random() * 9000) + 1000);
       const data = await shopify('seed_customer', {
-        input: { firstName: first, lastName: 'Example', email: `${first}.example.${run}.${counter}@example.com`.toLowerCase(), phone: phone ? `+1500555${number}` : undefined, tags },
+        input: { firstName: first, lastName: 'Example', email: `${first}.example.${run}.${counter}@example.com`.toLowerCase(), phone: phone ? `+1500555${number}` : undefined, tags: [...tags, ...extra], note },
       });
       const customer = data.customerCreate.customer;
       return { ...customer, email: `${first}.example.${run}.${counter}@example.com`.toLowerCase(), phone: phone ? `+1500555${number}` : null };
     },
 
-    async order(customer, { items = 1, quantity = 1, note } = {}) {
+    async order(customer, { items = 1, quantity = 1, note, tags: extra = [] } = {}) {
       const chosen = variants.slice(0, items);
       const total = chosen.reduce((sum, variant) => sum + Number(variant.price) * quantity, 0);
       const [firstName, ...rest] = customer.displayName.split(' ');
@@ -81,7 +81,7 @@ export async function openStore(run) {
           financialStatus: 'PAID',
           transactions: [{ kind: 'SALE', status: 'SUCCESS', gateway: 'manual', amountSet: money(total, currency) }],
           shippingAddress: { firstName, lastName: rest.join(' '), ...ADDRESS },
-          tags,
+          tags: [...tags, ...extra],
           note: note || `e2e ${run}`,
         },
         options: { inventoryBehaviour: 'BYPASS', sendReceipt: false, sendFulfillmentReceipt: false },
@@ -118,6 +118,11 @@ export async function openStore(run) {
     // The order as the store holds it now.
     async read(order) {
       return (await shopify('seeded_order', { id: order.id })).order;
+    },
+
+    // The customer's tags and note as the store holds them now.
+    async readCustomer(customer) {
+      return (await shopify('seeded_customer', { id: customer.id })).customer;
     },
 
     // Orders of this run, e.g. to find a replacement the helpdesk created.

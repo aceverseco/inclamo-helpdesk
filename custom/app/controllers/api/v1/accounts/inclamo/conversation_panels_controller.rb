@@ -40,6 +40,27 @@ class Api::V1::Accounts::Inclamo::ConversationPanelsController < Api::V1::Accoun
     render json: { error: 'store_unreachable', reason: e.class.name.demodulize.underscore }, status: :bad_gateway
   end
 
+  # GET .../marks?order_id=... or ?customer_id=...  The tags and note as the
+  # store holds them now, past the panel's cache: the note editor starts from it.
+  def marks
+    record = connection
+    return head :not_found unless record
+
+    reader = ::Inclamo::Shopify::OrderReader.new(record)
+    if params[:customer_id].present?
+      return render json: { error: 'customer_data_hidden' }, status: :unprocessable_entity if record.customer_data_limited?
+
+      node = reader.customer_marks(params[:customer_id].to_s)
+    else
+      node = reader.order_marks(params[:order_id].to_s)
+    end
+    return render json: { error: 'unknown' }, status: :unprocessable_entity unless node
+
+    render json: { id: node['id'], tags: Array(node['tags']), note: node['note'].presence }
+  rescue ::Inclamo::Shopify::Error => e
+    render json: { error: 'store_unreachable', reason: e.class.name.demodulize.underscore }, status: :bad_gateway
+  end
+
   # Marks the order this conversation is about. params[:order_id] is the id
   # the panel shows for the order.
   def mark_order

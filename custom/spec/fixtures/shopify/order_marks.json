@@ -1,0 +1,18 @@
+{
+  "variables": {
+    "id": "gid://shopify/Order/18987063804062"
+  },
+  "data": {
+    "order": {
+      "id": "gid://shopify/Order/18987063804062",
+      "name": "#1418",
+      "tags": [
+        "e2e",
+        "e2e-probemw4w6h5h",
+        "gift",
+        "priority"
+      ],
+      "note": "Leave at the door"
+    }
+  }
+}

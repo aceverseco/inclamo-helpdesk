@@ -1,0 +1,16 @@
+{
+  "variables": {
+    "id": "gid://shopify/Order/18987063804062",
+    "tags": [
+      "priority"
+    ]
+  },
+  "data": {
+    "tagsRemove": {
+      "node": {
+        "id": "gid://shopify/Order/18987063804062"
+      },
+      "userErrors": []
+    }
+  }
+}

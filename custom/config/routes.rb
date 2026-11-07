@@ -18,6 +18,7 @@ namespace :api, defaults: { format: 'json' } do
             scope 'conversations/:conversation_id', controller: '/api/v1/accounts/inclamo/conversation_panels' do
               get 'panel', action: :show
               get 'lookup', action: :lookup
+              get 'marks', action: :marks
               post 'customer', action: :choose_customer
               delete 'customer', action: :forget_customer
               put 'order', action: :mark_order

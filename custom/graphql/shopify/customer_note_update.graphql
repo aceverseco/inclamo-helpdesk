@@ -1,0 +1,13 @@
+# Replaces the note of a customer. Only the id comes back: the note is not
+# kept on our side.
+mutation customer_note_update($input: CustomerInput!) {
+  customerUpdate(input: $input) {
+    customer {
+      id
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

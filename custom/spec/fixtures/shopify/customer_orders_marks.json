@@ -1,0 +1,135 @@
+{
+  "variables": {
+    "id": "gid://shopify/Customer/31352101470366",
+    "first": 10,
+    "after": null
+  },
+  "data": {
+    "customer": {
+      "id": "gid://shopify/Customer/31352101470366",
+      "displayName": "Probe Example",
+      "numberOfOrders": "1",
+      "amountSpent": {
+        "amount": "885.95",
+        "currencyCode": "UAH"
+      },
+      "defaultEmailAddress": {
+        "emailAddress": "probe.example.probemw4w6h5h@example.com"
+      },
+      "defaultPhoneNumber": {
+        "phoneNumber": "+15005551961"
+      },
+      "tags": [
+        "e2e",
+        "e2e-probemw4w6h5h",
+        "wholesale"
+      ],
+      "note": "Pays by invoice",
+      "orders": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "eyJsYXN0X2lkIjoxODk4NzA2MzgwNDA2MiwibGFzdF92YWx1ZSI6IjIwMjYtMTEtMDYgMTE6Mjk6MjEuMDk2ODEzIn0="
+        },
+        "nodes": [
+          {
+            "id": "gid://shopify/Order/18987063804062",
+            "legacyResourceId": "18987063804062",
+            "name": "#1418",
+            "createdAt": "2026-11-06T11:29:21Z",
+            "cancelledAt": null,
+            "cancelReason": null,
+            "closed": false,
+            "displayFinancialStatus": "PAID",
+            "displayFulfillmentStatus": "UNFULFILLED",
+            "returnStatus": "NO_RETURN",
+            "currencyCode": "UAH",
+            "presentmentCurrencyCode": "UAH",
+            "refundable": true,
+            "note": "Leave at the door",
+            "tags": [
+              "e2e",
+              "e2e-probemw4w6h5h",
+              "gift",
+              "priority"
+            ],
+            "totalPriceSet": {
+              "shopMoney": {
+                "amount": "885.95",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalReceivedSet": {
+              "shopMoney": {
+                "amount": "885.95",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalRefundedSet": {
+              "shopMoney": {
+                "amount": "0.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalShippingPriceSet": {
+              "shopMoney": {
+                "amount": "0.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalRefundedShippingSet": {
+              "shopMoney": {
+                "amount": "0.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "lineItems": {
+              "nodes": [
+                {
+                  "id": "gid://shopify/LineItem/50883895820446",
+                  "title": "The Minimal Snowboard",
+                  "variantTitle": null,
+                  "sku": null,
+                  "quantity": 1,
+                  "currentQuantity": 1,
+                  "refundableQuantity": 1,
+                  "unfulfilledQuantity": 1,
+                  "originalUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "885.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "discountedUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "885.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "image": null
+                }
+              ]
+            },
+            "fulfillments": [],
+            "refunds": [],
+            "customer": {
+              "id": "gid://shopify/Customer/31352101470366",
+              "displayName": "Probe Example"
+            },
+            "shippingAddress": {
+              "name": "Probe Example",
+              "address1": "1 Example Street",
+              "address2": null,
+              "city": "Kyiv",
+              "province": null,
+              "provinceCode": null,
+              "zip": "01001",
+              "country": "Ukraine",
+              "countryCodeV2": "UA",
+              "phone": null
+            }
+          }
+        ]
+      }
+    }
+  }
+}

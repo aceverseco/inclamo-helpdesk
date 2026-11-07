@@ -51,6 +51,21 @@ module Inclamo
         cached("order:#{order_id}") { @store.query(document, { id: order_id })['order'] }
       end
 
+      # The tags and note of an order or a customer as the store holds them
+      # now: never from the cache, so that a note is edited from what the store
+      # has, and a customer is known to exist before it is changed.
+      def order_marks(order_id)
+        return unless order_id.to_s.match?(ORDER_ID)
+
+        @store.query(:order_marks, { id: order_id })['order']
+      end
+
+      def customer_marks(customer_id)
+        return if limited? || !customer_id.to_s.match?(CUSTOMER_ID)
+
+        @store.query(:customer_marks, { id: customer_id })['customer']
+      end
+
       # The order with exactly this number, or nil. "#1042" and "1042" are the same.
       def order_by_number(number)
         wanted = number.to_s.strip.delete_prefix('#')

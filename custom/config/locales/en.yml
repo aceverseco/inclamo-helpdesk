@@ -22,6 +22,12 @@ en:
         address: "Changed the shipping address of order %{number}."
         refund: "Refunded %{refunded} on order %{number}."
         replacement: "Created replacement order %{new_order_number} for order %{number}, free of charge."
+        order_tags_add: "Added the tag \"%{tag}\" to order %{number}."
+        order_tags_remove: "Removed the tag \"%{tag}\" from order %{number}."
+        order_note: "Changed the note of order %{number}."
+        customer_tags_add: "Added the tag \"%{tag}\" to the customer."
+        customer_tags_remove: "Removed the tag \"%{tag}\" from the customer."
+        customer_note: "Changed the customer's note."
         details:
           reason: "Reason: %{reason}."
           refunded: Payment refunded.
