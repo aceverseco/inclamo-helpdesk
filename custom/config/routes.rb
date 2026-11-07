@@ -11,6 +11,13 @@ namespace :api, defaults: { format: 'json' } do
         namespace :inclamo do
           resource :status, only: [:show], controller: 'status'
           resources :order_roles, only: [:index, :create, :destroy]
+          namespace :ai do
+            resource :connection, only: [:show, :create, :destroy], controller: '/api/v1/accounts/inclamo/ai_connections'
+            scope 'conversations/:conversation_id', controller: '/api/v1/accounts/inclamo/ai_conversations' do
+              get 'messages', action: :messages
+              post 'labels', action: :labels
+            end
+          end
           namespace :shopify do
             resource :connection, only: [:show, :create, :destroy], controller: '/api/v1/accounts/inclamo/shopify_connections' do
               post :recheck

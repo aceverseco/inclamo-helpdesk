@@ -27,3 +27,25 @@ en:
           refunded: Payment refunded.
           restocked: Items restocked.
           notified: Customer notified.
+    ai_connection:
+      bot_name: AI agent
+      bot_description: Answers shoppers first and hands conversations over to the team. Managed on the AI agent page.
+      errors:
+        forbidden: Only an administrator can manage the AI agent.
+        encryption_not_configured: Encryption must be configured on this installation before the AI agent can be connected.
+        invalid_code: This is not a valid connection code.
+        no_inboxes: Choose at least one inbox for the AI agent.
+        invalid_inbox: One of the chosen inboxes cannot be given to the AI agent.
+        inbox_has_bot: One of the chosen inboxes already has another bot.
+        already_connected: The AI agent is already connected to this account.
+        not_connected: The AI agent is not connected to this account.
+        busy: The connection is being changed right now. Try again in a moment.
+        not_answered: The AI service did not answer. Try again in a moment.
+        refused_without_message: The AI service refused the connection code.
+    ai_agent:
+      errors:
+        unauthorized: Only the connected AI agent can make this call.
+        forbidden: This conversation is not one the AI agent handles.
+        no_labels: Name at least one label to add.
+        too_many_labels: Add at most 20 labels at a time.
+        invalid_label: Labels of the AI agent start with inclamo_ and hold only lower case letters, digits, _ and -.

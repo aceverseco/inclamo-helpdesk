@@ -10,15 +10,22 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const changes = join(root, 'openspec', 'changes');
+
+// Changes that are proposed and not built yet. Their scenarios get their tests
+// when the change is built, and the change leaves this list then.
+const PLANNED = ['call-conversations', 'hosted-instance', 'shopify-oauth-connection', 'shopify-sign-in'];
+
+const changeNames = existsSync(changes) ? readdirSync(changes).filter(name => name !== 'archive') : [];
 const specsDirs = process.argv[2]
   ? [process.argv[2]]
-  : [join(root, 'openspec', 'specs'), ...(existsSync(changes) ? readdirSync(changes).filter(name => name !== 'archive').map(name => join(changes, name, 'specs')) : [])].filter(existsSync);
+  : [join(root, 'openspec', 'specs'), ...changeNames.filter(name => !PLANNED.includes(name)).map(name => join(changes, name, 'specs'))].filter(existsSync);
 
 // Which test file carries which capability; a file may be flat (tests named
 // after scenarios) or grouped by requirement (describe blocks).
 const FILES = {
   'shopify-connection': ['shopify-connection.spec.mjs'],
   'conversation-order-panel': ['order-panel-reading.spec.mjs', 'order-panel-actions.spec.mjs'],
+  'ai-agent-connection': ['ai-agent-connection.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each
@@ -75,6 +82,9 @@ for (const [capability, list] of Object.entries(tests)) {
 for (const name of Object.keys(ELSEWHERE)) {
   if (!scenarios.some(entry => key(entry) === name)) problems.push(`the exception "${name}" names no scenario`);
 }
+if (!process.argv[2]) {
+  for (const name of PLANNED) if (!changeNames.includes(name)) problems.push(`the planned change "${name}" is not an open change: take it off the list`);
+}
 
 if (problems.length > 0) {
   console.error(problems.join('\n'));
@@ -82,3 +92,5 @@ if (problems.length > 0) {
 }
 const covered = scenarios.length - Object.keys(ELSEWHERE).length;
 console.log(`${covered} of ${scenarios.length} scenarios have an end-to-end test; ${Object.keys(ELSEWHERE).length} covered elsewhere, with the reason on record`);
+const planned = process.argv[2] ? [] : PLANNED.filter(name => changeNames.includes(name));
+if (planned.length) console.log(`not built yet, so not checked: ${planned.join(', ')}`);
