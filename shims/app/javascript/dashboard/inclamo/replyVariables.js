@@ -3,24 +3,21 @@
 // variables seam. The values are the ones the server computed for the panel
 // (`marked_order.variables`), so the editor and the server say the same.
 import { t } from './i18n';
-import { storeConnected, tiedOrder } from './orderState';
+import { storeConnected, knownOrder } from './orderState';
 
 export const ORDER_VARIABLES = ['number', 'date', 'total', 'payment_status', 'fulfillment_status', 'tracking_number', 'tracking_link', 'status_link', 'items'];
-// The conversation attribute that says an order is tied, for a conversation
-// whose Orders section has not been read on this page.
-const TIED_ATTRIBUTE = 'shopify_order_id';
-
 const offered = () => (storeConnected() ? ORDER_VARIABLES.map(name => ({ key: `order.${name}`, description: t(`REPLY_VARIABLES.${name}`) })) : []);
 
-// With a tied order every variable has a key: its value, or '' for what the
-// order does not have or the page has not read. The editor leaves a variable
-// with an empty value as a placeholder, and the server fills it on send.
-// Without a tied order there are no keys, and the editor warns before sending.
+// With an order the panel knows (tied, or the customer's latest) every
+// variable has a key: its value, or '' for what the order does not have. While
+// the panel has not been read the keys are there with empty values: the editor
+// leaves such a variable as a placeholder and the server fills it on send.
+// Only when the panel found no order are there no keys, and the editor warns
+// before sending.
 const values = ({ conversation }) => {
   if (!conversation?.id || !storeConnected()) return {};
-  const order = tiedOrder(conversation.id);
-  const tied = order === undefined ? Boolean(conversation.custom_attributes?.[TIED_ATTRIBUTE]) : order !== null;
-  if (!tied) return {};
+  const order = knownOrder(conversation.id);
+  if (order === null) return {};
   return Object.fromEntries(ORDER_VARIABLES.map(name => [`order.${name}`, order?.variables?.[name] ?? '']));
 };
 

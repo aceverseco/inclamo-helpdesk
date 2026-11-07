@@ -163,20 +163,37 @@ describe('order variables in replies', () => {
       expect(getUndefinedVariablesInMessage({ message, variables })).toEqual([]);
     });
 
-    it('are left to the server when the panel has not read the tied order', () => {
-      const variables = variablesFor(conversation({ shopify_order_id: 'gid://shopify/Order/1', shopify_order_number: '#1042' }));
+    it('are left to the server, without a warning, while the panel has not been read', () => {
+      const variables = variablesFor(conversation());
       const message = resolveVariablesInMessage('Order {{order.number}}', variables);
 
       expect(message).toBe('Order {{order.number}}');
       expect(getUndefinedVariablesInMessage({ message, variables })).toEqual([]);
     });
 
-    it('are absent when the panel read that no order is tied, whatever the conversation still says', () => {
+    it('are those of the newest order of the customer when none is tied', () => {
+      const newest = order({ id: 'gid://shopify/Order/9', number: '#1043', variables: { ...VARIABLES, number: '#1043', fulfillment_status: 'Not shipped' } });
+      notePanel(7, panel({ state: 'matched', orders: [newest, tied()] }));
+
+      const variables = variablesFor(conversation());
+
+      expect(variables['order.number']).toBe('#1043');
+      expect(variables['order.fulfillment_status']).toBe('Not shipped');
+    });
+
+    it('prefer the tied order to the newest one', () => {
+      const newest = order({ id: 'gid://shopify/Order/9', number: '#1043', variables: { ...VARIABLES, number: '#1043' } });
+      notePanel(7, panel({ state: 'matched', orders: [newest, tied()], marked_order: tied() }));
+
+      expect(variablesFor(conversation())['order.number']).toBe('#1042');
+    });
+
+    it('are absent when the panel found neither a tied order nor a customer with orders', () => {
       notePanel(7, panel());
+      expect(Object.keys(variablesFor(conversation())).some(key => key.startsWith('order.'))).toBe(false);
 
-      const variables = variablesFor(conversation({ shopify_order_id: 'gid://shopify/Order/1' }));
-
-      expect(Object.keys(variables).some(key => key.startsWith('order.'))).toBe(false);
+      notePanel(7, panel({ state: 'matched', orders: [] }));
+      expect(Object.keys(variablesFor(conversation())).some(key => key.startsWith('order.'))).toBe(false);
     });
 
     it('are kept when the store did not answer the panel', () => {
@@ -189,7 +206,9 @@ describe('order variables in replies', () => {
     it('belong to their conversation only', () => {
       notePanel(7, panel({ marked_order: tied() }));
 
-      expect(variablesFor({ ...conversation(), id: 8 })['order.number']).toBeUndefined();
+      expect(variablesFor(conversation())['order.number']).toBe('#1042');
+      // Another conversation, not read yet: left to the server.
+      expect(variablesFor({ ...conversation(), id: 8 })['order.number']).toBe('');
     });
 
     it('come from what the Orders section loads', async () => {
@@ -204,7 +223,8 @@ describe('order variables in replies', () => {
   describe('the reply box', () => {
     beforeEach(() => connected());
 
-    it('warns before sending that order.number has no value when no order is tied', async () => {
+    it('warns before sending that order.number has no value when the panel found no order', async () => {
+      notePanel(7, panel());
       const { wrapper, send, confirm } = replyBox(conversation());
       wrapper.vm.message = 'Your order {{order.number}} is on its way';
 

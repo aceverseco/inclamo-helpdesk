@@ -27,19 +27,27 @@ For an account with a working store connection, the following variables SHALL be
 - **WHEN** an agent runs a macro whose message step contains `{{order.number}}` and `{{order.fulfillment_status}}` in a conversation tied to an order
 - **THEN** the message sent by the macro contains that order's number and its fulfilment status in the panel's words
 
-### Requirement: The variables speak about the tied order
-The variables SHALL take their values from the order tied to the conversation and from no other order. When no order is tied and the agent's reply contains order variables, the agent SHALL be told before sending which variables have no value. A message sent by a macro in a conversation without a tied order SHALL render order variables as empty text and SHALL NOT contain raw placeholders.
+### Requirement: The variables speak about the order the conversation is about
+The variables SHALL take their values from the order tied to the conversation. When no order is tied, they SHALL take the latest order of the customer the conversation's contact is matched to (the same customer the Orders panel shows), so that an agent changes the order by tying another one by hand. When there is neither a tied order nor a matched customer with orders and the agent's reply contains order variables, the agent SHALL be told before sending which variables have no value. A message sent by a macro in such a conversation SHALL render order variables as empty text and SHALL NOT contain raw placeholders.
 
-#### Scenario: Agent warned when no order is tied
-- **WHEN** an agent inserts a saved reply with `{{order.number}}` in a conversation with no tied order and presses send
+#### Scenario: Latest order when none is tied
+- **WHEN** an agent sends a reply with `{{order.number}}` in a conversation of a customer with orders #1040, #1041 and #1042 and no tied order
+- **THEN** the message names #1042
+
+#### Scenario: Tied order wins over the latest
+- **WHEN** an agent ties order #1040 in that conversation and sends a reply with `{{order.number}}`
+- **THEN** the message names #1040
+
+#### Scenario: Agent warned when no order is known
+- **WHEN** an agent inserts a saved reply with `{{order.number}}` in a conversation whose contact matches no customer of the store, with no tied order, and presses send
 - **THEN** the agent is told that `order.number` has no value before the message goes out
 
-#### Scenario: Macro in a conversation without an order
-- **WHEN** a macro whose message contains `{{order.number}}` runs in a conversation with no tied order
+#### Scenario: Macro in a conversation without a known order
+- **WHEN** a macro whose message contains `{{order.number}}` runs in a conversation whose contact matches no customer of the store, with no tied order
 - **THEN** the message is sent without the text "{{" and without an order number
 
 ### Requirement: Values are those of the moment of sending
-When a message with order variables is sent, the values SHALL be read from the store at that moment, within the freshness the order panel itself has. When the store cannot be reached, the message SHALL still be sent: the number, statuses, tracking number and tracking link SHALL take the values last written on the conversation and the other order variables SHALL be empty.
+When a message with order variables is sent, the values SHALL be read from the store at that moment, within the freshness the order panel itself has. When the store cannot be reached, the message SHALL still be sent: for a tied order the number, statuses, tracking number and tracking link SHALL take the values last written on the conversation and the other order variables SHALL be empty; for a conversation without a tied order every order variable SHALL be empty.
 
 #### Scenario: Tracking added after the panel was last open
 - **WHEN** an order tied to a conversation gets a tracking number in the store, nobody opens the panel, and a macro with `{{order.tracking_number}}` runs

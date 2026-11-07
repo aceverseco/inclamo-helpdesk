@@ -115,6 +115,9 @@ test.beforeAll(async ({ playwright }) => {
   await store.ship(orders.shipped, [0, 1], TRACKING);
 
   late = { conversation: await conversationFor() };
+  // Maya is the customer of every conversation of this file: chosen once for
+  // her contact, so the panel does not depend on the store's search index.
+  expect((await admin.post(`/inclamo/shopify/conversations/${late.conversation.id}/customer`, { customer_id: maya.id })).status).toBe(200);
   late.readAt = await tie(late.conversation, orders.late);
   quiet = { conversation: await conversationFor() };
   quiet.readAt = await tie(quiet.conversation, orders.quiet);
@@ -225,12 +228,47 @@ test.describe('Order variables exist under readable names', () => {
   });
 });
 
-test.describe('The variables speak about the tied order', () => {
-  test('Agent warned when no order is tied', async ({ page }) => {
-    const shortCode = await savedReply('untied', 'About your order {{order.number}}: thank you for your patience.');
+// A contact the store knows nothing about.
+const strangerFor = () => conversationFor({ name: 'Stranger Example', email: `stranger.${runTag('vars').toLowerCase()}@example.com` });
+
+test.describe('The variables speak about the order the conversation is about', () => {
+  test('Latest order when none is tied', async ({ page }) => {
     const conversation = await conversationFor();
     await signIn(page, users.agent);
-    await openConversation(page, conversation);
+    await panelRead(page, conversation);
+
+    await type(page, 'Your latest order is ');
+    await pickVariable(page, 'number');
+    // The newest of Maya's three orders, before anything is sent.
+    await expect(editor(page)).toContainText(`Your latest order is ${orders.quiet.number}`);
+    await send(page);
+
+    const [message] = await eventually(() => sent(conversation), list => list.length > 0);
+    // The editor puts a space after an inserted variable.
+    expect(message.trim()).toBe(`Your latest order is ${orders.quiet.number}`);
+  });
+
+  test('Tied order wins over the latest', async ({ page }) => {
+    const conversation = await conversationFor();
+    await tie(conversation, orders.shipped);
+    await signIn(page, users.agent);
+    await panelRead(page, conversation);
+
+    await type(page, 'Your order is ');
+    await pickVariable(page, 'number');
+    await expect(editor(page)).toContainText(`Your order is ${orders.shipped.number}`);
+    await send(page);
+
+    const [message] = await eventually(() => sent(conversation), list => list.length > 0);
+    expect(message.trim()).toBe(`Your order is ${orders.shipped.number}`);
+    expect(orders.shipped.number).not.toBe(orders.quiet.number);
+  });
+
+  test('Agent warned when no order is known', async ({ page }) => {
+    const shortCode = await savedReply('untied', 'About your order {{order.number}}: thank you for your patience.');
+    const conversation = await strangerFor();
+    await signIn(page, users.agent);
+    await panelRead(page, conversation);
 
     await type(page, `/${shortCode}`);
     await expect(page.getByRole('option', { name: `/${shortCode}` })).toContainText('About your order {{order.number}}');
@@ -249,9 +287,9 @@ test.describe('The variables speak about the tied order', () => {
     expect(await sent(conversation)).toHaveLength(0);
   });
 
-  test('Macro in a conversation without an order', async () => {
+  test('Macro in a conversation without a known order', async () => {
     const id = await macro('untied', 'About order {{order.number}}: we are looking into it.');
-    const conversation = await conversationFor();
+    const conversation = await strangerFor();
 
     const message = await runMacro(id, conversation);
 

@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
 # `{{order.*}}` in an outgoing message: the facts of the order the conversation
-# is about. The order is read from the store on first use, so a message without
-# order variables costs no store call. The store never holds a message back:
-# the read has a time limit, and when it fails the variables take the values
-# last written on the conversation.
+# is about — the order tied to it, or, when none is tied, the latest order of
+# the customer its contact is matched to. The order is read from the store on
+# first use, so a message without order variables costs no store call. The
+# store never holds a message back: the reads share one time limit, and when
+# they fail a tied order's variables take the values last written on the
+# conversation; without a tied order they are empty.
 class Inclamo::OrderDrop < Liquid::Drop
   TIME_LIMIT = 3 # seconds
   # variable => the conversation attribute that keeps its last known value
@@ -29,7 +31,7 @@ class Inclamo::OrderDrop < Liquid::Drop
   private
 
   def values
-    @values ||= order_id.blank? ? {} : read
+    @values ||= read
   end
 
   def attributes
@@ -41,14 +43,36 @@ class Inclamo::OrderDrop < Liquid::Drop
   end
 
   def read
-    record = Inclamo::ShopifyConnection.find_by(account_id: @conversation.account_id)
-    return {} unless record
+    return {} if @conversation.nil?
 
-    node = Inclamo::Shopify::OrderReader.new(record, time_limit: TIME_LIMIT).order(order_id)
+    @record = Inclamo::ShopifyConnection.find_by(account_id: @conversation.account_id)
+    return {} unless @record
+
+    @deadline = now + TIME_LIMIT
+    node = order_id.present? ? reader.order(order_id) : latest_order
     node ? Inclamo::Shopify::OrderVariables.new(node).to_h : {}
   rescue StandardError => e
-    Rails.logger.info("[inclamo] order variables of conversation #{@conversation.id} taken from its attributes: #{e.class.name}")
-    last_known
+    Rails.logger.info("[inclamo] order variables of conversation #{@conversation.id} not read from the store: #{e.class.name}")
+    order_id.present? ? last_known : {}
+  end
+
+  # The newest order of the customer the panel shows for this conversation's
+  # contact; nil when the contact matches no customer, or the customer has none.
+  def latest_order
+    match = Inclamo::Shopify::CustomerMatcher.new(reader, @conversation.contact, limited: @record.customer_data_limited?).call
+    return unless match.state == 'matched'
+
+    customer = reader.customer_with_orders(match.customer_id)
+    Array(customer&.dig('orders', 'nodes')).first
+  end
+
+  # A reader with what is left of the time limit: every read of this message shares it.
+  def reader
+    Inclamo::Shopify::OrderReader.new(@record, time_limit: @deadline - now)
+  end
+
+  def now
+    Process.clock_gettime(Process::CLOCK_MONOTONIC)
   end
 
   def last_known

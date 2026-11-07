@@ -46,8 +46,9 @@ module Inclamo
         }
       end
 
+      # With the values of the reply variables, for the dashboard's editor.
       def present_order(node)
-        OrderPresenter.new(node, shop_domain: @record.shop_domain).as_json
+        OrderPresenter.new(node, shop_domain: @record.shop_domain).as_json.merge(variables: OrderVariables.new(node).to_h)
       end
 
       private
@@ -68,8 +69,7 @@ module Inclamo
           return { marked_order: nil }
         end
         marker.mark!(node)
-        # With the values of the reply variables, for the dashboard's editor.
-        { marked_order: present_order(node).merge(variables: OrderVariables.new(node).to_h) }
+        { marked_order: present_order(node) }
       end
 
       # Actions of this conversation that are not settled yet: a cancellation

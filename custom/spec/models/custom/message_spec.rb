@@ -8,7 +8,9 @@ require Rails.root.join('custom/spec/support/shopify_stubs')
 RSpec.describe Custom::Message do
   let(:record) { create(:inclamo_shopify_connection) }
   let(:account) { record.account }
-  let(:conversation) { create(:conversation, account: account) }
+  # Maya, the customer of the recorded answers, with three orders; #1003 is the newest.
+  let(:contact) { create(:contact, account: account, email: 'maya.example.t001@example.com') }
+  let(:conversation) { create(:conversation, account: account, contact: contact) }
   let(:shipped) { shopify_fixture('order_details_shipped')['order'] }
   let(:every_variable) { Inclamo::Shopify::OrderVariables::NAMES.map { |name| "#{name}=[{{order.#{name}}}]" }.join(' ') }
 
@@ -56,6 +58,15 @@ RSpec.describe Custom::Message do
       Macros::ExecutionService.new(macro, conversation, agent).perform
 
       expect(conversation.messages.outgoing.last.content).to eq('Order #1002 is Shipped.')
+    end
+
+    it 'is the tied order, not the newest order of the customer' do
+      stub_shopify_fixture(:order_details, 'order_details_shipped')
+      stub_shopify_fixture(:customers_search, 'customers_search_one')
+      stub_shopify_fixture(:customer_orders, 'customer_orders')
+
+      expect(send_reply('{{order.number}}')).to eq('#1002')
+      expect(a_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].match?(/^query customer/) }).not_to have_been_made
     end
 
     it 'gives the store three seconds' do
@@ -117,14 +128,43 @@ RSpec.describe Custom::Message do
   end
 
   describe 'a conversation without a tied order' do
-    it 'renders the order variables as empty text and calls no store' do
-      text = send_reply(every_variable)
+    before { stub_shopify_fixture(:customer_orders, 'customer_orders') }
 
-      expect(text).to eq(Inclamo::Shopify::OrderVariables::NAMES.map { |name| "#{name}=[]" }.join(' '))
-      expect(a_request(:post, shopify_graphql_url)).not_to have_been_made
+    it 'renders the newest order of the customer the contact is matched to' do
+      stub_shopify_fixture(:customers_search, 'customers_search_one')
+
+      expect(send_reply('{{order.number}}: {{order.payment_status}}, {{order.items}}')).to eq("#1003: Partially refunded, 2 × The Complete Snowboard")
     end
 
-    it 'does the same in the message a macro sends' do
+    it 'renders it in the message a macro sends' do
+      stub_shopify_fixture(:customers_search, 'customers_search_one')
+      agent = create(:user, account: account)
+      create(:inbox_member, user: agent, inbox: conversation.inbox)
+      macro = create(:macro, account: account, actions: [{ action_name: 'send_message', action_params: ['About order {{order.number}}: thank you.'] }])
+
+      Macros::ExecutionService.new(macro, conversation, agent).perform
+
+      expect(conversation.messages.outgoing.last.content).to eq('About order #1003: thank you.')
+    end
+
+    it 'takes the customer an agent chose for the contact' do
+      Inclamo::Shopify::CustomerMatcher.remember!(contact, shopify_fixture('customers_search_one').dig('customers', 'nodes', 0, 'id'))
+
+      expect(send_reply('{{order.number}}')).to eq('#1003')
+      expect(a_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].match?(/^query customers_search/) }).not_to have_been_made
+    end
+
+    it 'renders the order variables as empty text when the contact matches no customer' do
+      stub_shopify_fixture(:customers_search, 'customers_search_none')
+
+      expect(send_reply(every_variable)).to eq(Inclamo::Shopify::OrderVariables::NAMES.map { |name| "#{name}=[]" }.join(' '))
+    end
+
+    it 'renders them as empty text when the customer has no orders, and in a macro too' do
+      stub_shopify_fixture(:customers_search, 'customers_search_one')
+      without_orders = shopify_fixture('customer_orders')
+      without_orders['customer']['orders']['nodes'] = []
+      stub_shopify(:customer_orders, data: without_orders)
       agent = create(:user, account: account)
       create(:inbox_member, user: agent, inbox: conversation.inbox)
       macro = create(:macro, account: account, actions: [{ action_name: 'send_message', action_params: ['About order {{order.number}}: thank you.'] }])
@@ -132,6 +172,41 @@ RSpec.describe Custom::Message do
       Macros::ExecutionService.new(macro, conversation, agent).perform
 
       expect(conversation.messages.outgoing.last.content).to eq('About order : thank you.')
+    end
+
+    it 'renders them as empty text when the store hides its customers' do
+      record.update!(customer_data_mode: 'limited')
+
+      expect(send_reply('[{{order.number}}]')).to eq('[]')
+      expect(a_request(:post, shopify_graphql_url)).not_to have_been_made
+    end
+
+    it 'renders them as empty text, with no last known values, when the store does not answer' do
+      WebMock.reset!
+      stub_request(:post, shopify_graphql_url).to_timeout
+
+      expect(send_reply(every_variable)).to eq(Inclamo::Shopify::OrderVariables::NAMES.map { |name| "#{name}=[]" }.join(' '))
+    end
+
+    it 'gives the store three seconds in all for the customer and the orders' do
+      stub_shopify_fixture(:customers_search, 'customers_search_one')
+      limits = []
+      allow(Inclamo::Shopify::Client).to receive(:new).and_wrap_original do |original, **arguments|
+        limits << arguments[:time_limit]
+        original.call(**arguments)
+      end
+
+      send_reply('{{order.number}}')
+
+      expect(limits.size).to eq(2)
+      expect(limits.first).to be_between(2.5, 3)
+      expect(limits.last).to be < limits.first
+    end
+
+    it 'makes no store call for a message without order variables' do
+      send_reply('Hello {{contact.name}}.')
+
+      expect(a_request(:post, shopify_graphql_url)).not_to have_been_made
     end
   end
 

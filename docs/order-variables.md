@@ -27,19 +27,24 @@ short description and the current value of each.
 
 ## Which order
 
-Always the order **tied to the conversation**, and no other: the one marked
+The order **tied to the conversation** when there is one: the one marked
 "This conversation is about this order" in the Orders panel. An agent ties it
 with one click; it is also tied by itself when the customer's first message
 names one of their own orders.
 
-When no order is tied:
+When no order is tied, the **latest order of the customer** the Orders panel
+shows for the contact. To speak about another order, tie it.
+
+When neither is known (the contact matches no customer of the store, or the
+customer has no orders):
 
 - In the reply editor you are told before sending which variables have no
   value, and can go back or send anyway.
 - A macro sends its message with the variables as empty text. The customer
   never sees a raw `{{order.number}}`.
 
-So a macro that names an order is best run after the order is tied.
+So a macro that names an order is best run once the panel shows a customer or
+a tied order.
 
 ## How fresh the values are
 
