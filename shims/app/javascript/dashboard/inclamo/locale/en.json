@@ -214,7 +214,9 @@
         "LABEL": "Cancel the order",
         "DESCRIPTION": "Cancels the order tied to the conversation at the customer's request, refunds it in full and puts the items back in stock. Shopify notifies the customer. Cannot be undone.",
         "EFFECT": "Cancels the order and refunds {amount}. The items go back in stock. Shopify notifies the customer. This cannot be undone.",
-        "EFFECT_UNPAID": "Cancels the order. Nothing was paid, so nothing is refunded. The items go back in stock. Shopify notifies the customer. This cannot be undone."
+        "EFFECT_UNPAID": "Cancels the order. Nothing was paid, so nothing is refunded. The items go back in stock. Shopify notifies the customer. This cannot be undone.",
+        "EFFECT_REFUNDED_BEFORE": "Cancels the order. Everything paid was refunded before, so nothing more is refunded. The items go back in stock. Shopify notifies the customer. This cannot be undone.",
+        "EFFECT_AMOUNT_UNKNOWN": "Cancels the order and refunds whatever is left to refund; how much could not be checked just now. The items go back in stock. Shopify notifies the customer. This cannot be undone."
       },
       "inclamo_replacement": {
         "LABEL": "Send a free replacement",
@@ -229,7 +231,11 @@
       "NO_ORDER": "No order is tied to this conversation, so its order steps have nothing to act on. Tie the order in the Orders section first.",
       "ON_ORDER": "On order {number}:",
       "WILL_STOP": "Will not be done: {reason} The macro stops at this step and the steps after it do not run.",
+      "AFTER_STOP": "Will not run: the macro stops at an earlier step.",
       "CHECKED_AGAIN": "Everything is checked again with Shopify when the macro runs. The result is written as a private note.",
+      "CHANGED": "This macro was changed while you looked at it. Close this and run it again to see what it does now.",
+      "NOT_RECORDED": "Your confirmation did not reach the server, so the macro did not run. Try again in a moment.",
+      "NOT_OPENED": "The confirmation of this macro could not be opened, so it did not run. Try again in a moment.",
       "RUN": "Run the macro",
       "DONT_RUN": "Don't run",
       "CLOSE": "Close"

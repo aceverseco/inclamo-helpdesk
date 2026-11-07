@@ -67,6 +67,16 @@ class InclamoAPI extends ApiClient {
     return axios.post(`${this.url}/macro_previews`, { macro_id: macroId, conversation_id: conversationId });
   }
 
+  // The agent's "Run" for the macro as the preview showed it (`digest`).
+  confirmMacro(macroId, conversationId, digest) {
+    return axios.post(`${this.url}/macro_confirmations`, { macro_id: macroId, conversation_id: conversationId, digest });
+  }
+
+  // Chatwoot's macro as the server holds it now.
+  getMacro(macroId) {
+    return axios.get(`${this.baseUrl()}/macros/${macroId}`);
+  }
+
   refundPreview(conversationId, orderId, params) {
     return axios.post(`${this.conversation(conversationId)}/actions/refund_preview`, { order_id: orderId, params });
   }

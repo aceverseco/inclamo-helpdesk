@@ -1,7 +1,8 @@
 // The order steps the overlay adds to macros, and the confirmation before a
 // macro with order steps runs. Chatwoot reads this through its macro seam
-// (dashboard/extensions/macroSteps.js). The server runs the steps and checks
-// everything again then; the confirmation is not the guard.
+// (dashboard/extensions/macroSteps.js). The server runs such a macro from the
+// dashboard only after the agent's "Run" in the confirmation, and checks every
+// step again when it runs.
 import { createApp, reactive } from 'vue';
 import { useAlert } from 'dashboard/composables';
 import InclamoAPI from './api';
@@ -14,33 +15,38 @@ const ICONS = {
   inclamo_cancel_order: 'i-lucide-circle-x',
   inclamo_replacement: 'i-lucide-package',
 };
-// How long the answer about the store connection is trusted.
-const FRESH_FOR = 30_000;
+// The editor asks when it opens; one answer serves the renders right after it.
+const FRESH_FOR = 2_000;
 
 const connection = reactive({ working: false });
 let checkedAt = 0;
 let checking = null;
+// Counts the answers forgotten: one that comes back after it is dropped.
+let round = 0;
 
 // Asks whether the account has a working store connection, unless it was asked a moment ago.
 export const checkConnection = () => {
   if (checking || Date.now() - checkedAt < FRESH_FOR) return checking;
+  const asked = round;
+  const settle = working => {
+    if (asked !== round) return;
+    connection.working = working;
+    checkedAt = Date.now();
+    checking = null;
+  };
   checking = Promise.resolve()
     .then(() => InclamoAPI.getConnection())
-    .then(({ data }) => {
-      connection.working = data?.connected === true && data.status === 'working';
-    })
-    .catch(() => {
-      connection.working = false;
-    })
-    .finally(() => {
-      checkedAt = Date.now();
-      checking = null;
-    });
+    .then(
+      ({ data }) => settle(data?.connected === true && data.status === 'working'),
+      () => settle(false)
+    );
   return checking;
 };
 
 export const forgetConnection = () => {
+  round += 1;
   checkedAt = 0;
+  checking = null;
   connection.working = false;
 };
 
@@ -87,16 +93,35 @@ const confirmRun = async (macro, conversationId) => {
   });
 };
 
-// A macro without order steps runs at once, as before. One with order steps
-// runs in one conversation at a time, after the agent confirms.
-const beforeRun = (macro, conversationIds) => {
-  if (!hasOrderSteps(macro)) return true;
-  const ids = [].concat(conversationIds ?? []);
-  if (ids.length !== 1) {
-    useAlert(t('MACRO_STEPS.ONE_AT_A_TIME'));
+// The macro as the server holds it now: the copy this page loaded may be
+// older than an order step added since. Without an answer the page's copy is
+// used, and the server refuses order steps that were not confirmed.
+const latest = async macro => {
+  try {
+    const { data } = await InclamoAPI.getMacro(macro.id);
+    return data?.payload?.actions ? data.payload : macro;
+  } catch (error) {
+    return macro;
+  }
+};
+
+// A macro without order steps runs as before. One with order steps runs in
+// one conversation at a time, after the agent confirms. Never rejects: what
+// fails here leaves the macro not run, and says so.
+const beforeRun = async (macro, conversationIds) => {
+  try {
+    const current = await latest(macro);
+    if (!hasOrderSteps(current)) return true;
+    const ids = [].concat(conversationIds ?? []);
+    if (ids.length !== 1) {
+      useAlert(t('MACRO_STEPS.ONE_AT_A_TIME'));
+      return false;
+    }
+    return await confirmRun(current, ids[0]);
+  } catch (error) {
+    useAlert(t('MACRO_STEPS.CONFIRM.NOT_OPENED'));
     return false;
   }
-  return confirmRun(macro, ids[0]);
 };
 
 export default { steps, beforeRun };
