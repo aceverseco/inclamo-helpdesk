@@ -1,0 +1,15 @@
+# The store emails its own invoice, with the payment link, to the customer of
+# the draft.
+mutation new_order_invoice_send($id: ID!) {
+  draftOrderInvoiceSend(id: $id) {
+    draftOrder {
+      id
+      status
+      invoiceSentAt
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

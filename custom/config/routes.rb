@@ -11,6 +11,8 @@ namespace :api, defaults: { format: 'json' } do
         namespace :inclamo do
           resource :status, only: [:show], controller: 'status'
           resources :order_roles, only: [:index, :create, :destroy]
+          resources :macro_previews, only: [:create]
+          resources :macro_confirmations, only: [:create]
           namespace :shopify do
             resource :connection, only: [:show, :create, :destroy], controller: '/api/v1/accounts/inclamo/shopify_connections' do
               post :recheck
@@ -25,6 +27,9 @@ namespace :api, defaults: { format: 'json' } do
             end
             scope 'conversations/:conversation_id' do
               post 'actions/refund_preview', to: '/api/v1/accounts/inclamo/order_actions#refund_preview'
+              post 'actions/new_order_preview', to: '/api/v1/accounts/inclamo/order_actions#new_order_preview'
+              get 'actions/new_order_prefill', to: '/api/v1/accounts/inclamo/order_actions#new_order_prefill'
+              get 'products', to: '/api/v1/accounts/inclamo/products#index'
               resources :actions, only: [:index, :create, :show], controller: '/api/v1/accounts/inclamo/order_actions'
             end
           end

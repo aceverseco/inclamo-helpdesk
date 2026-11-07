@@ -9,6 +9,9 @@ query seeded_order($id: ID!) {
     note
     totalPriceSet { shopMoney { amount currencyCode } }
     totalRefundedSet { shopMoney { amount currencyCode } }
+    totalShippingPriceSet { shopMoney { amount } }
+    totalRefundedShippingSet { shopMoney { amount } }
+    customer { id }
     refunds(first: 20) {
       id
       totalRefundedSet { shopMoney { amount } }

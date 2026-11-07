@@ -1,0 +1,16 @@
+{
+  "variables": {
+    "query": "status:active AND gift_card:false AND ((zzqx*) OR sku:\"zzqx\")",
+    "first": 10,
+    "after": null
+  },
+  "data": {
+    "products": {
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      },
+      "nodes": []
+    }
+  }
+}

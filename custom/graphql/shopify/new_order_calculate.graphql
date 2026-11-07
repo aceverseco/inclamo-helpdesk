@@ -1,0 +1,28 @@
+# What a new order would cost, as the store calculates it: nothing is created.
+mutation new_order_calculate($input: DraftOrderInput!) {
+  draftOrderCalculate(input: $input) {
+    calculatedDraftOrder {
+      currencyCode
+      taxesIncluded
+      lineItems {
+        name
+        variantTitle
+        sku
+        quantity
+        variant { id }
+        originalUnitPriceSet { shopMoney { amount currencyCode } }
+        discountedTotalSet { shopMoney { amount currencyCode } }
+      }
+      lineItemsSubtotalPrice { shopMoney { amount currencyCode } }
+      totalDiscountsSet { shopMoney { amount currencyCode } }
+      totalShippingPriceSet { shopMoney { amount currencyCode } }
+      totalTaxSet { shopMoney { amount currencyCode } }
+      totalPriceSet { shopMoney { amount currencyCode } }
+      warnings { errorCode field message }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

@@ -5,6 +5,7 @@ import AddressDialog from '../components/AddressDialog.vue';
 import ReplacementDialog from '../components/ReplacementDialog.vue';
 import ConnectDialog from '../components/ConnectDialog.vue';
 import OrderRolesPage from '../components/OrderRolesPage.vue';
+import ActionDialog from '../components/ActionDialog.vue';
 import InclamoAPI from '../api';
 import { stubs, order, flush } from './helpers';
 
@@ -97,6 +98,49 @@ describe('CancelDialog', () => {
 
     expect(wrapper.find('[data-testid="inclamo-action-message"]').text()).toContain('still working');
     expect(wrapper.emitted('done')).toHaveLength(1);
+  });
+});
+
+describe('ActionDialog', () => {
+  it('sends again exactly what it sent when that got no answer, whatever the form holds by then', async () => {
+    InclamoAPI.performAction.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce(accepted);
+    let quantity = 1;
+    const wrapper = mount(ActionDialog, {
+      props: { conversationId: 7, title: 'Act', confirmLabel: 'Go', build: () => ({ action_name: 'new_order', params: { quantity } }) },
+      slots: { default: '<input data-testid="field" />' },
+      global: { stubs },
+    });
+    wrapper.vm.open();
+    await flush();
+
+    await confirm(wrapper);
+    expect(wrapper.find('[data-testid="inclamo-action-form"]').attributes('disabled')).toBeDefined();
+    quantity = 3;
+    await confirm(wrapper);
+
+    const [first, second] = InclamoAPI.performAction.mock.calls.map(call => call[1]);
+    expect(second).toEqual(first);
+    expect(second.params.quantity).toBe(1);
+  });
+
+  it('lets the form be changed again after a refusal, and sends it with a new id', async () => {
+    InclamoAPI.performAction.mockResolvedValueOnce({ data: { outcome: 'refused', refusal: 'store_refused', store_message: 'No' } }).mockResolvedValueOnce(accepted);
+    let quantity = 1;
+    const wrapper = mount(ActionDialog, {
+      props: { conversationId: 7, title: 'Act', confirmLabel: 'Go', build: () => ({ action_name: 'new_order', params: { quantity } }) },
+      global: { stubs },
+    });
+    wrapper.vm.open();
+    await flush();
+
+    await confirm(wrapper);
+    expect(wrapper.find('[data-testid="inclamo-action-form"]').attributes('disabled')).toBeUndefined();
+    quantity = 2;
+    await confirm(wrapper);
+
+    const [first, second] = InclamoAPI.performAction.mock.calls.map(call => call[1]);
+    expect(second.params.quantity).toBe(2);
+    expect(second.action_id).not.toBe(first.action_id);
   });
 });
 

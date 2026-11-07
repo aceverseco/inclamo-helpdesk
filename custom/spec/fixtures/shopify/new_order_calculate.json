@@ -1,0 +1,116 @@
+{
+  "variables": {
+    "input": {
+      "purchasingEntity": {
+        "customerId": "gid://shopify/Customer/31352101142686"
+      },
+      "useCustomerDefaultAddress": true,
+      "lineItems": [
+        {
+          "variantId": "gid://shopify/ProductVariant/67919900934302",
+          "quantity": 1
+        },
+        {
+          "variantId": "gid://shopify/ProductVariant/67919901196446",
+          "quantity": 2
+        }
+      ],
+      "appliedDiscount": {
+        "valueType": "PERCENTAGE",
+        "value": 10,
+        "title": "Discount"
+      },
+      "shippingLine": {
+        "title": "Shipping",
+        "priceWithCurrency": {
+          "amount": "5.00",
+          "currencyCode": "UAH"
+        }
+      }
+    }
+  },
+  "data": {
+    "draftOrderCalculate": {
+      "calculatedDraftOrder": {
+        "currencyCode": "UAH",
+        "taxesIncluded": true,
+        "lineItems": [
+          {
+            "name": "The Minimal Snowboard",
+            "variantTitle": null,
+            "sku": "",
+            "quantity": 1,
+            "variant": {
+              "id": "gid://shopify/ProductVariant/67919900934302"
+            },
+            "originalUnitPriceSet": {
+              "shopMoney": {
+                "amount": "885.95",
+                "currencyCode": "UAH"
+              }
+            },
+            "discountedTotalSet": {
+              "shopMoney": {
+                "amount": "885.95",
+                "currencyCode": "UAH"
+              }
+            }
+          },
+          {
+            "name": "The Complete Snowboard - Ice",
+            "variantTitle": "Ice",
+            "sku": "",
+            "quantity": 2,
+            "variant": {
+              "id": "gid://shopify/ProductVariant/67919901196446"
+            },
+            "originalUnitPriceSet": {
+              "shopMoney": {
+                "amount": "699.95",
+                "currencyCode": "UAH"
+              }
+            },
+            "discountedTotalSet": {
+              "shopMoney": {
+                "amount": "1399.9",
+                "currencyCode": "UAH"
+              }
+            }
+          }
+        ],
+        "lineItemsSubtotalPrice": {
+          "shopMoney": {
+            "amount": "2285.85",
+            "currencyCode": "UAH"
+          }
+        },
+        "totalDiscountsSet": {
+          "shopMoney": {
+            "amount": "228.58",
+            "currencyCode": "UAH"
+          }
+        },
+        "totalShippingPriceSet": {
+          "shopMoney": {
+            "amount": "5.0",
+            "currencyCode": "UAH"
+          }
+        },
+        "totalTaxSet": {
+          "shopMoney": {
+            "amount": "0.0",
+            "currencyCode": "UAH"
+          }
+        },
+        "totalPriceSet": {
+          "shopMoney": {
+            "amount": "2062.27",
+            "currencyCode": "UAH"
+          }
+        },
+        "warnings": []
+      },
+      "userErrors": []
+    }
+  }
+}

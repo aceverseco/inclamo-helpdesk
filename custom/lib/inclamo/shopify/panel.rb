@@ -81,6 +81,18 @@ module Inclamo
         { open_actions: OrderAction.unsettled.where(account_id: @account.id, conversation_id: @conversation.id).order(:id).map(&:as_json) }
       end
 
+      # Orders the customer has not paid yet, made from the helpdesk, with one
+      # made moments ago even before the store's search shows it; nil when
+      # the store did not give them, so that the rest of the panel still shows.
+      def awaiting_payment(customer_id)
+        return [] if @record.unavailable_reason('new_order')
+
+        just_made = Actions::NewOrder.just_made(@account.id, customer_id)
+        reader.awaiting_payment(customer_id, just_made: just_made).map { |node| Actions::NewOrder.present_awaiting(node, shop_domain: @record.shop_domain) }
+      rescue Error::QueryError, Error::Timeout, Error::Unavailable, Error::Throttled
+        nil
+      end
+
       def body(after)
         match = CustomerMatcher.new(reader, @conversation.contact, limited: @record.customer_data_limited?).call
         return { state: match.state, candidates: match.candidates } unless match.state == 'matched'
@@ -90,12 +102,14 @@ module Inclamo
         return { state: 'none', candidates: [], stale_choice: true } unless customer
 
         orders = customer['orders'] || {}
-        {
+        matched = {
           state: 'matched', candidates: [],
           customer: CustomerMatcher.candidate(customer),
           orders: Array(orders['nodes']).map { |node| present_order(node) },
           page: { has_more: orders.dig('pageInfo', 'hasNextPage') || false, cursor: orders.dig('pageInfo', 'endCursor') }
         }
+        # A further page is only more orders: what awaits payment is shown already.
+        after ? matched : matched.merge(awaiting_payment: awaiting_payment(customer['id']))
       end
     end
   end

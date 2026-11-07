@@ -16,8 +16,17 @@ module Inclamo
     # One request at a time works on an attempt: the one that created it,
     # and later one that claims it (`claim!`). An attempt still pending after
     # LEASE belongs to a request that ended without finishing it.
+    #
+    # An order-less action (OrderAction::ORDER_LESS, e.g. a new order) skips
+    # step 3: it is about the customer matched to the conversation, whom its
+    # handler gets with `customer:`. The handler's `refusal` replaces the
+    # order's, and its record has no order id.
+    #
+    # What a handler is given besides the store, the record and the order it
+    # declares itself (`context`), so that this file knows no action by name.
     class OrderActionRunner
-      HANDLERS = { 'cancel' => Actions::Cancel, 'address' => Actions::Address, 'refund' => Actions::Refund, 'replacement' => Actions::Replacement }.freeze
+      HANDLERS = { 'cancel' => Actions::Cancel, 'address' => Actions::Address, 'refund' => Actions::Refund, 'replacement' => Actions::Replacement,
+                   'new_order' => Actions::NewOrder }.freeze
       LEASE = 5.minutes
 
       # `connection` is the account's store connection when the caller has it already.
@@ -28,17 +37,19 @@ module Inclamo
         @connection = connection || ShopifyConnection.find_by(account_id: account.id)
       end
 
-      # `extra` is what must not be recorded (the new address).
-      def perform(action:, action_id:, order_id:, params: {}, extra: {})
+      # `extra` is what must not be recorded (the new address, a new order's
+      # note). `macro_id` names the macro an order step runs in.
+      def perform(action:, action_id:, order_id:, params: {}, extra: {}, macro_id: nil)
         action = action.to_s
         existing = OrderAction.find_by(account_id: @account.id, action_id: action_id.to_s)
         return taken(action, action_id, order_id) if existing && !same_attempt?(existing, action, order_id)
         return settle(existing, extra) if existing
 
         record = OrderAction.new(account: @account, conversation: @conversation, user: @account_user&.user, action_id: action_id.to_s,
-                                 action: action, order_id: order_id.to_s, params: recordable(action, params))
+                                 action: action, order_id: order_id.to_s.presence, params: recordable(action, params), macro_id: macro_id)
         refusal = gate(action)
         return refuse!(record, refusal) if refusal
+        return perform_order_less(record, extra) if record.order_less?
 
         order = reader.order(order_id.to_s)
         return refuse!(record, 'unknown_order') unless order
@@ -48,7 +59,7 @@ module Inclamo
         return refuse!(record, refusal) if refusal
 
         record.save! # before the store is asked to change anything
-        run(record, order, extra)
+        run(record, handler_for(record, order, extra))
       rescue Error => e
         # The store could not be read: nothing was attempted.
         refuse!(record, 'store_unreachable', e.class.name.demodulize.underscore)
@@ -58,15 +69,68 @@ module Inclamo
       # nothing is recorded. Raises Actions::Refused with the reason when the
       # agent, the connection or the order does not allow it.
       def refund_preview(order_id:, params:)
-        refusal = gate('refund')
+        refund_plan(allowed_order!('refund', order_id), params)
+      end
+
+      # What an action with these parameters would do to the order, for the
+      # confirmation of a macro: the money a refund or a cancellation gives
+      # back, the units a replacement sends. Nothing is changed and nothing is
+      # recorded. When the action would be refused, says why instead.
+      def step_preview(action:, order_id:, params:)
+        order = allowed_order!(action, order_id)
+        case action.to_s
+        when 'refund' then refund_plan(order, params).slice(:amount, :currency)
+        when 'cancel' then cancellation_refund(order, params)
+        when 'replacement' then { units: Actions::Replacement.units_left(order) }
+        else {}
+        end
+      rescue Actions::Refused, Error => e
+        refused = self.class.refusal_for(e)
+        refused[:missing_scopes] = @connection.missing_scopes_for(action) if refused[:refusal] == 'missing_scope'
+        refused
+      end
+
+      # The refusal an error of an order action stands for, as records and
+      # confirmations name it: the code, the store's words, and for a store
+      # that could not be reached the kind of failure.
+      def self.refusal_for(error)
+        case error
+        when Actions::Refused then { refusal: error.code, message: (error.message unless error.message == error.code) }
+        # The store understood the request and said no, in words.
+        when Error::QueryError then { refusal: 'store_refused', message: error.message.first(500) }
+        else { refusal: 'store_unreachable', message: nil, reason: error.class.name.demodulize.underscore }
+        end
+      end
+
+      # What a new order would cost, as the store calculates it, for the
+      # summary: nothing is created and nothing is recorded. Raises
+      # Actions::Refused like refund_preview.
+      def new_order_preview(params:)
+        refusal = gate('new_order')
         raise Actions::Refused, refusal if refusal
 
-        order = reader.order(order_id.to_s) or raise Actions::Refused, 'unknown_order'
-        refusal = OrderPresenter.new(order, shop_domain: @connection.shop_domain).refusal('refund')
+        draft = OrderAction.new(action: 'new_order', action_id: 'preview', params: recordable('new_order', params))
+        handler = handler_for(draft, nil, { customer: matched_customer })
+        refusal = handler.refusal(preview: true)
         raise Actions::Refused, refusal if refusal
 
-        draft = OrderAction.new(action: 'refund', order_id: order['id'], action_id: 'preview', params: recordable('refund', params))
-        Actions::Refund.new(store: StoreConnection.new(@connection), record: draft, order: order).preview
+        handler.preview
+      end
+
+      # The items of an order of the matched customer, to start a new order
+      # from ("order again"). Raises Actions::Refused like refund_preview.
+      def new_order_prefill(order_id:)
+        refusal = gate('new_order')
+        raise Actions::Refused, refusal if refusal
+
+        customer = matched_customer or raise Actions::Refused, 'no_customer'
+        raise Actions::Refused, 'unknown_order' unless order_id.to_s.match?(OrderReader::ORDER_ID)
+
+        order = StoreConnection.new(@connection).query(:new_order_from_order, { id: order_id.to_s })['order']
+        raise Actions::Refused, 'unknown_order' unless order
+        raise Actions::Refused, 'not_customers_order' unless order.dig('customer', 'id') == customer['id']
+
+        Actions::NewOrder.prefill(order, currency: @connection.shop_currency)
       end
 
       # Settles what an earlier request left open, e.g. a cancellation the
@@ -80,6 +144,57 @@ module Inclamo
 
       def reader
         @reader ||= OrderReader.new(@connection)
+      end
+
+      def perform_order_less(record, extra)
+        handler = handler_for(record, nil, extra.merge(customer: matched_customer))
+        refusal = handler.refusal
+        return refuse!(record, refusal) if refusal
+
+        record.save! # before the store is asked to change anything
+        run(record, handler)
+      end
+
+      # The store's customer matched to the conversation's contact, with their
+      # email and phone, or nil when there is no single match.
+      def matched_customer
+        contact = @conversation&.contact
+        return unless contact
+
+        match = CustomerMatcher.new(reader, contact, limited: @connection.customer_data_limited?).call
+        reader.customer_with_orders(match.customer_id) if match.state == 'matched'
+      end
+
+      # The order, when this agent may perform this action on it. Raises
+      # Actions::Refused with the reason otherwise.
+      def allowed_order!(action, order_id)
+        refusal = gate(action.to_s)
+        raise Actions::Refused, refusal if refusal
+
+        order = reader.order(order_id.to_s) or raise Actions::Refused, 'unknown_order'
+        refusal = OrderPresenter.new(order, shop_domain: @connection.shop_domain).refusal(action)
+        raise Actions::Refused, refusal if refusal
+
+        order
+      end
+
+      def refund_plan(order, params)
+        draft = OrderAction.new(action: 'refund', order_id: order['id'], action_id: 'preview', params: recordable('refund', params))
+        handler_for(draft, order).preview
+      end
+
+      # What a cancellation gives back: everything that remains when it
+      # refunds. Without an amount, `refund` says why: nothing was paid,
+      # everything paid was refunded already, or the amount could not be
+      # worked out now, which does not stop the cancellation itself.
+      def cancellation_refund(order, params)
+        return {} unless params.to_h.stringify_keys['refund'] == true
+        return { refund: 'unpaid' } unless order.dig('totalReceivedSet', 'shopMoney', 'amount').to_d.positive?
+        return { refund: 'none_left' } unless OrderPresenter.new(order, shop_domain: '').refundable_amount.positive?
+
+        refund_plan(order, { 'mode' => 'full' }).slice(:amount, :currency)
+      rescue Actions::Refused, Error
+        { refund: 'unknown' }
       end
 
       def recordable(action, params)
@@ -123,11 +238,11 @@ module Inclamo
         return record if record.action == 'address' && extra.blank?
         return record if gate(record.action)
 
-        order = reader.order(record.order_id)
-        return record unless order
+        handler = handler_for_open(record, extra)
+        return record unless handler
         return record unless claim!(record)
 
-        run(record, order, extra)
+        run(record, handler)
       rescue Error
         record
       end
@@ -153,8 +268,7 @@ module Inclamo
         was = record.outcome
         return unless claim!(record)
 
-        order = reader.order(record.order_id)
-        state = order && handler_for_reading(record, order).resolve
+        state = handler_for_open(record)&.resolve
         case state
         when :accepted then accept!(record)
         when :running then record.update!(outcome: 'running')
@@ -169,34 +283,36 @@ module Inclamo
         record.update!(outcome: was == 'pending' ? 'unknown' : was)
       end
 
-      def handler_for_reading(record, order)
-        arguments = { store: StoreConnection.new(@connection), record: record, order: order }
-        arguments[:address] = nil if record.action == 'address'
-        arguments[:shop_domain] = @connection.shop_domain if record.action == 'replacement'
-        HANDLERS.fetch(record.action).new(**arguments)
+      def handler_for(record, order, extra = {})
+        handler = HANDLERS.fetch(record.action)
+        handler.new(store: StoreConnection.new(@connection), record: record, order: order, **handler.context(connection: @connection, extra: extra))
       end
 
-      def run(record, order, extra)
-        handler = HANDLERS.fetch(record.action)
-        arguments = { store: StoreConnection.new(@connection), record: record, order: order }
-        arguments[:address] = extra[:address] || extra['address'] if record.action == 'address'
-        arguments[:shop_domain] = @connection.shop_domain if record.action == 'replacement'
-        state = handler.new(**arguments).call
-        state == :running ? record.update!(outcome: 'running') : accept!(record)
+      # The handler of an open attempt, with its order read again; nil when
+      # the store no longer has the order. An order-less attempt reads none.
+      def handler_for_open(record, extra = {})
+        return handler_for(record, nil, extra) if record.order_less?
+
+        order = reader.order(record.order_id)
+        order && handler_for(record, order, extra)
+      end
+
+      def run(record, handler)
+        state = handler.call
+        case state
+        when :running then record.update!(outcome: 'running')
+        # Not decided yet (a lost new order the store's search may not show yet).
+        when :unknown then record.update!(outcome: 'unknown')
+        else accept!(record)
+        end
         record
-      rescue Actions::Refused => e
-        record.update!(outcome: 'refused', refusal: e.code, store_message: (e.message unless e.message == e.code), completed_at: Time.current)
-        record
-      rescue Error::QueryError => e
-        # The store understood the request and said no, in words.
-        record.update!(outcome: 'refused', refusal: 'store_refused', store_message: e.message.first(500), completed_at: Time.current)
-        record
-      rescue Error => e
-        # A lost answer is neither done nor failed; anything else never reached the store.
-        if e.outcome_unknown?
+      rescue Actions::Refused, Error => e
+        # A lost answer is neither done nor failed; anything else is a refusal.
+        if e.is_a?(Error) && e.outcome_unknown?
           record.update!(outcome: 'unknown', store_message: e.class.name.demodulize.underscore)
         else
-          record.update!(outcome: 'refused', refusal: 'store_unreachable', store_message: e.class.name.demodulize.underscore, completed_at: Time.current)
+          refused = self.class.refusal_for(e)
+          record.update!(outcome: 'refused', refusal: refused[:refusal], store_message: refused[:message] || refused[:reason], completed_at: Time.current)
         end
         record
       ensure
@@ -225,7 +341,8 @@ module Inclamo
         details << I18n.t('inclamo.order_actions.notes.details.refunded') if params['refund'] == true
         details << I18n.t('inclamo.order_actions.notes.details.restocked') if params['restock'] == true
         details << I18n.t('inclamo.order_actions.notes.details.notified') if params['notify'] == true
-        { number: record.order_number, details: details.join(' ') }.merge(record.progress.slice('new_order_number', 'refunded').symbolize_keys)
+        facts = { number: record.order_number, details: details.join(' ') }.merge(record.progress.slice('new_order_number', 'refunded').symbolize_keys)
+        facts.merge(HANDLERS.fetch(record.action).note_facts(record))
       end
     end
   end

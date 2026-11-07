@@ -1,0 +1,21 @@
+# Drafts as the store holds them, to check what the helpdesk created.
+query new_order_drafts($query: String!) {
+  draftOrders(first: 20, query: $query, sortKey: UPDATED_AT, reverse: true) {
+    nodes {
+      id
+      name
+      status
+      tags
+      invoiceUrl
+      invoiceSentAt
+      customer { id }
+      order { id }
+      totalPriceSet { shopMoney { amount currencyCode } }
+      appliedDiscount { value valueType }
+      shippingLine { title originalPriceSet { shopMoney { amount } } }
+      lineItems(first: 20) {
+        nodes { name quantity variant { id } }
+      }
+    }
+  }
+}

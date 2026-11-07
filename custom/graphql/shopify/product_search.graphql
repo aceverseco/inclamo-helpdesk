@@ -1,0 +1,23 @@
+# The catalogue as an agent searches it from a conversation: products by title
+# or SKU, each with its variants, their price and whether they can be sold.
+query product_search($query: String!, $first: Int!, $after: String) {
+  products(first: $first, after: $after, query: $query, sortKey: RELEVANCE) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id
+      title
+      featuredMedia {
+        preview { image { url } }
+      }
+      variants(first: 20) {
+        nodes {
+          id
+          title
+          sku
+          price
+          availableForSale
+        }
+      }
+    }
+  }
+}

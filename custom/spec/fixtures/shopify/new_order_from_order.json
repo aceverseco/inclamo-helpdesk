@@ -1,0 +1,87 @@
+{
+  "variables": {
+    "id": "gid://shopify/Order/18987071176862"
+  },
+  "data": {
+    "order": {
+      "id": "gid://shopify/Order/18987071176862",
+      "name": "#1422",
+      "customer": {
+        "id": "gid://shopify/Customer/31352110940318"
+      },
+      "lineItems": {
+        "nodes": [
+          {
+            "name": "The Minimal Snowboard",
+            "quantity": 1,
+            "currentQuantity": 1,
+            "variant": {
+              "id": "gid://shopify/ProductVariant/67919900934302",
+              "title": "Default Title",
+              "sku": null,
+              "price": "885.95",
+              "availableForSale": true,
+              "product": {
+                "id": "gid://shopify/Product/15442711707806",
+                "title": "The Minimal Snowboard",
+                "status": "ACTIVE",
+                "isGiftCard": false,
+                "featuredMedia": null
+              }
+            }
+          },
+          {
+            "name": "The Complete Snowboard - Ice",
+            "quantity": 2,
+            "currentQuantity": 2,
+            "variant": {
+              "id": "gid://shopify/ProductVariant/67919901196446",
+              "title": "Ice",
+              "sku": null,
+              "price": "699.95",
+              "availableForSale": true,
+              "product": {
+                "id": "gid://shopify/Product/15442711740574",
+                "title": "The Complete Snowboard",
+                "status": "ACTIVE",
+                "isGiftCard": false,
+                "featuredMedia": {
+                  "preview": {
+                    "image": {
+                      "url": "https://cdn.shopify.com/s/files/1/0804/7090/0894/files/Main_589fc064-24a2-4236-9eaf-13b2bd35d21d.jpg?v=1793794123"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "name": "The Archived Snowboard",
+            "quantity": 1,
+            "currentQuantity": 1,
+            "variant": {
+              "id": "gid://shopify/ProductVariant/67919901163678",
+              "title": "Default Title",
+              "sku": null,
+              "price": "629.95",
+              "availableForSale": true,
+              "product": {
+                "id": "gid://shopify/Product/15442711773342",
+                "title": "The Archived Snowboard",
+                "status": "ARCHIVED",
+                "isGiftCard": false,
+                "featuredMedia": {
+                  "preview": {
+                    "image": {
+                      "url": "https://cdn.shopify.com/s/files/1/0804/7090/0894/files/Main_52f8e304-92d9-4a36-82af-50df8fe31c69.jpg?v=1793794123"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

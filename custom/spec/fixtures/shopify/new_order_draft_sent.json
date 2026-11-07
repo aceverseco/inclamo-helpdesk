@@ -1,0 +1,22 @@
+{
+  "variables": {
+    "id": "gid://shopify/DraftOrder/1630539088030"
+  },
+  "data": {
+    "draftOrder": {
+      "id": "gid://shopify/DraftOrder/1630539088030",
+      "legacyResourceId": "1630539088030",
+      "name": "#D64",
+      "status": "INVOICE_SENT",
+      "invoiceUrl": "https://shop.example.com/1000000001/invoices/2e4c298ed6bcebb6090ba5fe2e433db8",
+      "invoiceSentAt": "2026-11-06T11:29:06Z",
+      "totalPriceSet": {
+        "shopMoney": {
+          "amount": "2062.27",
+          "currencyCode": "UAH"
+        }
+      },
+      "order": null
+    }
+  }
+}

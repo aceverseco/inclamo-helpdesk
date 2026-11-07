@@ -3,12 +3,15 @@
 # Order actions from a conversation's panel. Whether the agent may act and
 # whether the store allows it is decided on the server for every request.
 class Api::V1::Accounts::Inclamo::OrderActionsController < Api::V1::Accounts::Conversations::BaseController
-  # POST .../actions  { action_name, action_id, order_id, params: {...}, address: {...} }
+  include Api::V1::Accounts::Inclamo::StoreAnswers
+
+  # POST .../actions  { action_name, action_id, order_id, params: {...}, address: {...}, note: '...' }
+  # The address and a new order's note are not recorded.
   def create
     record = runner.perform(
       action: params[:action_name], action_id: params[:action_id], order_id: params[:order_id],
-      params: params[:params].respond_to?(:to_unsafe_h) ? params[:params].to_unsafe_h : {},
-      extra: { address: params[:address].respond_to?(:to_unsafe_h) ? params[:address].to_unsafe_h : nil }
+      params: action_params,
+      extra: { address: params[:address].respond_to?(:to_unsafe_h) ? params[:address].to_unsafe_h : nil, note: params[:note].presence&.to_s }
     )
     render json: record.as_json, status: status_for(record)
   rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique => e
@@ -31,17 +34,24 @@ class Api::V1::Accounts::Inclamo::OrderActionsController < Api::V1::Accounts::Co
 
   # POST .../actions/refund_preview  { order_id, params: {...} }
   def refund_preview
-    preview = runner.refund_preview(order_id: params[:order_id], params: params[:params].respond_to?(:to_unsafe_h) ? params[:params].to_unsafe_h : {})
-    render json: preview
-  rescue ::Inclamo::Shopify::Actions::Refused => e
-    render json: { error: e.code, message: (e.message unless e.message == e.code) }, status: e.code == 'not_allowed' ? :forbidden : :unprocessable_entity
-  rescue ::Inclamo::Shopify::Error::QueryError => e
-    render json: { error: 'store_refused', message: e.message.first(500) }, status: :unprocessable_entity
-  rescue ::Inclamo::Shopify::Error => e
-    render json: { error: 'store_unreachable', reason: e.class.name.demodulize.underscore }, status: :bad_gateway
+    answer_from_store { runner.refund_preview(order_id: params[:order_id], params: action_params) }
+  end
+
+  # POST .../actions/new_order_preview  { params: { lines, discount, shipping } }
+  def new_order_preview
+    answer_from_store { runner.new_order_preview(params: action_params) }
+  end
+
+  # GET .../actions/new_order_prefill?order_id=...  the items of an order of the customer
+  def new_order_prefill
+    answer_from_store { runner.new_order_prefill(order_id: params[:order_id]) }
   end
 
   private
+
+  def action_params
+    params[:params].respond_to?(:to_unsafe_h) ? params[:params].to_unsafe_h : {}
+  end
 
   def runner
     ::Inclamo::Shopify::OrderActionRunner.new(account: Current.account, account_user: Current.account_user, conversation: @conversation)

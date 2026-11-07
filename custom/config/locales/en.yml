@@ -22,8 +22,42 @@ en:
         address: "Changed the shipping address of order %{number}."
         refund: "Refunded %{refunded} on order %{number}."
         replacement: "Created replacement order %{new_order_number} for order %{number}, free of charge."
+        new_order: "Created order %{draft_name} for %{total}, awaiting payment. %{delivery}"
         details:
           reason: "Reason: %{reason}."
           refunded: Payment refunded.
           restocked: Items restocked.
           notified: Customer notified.
+          invoice_emailed: The store emailed its invoice to the customer.
+          link_in_reply: The payment link was put into the reply.
+          link_not_sent: "The payment link was not sent yet: it is under Awaiting payment in the conversation's Orders section."
+    macro_steps:
+      stopped: "Macro \"%{macro}\" stopped at the step \"%{step}\": %{reason} The steps after it did not run."
+      names:
+        inclamo_refund_full: Refund the order in full
+        inclamo_refund_shipping: Refund the shipping cost
+        inclamo_cancel_order: Cancel the order
+        inclamo_replacement: Send a free replacement
+      reasons:
+        no_order: no order is tied to this conversation, so there was no order to act on.
+        not_allowed: you may not act on orders. An administrator has not given you the order-actions role.
+        not_connected: no store is connected to this account.
+        connection_broken: the store connection needs attention, Shopify no longer accepts it.
+        missing_scope: "the store's app lacks access: %{scopes}."
+        unknown_order: the tied order was not found in the store.
+        nothing_to_refund: the store has nothing left to refund on this order.
+        no_shipping_to_refund: the order has no shipping cost left to refund.
+        already_cancelled: the order is already cancelled.
+        not_free: "%{message}, so no replacement was created."
+        store_refused: "the store refused: %{message}"
+        store_unreachable: Shopify did not answer, so nothing was done.
+        running: the store has not finished the cancellation yet. Check the order before telling the customer anything.
+        unknown: the store did not confirm, so the outcome is unknown. Check the order in Shopify.
+        pending: an earlier run of this step has not finished yet. Check the order before telling the customer anything.
+        action_id_taken: the attempt of this step belongs to another order or conversation, so nothing was done.
+        failed: it could not be done.
+        failed_after_done: the store did it, but the helpdesk failed right after, so its own note of it may be missing. Check the order before telling the customer anything.
+        other: "it could not be done (%{code})."
+      unconfirmed:
+        one_at_a_time: A macro that acts on orders runs in one conversation at a time, after a confirmation.
+        not_confirmed: This macro acts on orders and was not confirmed as it is now, so no step of it ran. Reload the page and run it again.
