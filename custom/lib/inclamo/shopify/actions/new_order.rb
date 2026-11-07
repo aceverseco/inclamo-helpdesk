@@ -16,8 +16,9 @@ module Inclamo
       # the action id in a metafield, and only the request that started the
       # action (the one given the customer) ever creates a draft. Settling an
       # earlier attempt (a repeated request, a panel read) only looks for its
-      # draft by the marker, once the store's search has caught up
-      # (LOOK_AFTER): found, it is finished; not found, nothing was created.
+      # draft by the marker among every draft of the customer made around the
+      # attempt, once the store's search has caught up (LOOK_AFTER): found, it
+      # is finished; not found, nothing was created.
       class NewOrder < Base
         RECORDED = %w[lines discount shipping delivery].freeze
         TAG = 'inclamo-helpdesk'
@@ -29,6 +30,11 @@ module Inclamo
         NOTE_LENGTH = 1000
         AWAITING = 5
         LOOK_AFTER = 30.seconds
+        # A lost draft is looked for among the customer's drafts made around
+        # its record: the store's clock may differ from ours by this much.
+        CLOCK_SKEW = 5.minutes
+        LOOK_PAGE = 50
+        LOOK_PAGES = 10
         VARIANT_ID = %r{\Agid://shopify/ProductVariant/\d+\z}
         AMOUNT = /\A\d{1,9}(\.\d{1,2})?\z/
 
@@ -250,16 +256,39 @@ module Inclamo
           raise Refused, 'not_created' unless @record.progress['attempted']
           return :unknown if @record.created_at > LOOK_AFTER.ago
 
-          find_lost_draft ? :found : raise(Refused, 'not_created')
+          case find_lost_draft
+          when true then :found
+          when false then raise Refused, 'not_created'
+          else :unknown
+          end
         rescue Error
           :unknown
         end
 
-        # The draft with this action's marker among the customer's drafts.
+        # The draft with this action's marker among the customer's drafts made
+        # from the helpdesk around the attempt, page by page, whatever their
+        # status: true when found, false when none has it, nil when there are
+        # more than can be looked through (then the attempt stays unknown).
         def find_lost_draft
-          nodes = @store.query(:awaiting_payment, { query: self.class.drafts_query(customer_id, open: false), first: 10 }).dig('draftOrders', 'nodes')
-          found = Array(nodes).find { |node| node.dig('marker', 'value') == @record.action_id }
-          found.present? && remember_draft!(found)
+          query = "#{self.class.drafts_query(customer_id, open: false)} #{created_around(@record.created_at)}"
+          after = nil
+          LOOK_PAGES.times do
+            drafts = @store.query(:new_order_find_draft, { query: query, first: LOOK_PAGE, after: after })['draftOrders']
+            found = Array(drafts['nodes']).find { |node| node.dig('marker', 'value') == @record.action_id }
+            return remember_draft!(found) if found
+            return false unless drafts.dig('pageInfo', 'hasNextPage')
+
+            after = drafts.dig('pageInfo', 'endCursor')
+          end
+          nil
+        end
+
+        # The draft is made after its record is written, by a request that
+        # ends within the runner's lease.
+        def created_around(time)
+          from = (time - CLOCK_SKEW).utc.iso8601
+          to = (time + OrderActionRunner::LEASE + CLOCK_SKEW).utc.iso8601
+          "created_at:>='#{from}' created_at:<='#{to}'"
         end
 
         # The store emails its invoice when the agent chose that; otherwise the

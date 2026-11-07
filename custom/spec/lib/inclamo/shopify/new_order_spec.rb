@@ -52,6 +52,23 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'new order' do
                                             .to_return(status: 200, body: body.to_json, headers: ShopifyStubs::JSON_HEADERS)
   end
 
+  # The customer's drafts as the lookup of a lost attempt pages through them.
+  def stub_found_drafts(*pages)
+    pages.each_with_index do |nodes, index|
+      cursor = index.zero? ? nil : "page-#{index}"
+      page = { nodes: nodes, pageInfo: { hasNextPage: index < pages.size - 1, endCursor: "page-#{index + 1}" } }
+      stub_request(:post, shopify_graphql_url).with do |r|
+        body = JSON.parse(r.body)
+        body['query'].match?(/^query new_order_find_draft\b/) && body.dig('variables', 'after') == cursor
+      end.to_return(status: 200, body: { data: { draftOrders: page } }.to_json, headers: ShopifyStubs::JSON_HEADERS)
+    end
+  end
+
+  def drafts(marker: nil)
+    nodes = shopify_fixture('awaiting_payment').dig('draftOrders', 'nodes')
+    marker ? nodes.first(2) + [nodes.last.merge('marker' => { 'value' => marker }, 'invoiceSentAt' => nil)] : nodes
+  end
+
   def stub_lost(operation)
     stub_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].match?(/^(query|mutation) #{operation}\b/) }.to_timeout
   end
@@ -288,29 +305,30 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'new order' do
       again = create_order
 
       expect(again.outcome).to eq('unknown')
-      expect(operation_requests('awaiting_payment')).not_to have_been_made
+      expect(operation_requests('new_order_find_draft')).not_to have_been_made
       expect(operation_requests('new_order_create')).to have_been_made.once
     end
 
     it 'is finished from the draft that carries its marker, without a second draft' do
-      lose_first_attempt
-      nodes = shopify_fixture('awaiting_payment').dig('draftOrders', 'nodes')
-      mine = nodes.last.merge('marker' => { 'value' => 'action-new-order-0001' }, 'invoiceSentAt' => nil)
-      stub_shopify(:awaiting_payment, data: { draftOrders: { nodes: nodes.first(2) + [mine] } })
-      stub_shopify(:new_order_draft, data: { draftOrder: shopify_fixture('new_order_draft_open')['draftOrder'].merge('id' => mine['id']) })
+      first = lose_first_attempt
+      mine = drafts(marker: 'action-new-order-0001').last
+      stub_found_drafts(drafts(marker: 'action-new-order-0001'))
 
       again = travel_to(31.seconds.from_now) { create_order }
 
       expect(again).to have_attributes(outcome: 'accepted')
       expect(again.progress).to include('draft_id' => mine['id'], 'draft_name' => mine['name'], 'invoice_sent' => true)
-      expect(operation_requests('awaiting_payment') { |variables| variables['query'] == "customer_id:#{customer['id'].split('/').last} tag:inclamo-helpdesk" }).to have_been_made.once
+      around = "created_at:>='#{(first.created_at - 5.minutes).utc.iso8601}' created_at:<='#{(first.created_at + 10.minutes).utc.iso8601}'"
+      expect(operation_requests('new_order_find_draft') do |variables|
+        variables['query'] == "customer_id:#{customer['id'].split('/').last} tag:inclamo-helpdesk #{around}" && variables['first'] == 50
+      end).to have_been_made.once
       expect(operation_requests('new_order_create')).to have_been_made.once
       expect(notes.size).to eq(1)
     end
 
     it 'is refused as not created when no draft carries its marker' do
       lose_first_attempt
-      stub_shopify_fixture(:awaiting_payment, 'awaiting_payment')
+      stub_found_drafts(drafts)
 
       again = travel_to(31.seconds.from_now) { create_order }
 
@@ -333,16 +351,39 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'new order' do
 
     it 'is settled when the panel is read' do
       lose_first_attempt
-      stub_shopify_fixture(:awaiting_payment, 'awaiting_payment')
+      stub_found_drafts(drafts)
 
       travel_to(31.seconds.from_now) { runner.settle_open! }
 
       expect(Inclamo::OrderAction.last).to have_attributes(outcome: 'refused', refusal: 'not_created')
     end
 
+    it 'finds the draft past the first page of the customer drafts made around the attempt' do
+      lose_first_attempt
+      others = Array.new(50) { |index| drafts.first.merge('id' => "gid://shopify/DraftOrder/#{9000 + index}", 'marker' => { 'value' => "other-action-#{index}" }) }
+      stub_found_drafts(others, drafts(marker: 'action-new-order-0001'))
+
+      travel_to(31.seconds.from_now) { runner.settle_open! }
+
+      expect(Inclamo::OrderAction.last).to have_attributes(outcome: 'accepted')
+      expect(Inclamo::OrderAction.last.progress['draft_name']).to eq(drafts.last['name'])
+      expect(operation_requests('new_order_find_draft')).to have_been_made.twice
+      expect(operation_requests('new_order_create')).to have_been_made.once
+    end
+
+    it 'stays unknown when the customer has more drafts around the attempt than are looked through' do
+      stub_const('Inclamo::Shopify::Actions::NewOrder::LOOK_PAGES', 1)
+      lose_first_attempt
+      stub_found_drafts(drafts, drafts)
+
+      travel_to(31.seconds.from_now) { runner.settle_open! }
+
+      expect(Inclamo::OrderAction.last).to have_attributes(outcome: 'unknown', refusal: nil)
+    end
+
     it 'stays unknown, not refused, when the store cannot be read to look for the draft' do
       first = lose_first_attempt
-      stub_throttled(:awaiting_payment)
+      stub_throttled(:new_order_find_draft)
 
       again = travel_to(31.seconds.from_now) { create_order }
       expect(again).to have_attributes(id: first.id, outcome: 'unknown', refusal: nil)
@@ -350,7 +391,7 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'new order' do
       travel_to(32.seconds.from_now) { runner.settle_open! }
       expect(first.reload).to have_attributes(outcome: 'unknown', refusal: nil, completed_at: nil)
 
-      stub_shopify(:awaiting_payment, errors: [{ message: 'Internal error. Looks like something went wrong on our end.' }])
+      stub_shopify(:new_order_find_draft, errors: [{ message: 'Internal error. Looks like something went wrong on our end.' }])
       travel_to(33.seconds.from_now) { runner.settle_open! }
       expect(first.reload).to have_attributes(outcome: 'unknown', refusal: nil)
       expect(operation_requests('new_order_create')).to have_been_made.once
@@ -408,8 +449,8 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'new order' do
     end
 
     it 'does not say the link went into the reply when a panel read found the order: no dialog put it there' do
-      nodes = shopify_fixture('awaiting_payment').dig('draftOrders', 'nodes')
-      stub_shopify(:awaiting_payment, data: { draftOrders: { nodes: [nodes.last.merge('marker' => { 'value' => 'action-new-order-0002' }, 'invoiceSentAt' => nil)] } })
+      nodes = drafts(marker: 'action-new-order-0002')
+      stub_found_drafts(nodes)
       lost_create
       create_order(order_params.merge('delivery' => 'reply'), id: 'action-new-order-0002')
       remove_request_stub(lost_create)

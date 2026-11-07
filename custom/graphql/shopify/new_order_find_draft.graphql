@@ -1,0 +1,18 @@
+# The drafts made from the helpdesk for one customer within a time window,
+# each with the marker of the action that made it: to find the draft of an
+# attempt whose answer was lost. Kept light (no line items) so that a page
+# of fifty stays cheap; paged until the marker is found.
+query new_order_find_draft($query: String!, $first: Int!, $after: String) {
+  draftOrders(first: $first, after: $after, query: $query, sortKey: ID, reverse: true) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id
+      legacyResourceId
+      name
+      invoiceUrl
+      invoiceSentAt
+      totalPriceSet { shopMoney { amount currencyCode } }
+      marker: metafield(namespace: "inclamo", key: "action_id") { value }
+    }
+  }
+}
