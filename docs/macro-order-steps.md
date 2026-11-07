@@ -17,7 +17,7 @@ step.
 | **Refund the order in full** | Refunds everything still refundable, through the payments Shopify proposes. The items are not put back in stock. Shopify notifies the customer. |
 | **Refund the shipping cost** | Refunds only what is left of the shipping cost. The items are not refunded. Shopify notifies the customer. Refused when the order has no shipping cost left to refund. |
 | **Cancel the order** | Cancels the order at the customer's request, refunds it in full to the original payments and puts the items back in stock. Shopify notifies the customer. It cannot be undone. |
-| **Send a free replacement** | Creates a new order with the same items and quantities, to the same address and for the same customer. It costs the customer nothing, shipping included. It is tagged `replacement` and its note names the original order. |
+| **Send a free replacement** | Creates a new order with the items the order holds now, to the same address and for the same customer: units refunded or removed by an order edit since are not sent again. It costs the customer nothing, shipping included. It is tagged `replacement` and its note names the original order. |
 
 Every step acts on the order the conversation is about: the one marked with
 "This conversation is about this order" in the Orders section, or found by its
@@ -30,9 +30,19 @@ Automation rules have no order steps: an order action always needs a person.
 
 Before such a macro runs, the agent sees a confirmation. It names the order and
 says what each order step will do to it, with the amount of every refund. The
-helpdesk works this out with the same code the steps run with. **Don't run**
-runs no step of the macro, not even the ones that do not touch the order. A
-macro without order steps runs as before, without a confirmation.
+helpdesk works this out with the same code the steps run with, step after
+step: a cancellation after a shipping refund shows what is left to refund, and
+a step after one that will stop the macro is shown as not running. **Don't
+run** runs no step of the macro, not even the ones that do not touch the order.
+A macro without order steps runs as before, without a confirmation.
+
+The dashboard asks the server what the macro holds when it is run, not the
+copy the page loaded, and the server runs a macro with order steps from the
+dashboard only after the agent's **Run** in that confirmation, for the macro as
+it was shown. A page that missed an order step added since, or a macro changed
+while the confirmation was open, runs nothing; the agent runs it again. A run
+through the API with an access token has no confirmation: each step is checked
+when it runs, as below.
 
 When no order is tied to the conversation, the confirmation says so and offers
 only to close.
@@ -62,6 +72,12 @@ conversation gets a private note naming the macro, the step and the reason:
   to refund because the macro already ran on this order;
 - Shopify has not finished a cancellation yet, or did not confirm. Check the
   order in Shopify before telling the customer anything.
+- Shopify did the step, but the helpdesk failed right after it. The note says
+  so; check the order before telling the customer anything.
+
+A run that the job queue starts again (after a restart, for example) does not
+act on the order twice: each order step continues its first attempt. The
+helpdesk's own steps, such as the message, are Chatwoot's and may run again.
 
 ## What is recorded
 

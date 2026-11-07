@@ -13,6 +13,7 @@ let store;
 let maya;
 let orders;
 let macros;
+let request;
 const made = [];
 
 test.describe.configure({ mode: 'serial' });
@@ -28,7 +29,7 @@ const macro = async (name, ...steps) => {
 
 test.beforeAll(async ({ playwright }) => {
   test.setTimeout(900_000);
-  const request = await playwright.request.newContext({ baseURL: process.env.HELPDESK_URL });
+  request = await playwright.request.newContext({ baseURL: process.env.HELPDESK_URL });
   admin = await apiAs(request, users.admin);
   agent = await apiAs(request, users.agent);
   inbox = await admin.inbox([admin.userId, agent.userId]);
@@ -73,6 +74,16 @@ const conversationFor = async (label, order) => {
     expect(tied.status, JSON.stringify(tied.body)).toBe(200);
   }
   return conversation;
+};
+
+// A run through the API with the user's access token, as an integration sends
+// it: there is no confirmation, each step is checked when it runs (design D6).
+const runThroughApi = async (user, chosen, conversation) => {
+  const token = (await user.get('api/v1/profile')).body.access_token;
+  const response = await request.post(`/api/v1/accounts/${account}/macros/${chosen.id}/execute`, {
+    headers: { api_access_token: token }, data: { conversation_ids: [conversation.id] }, failOnStatusCode: false,
+  });
+  return response.status();
 };
 
 const messages = async conversation => (await admin.get(`/conversations/${conversation.id}/messages`)).body.payload || [];
@@ -185,6 +196,10 @@ test.describe('Order steps act on the tied order after a confirmation', () => {
     await runFromSidebar(page, users.agent, conversation, macros.refund);
     await dialogButton(page, "Don't run").click();
     await expect(page.getByTestId('inclamo-macro-confirmation')).toHaveCount(0);
+    // Nor does a run the dashboard sends without the confirmation, as a page
+    // holding an older copy of the macro, without its order step, would.
+    const unconfirmed = await agent.post(`/macros/${macros.refund.id}/execute`, { conversation_ids: [conversation.id] });
+    expect(unconfirmed.status).toBe(422);
 
     // Long enough for a macro that was sent to have run.
     await page.waitForTimeout(8_000);
@@ -250,8 +265,7 @@ test.describe('A failed order step stops the macro', () => {
 
     // Run anyway, through the API, the server stops at the refund.
     await proxy.reset();
-    const run = await agent.post(`/macros/${macros.refund.id}/execute`, { conversation_ids: [conversation.id] });
-    expect(run.status).toBe(200);
+    expect(await runThroughApi(agent, macros.refund, conversation)).toBe(200);
     const note = await eventually(async () => (await notes(conversation)).find(item => item.content.includes('stopped at the step')), Boolean);
     expect(note.content).toContain('"Refund the order in full": no order is tied to this conversation');
     expect(await sent(conversation)).toEqual([]);
@@ -280,8 +294,7 @@ test.describe('A failed order step stops the macro', () => {
     await admin.post(`/conversations/${conversation.id}/toggle_status`, { status: 'open' });
     const before = (await held(orders.refund)).refunds.length;
 
-    const run = await agent.post(`/macros/${macros.refund.id}/execute`, { conversation_ids: [conversation.id] });
-    expect(run.status).toBe(200);
+    expect(await runThroughApi(agent, macros.refund, conversation)).toBe(200);
     const note = await eventually(async () => (await notes(conversation)).find(item => item.content.includes('stopped at the step')), Boolean);
     expect(note.content).toContain('nothing left to refund');
     expect((await held(orders.refund)).refunds.length).toBe(before);
