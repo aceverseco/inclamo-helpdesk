@@ -47,6 +47,8 @@ are never marked as missed afterwards. Results already reached (met or missed)
 stay, and a target that had already passed when the policy is deleted is marked
 as missed at that moment.
 
+If a chosen inbox is deleted, the policy simply stops listing it the next time
+it is saved.
 ## When the timers stop
 
 Both timers start when the conversation is created.
@@ -92,7 +94,11 @@ notified; build a rule on the label if you want that.
 ## For administrators of the installation
 
 - The check for missed targets runs every 60 seconds. `INCLAMO_SLA_CHECK_SECONDS`
-  changes the interval (the end-to-end tests use 5).
+  changes the interval (the end-to-end tests use 5). It is taken down to an
+  interval the schedule repeats evenly: below a minute to 1, 2, 3, 4, 5, 6, 10,
+  12, 15, 20 or 30 seconds; above it to whole minutes that divide an hour; an
+  hour at most. Keep it at a minute or less: a missed target is promised to be
+  marked within about a minute.
 - The overlay's tables are `inclamo_sla_policies` and `inclamo_sla_timers`.
 - API, for administrators: `GET/POST /api/v1/accounts/:id/inclamo/sla_policies`,
   `PATCH/DELETE .../sla_policies/:policy_id`, `POST .../sla_policies/reorder`
