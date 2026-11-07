@@ -34,6 +34,8 @@ const calculating = ref(false);
 const problem = ref('');
 const skipped = ref([]);
 const prefilling = ref(false);
+// Counts the openings of the dialog: an answer asked for in an earlier one is dropped.
+let opening = 0;
 
 const canEmail = computed(() => Boolean(props.customer?.email));
 const quantityOk = quantity => Number.isInteger(Number(quantity)) && Number(quantity) >= 1 && Number(quantity) <= MAX_QUANTITY;
@@ -50,10 +52,11 @@ const current = computed(() => Boolean(summary.value) && calculatedFor.value ===
 const canConfirm = computed(() => current.value && linesOk.value && Boolean(delivery.value) && !calculating.value && !prefilling.value);
 const positive = amount => Number(amount?.amount) > 0;
 
-const add = ({ product, variant }) => {
+// One line per variant: choosing it again adds to its quantity.
+const add = ({ product, variant }, quantity = 1) => {
   const same = lines.value.find(line => line.variant.id === variant.id);
-  if (same) same.quantity = Math.min(Number(same.quantity) + 1, MAX_QUANTITY);
-  else lines.value.push({ product, variant, quantity: 1 });
+  if (same) same.quantity = Math.min(Number(same.quantity) + quantity, MAX_QUANTITY);
+  else lines.value.push({ product, variant, quantity });
 };
 const remove = index => lines.value.splice(index, 1);
 
@@ -67,22 +70,28 @@ const explain = error => {
 
 const calculate = async () => {
   if (!linesOk.value || calculating.value) return;
+  const mine = opening;
   calculating.value = true;
   problem.value = '';
   const asked = fingerprint.value;
   try {
     const { data } = await InclamoAPI.newOrderPreview(props.conversationId, params());
+    if (mine !== opening) return;
     summary.value = data;
     calculatedFor.value = asked;
   } catch (error) {
+    if (mine !== opening) return;
     summary.value = null;
     problem.value = explain(error);
   } finally {
-    calculating.value = false;
+    if (mine === opening) calculating.value = false;
   }
 };
 
 const reset = () => {
+  opening += 1;
+  calculating.value = false;
+  prefilling.value = false;
   lines.value = [];
   discount.type = 'none';
   discount.value = '';
@@ -99,15 +108,18 @@ const reset = () => {
 
 // "Order again": the items and quantities of that order, which the agent can change.
 const prefill = async order => {
+  const mine = opening;
   prefilling.value = true;
   try {
     const { data } = await InclamoAPI.newOrderPrefill(props.conversationId, order.id);
-    lines.value = (data.lines || []).map(line => ({ product: line.product, variant: line.variant, quantity: line.quantity }));
+    if (mine !== opening) return;
+    lines.value = [];
+    (data.lines || []).forEach(line => add(line, Number(line.quantity)));
     skipped.value = data.skipped || [];
   } catch (error) {
-    problem.value = explain(error);
+    if (mine === opening) problem.value = explain(error);
   } finally {
-    prefilling.value = false;
+    if (mine === opening) prefilling.value = false;
   }
 };
 

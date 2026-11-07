@@ -268,6 +268,58 @@ describe('NewOrderDialog', () => {
     expect(find(wrapper, 'inclamo-new-order-summary').exists()).toBe(false);
   });
 
+  it('locks the order once it was sent without an answer, and sends it again as it was', async () => {
+    InclamoAPI.performAction.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce(accepted());
+    const wrapper = await open();
+    await addMug(wrapper);
+    await calculate(wrapper);
+    await find(wrapper, 'inclamo-new-order-delivery-email').setValue(true);
+
+    await confirm(wrapper);
+
+    expect(find(wrapper, 'inclamo-action-form').attributes('disabled')).toBeDefined();
+    expect(find(wrapper, 'inclamo-action-form').find('[data-testid="inclamo-new-order-quantity"]').exists()).toBe(true);
+    expect(find(wrapper, 'inclamo-action-sent-as-is').exists()).toBe(true);
+    await confirm(wrapper);
+    const [first, second] = InclamoAPI.performAction.mock.calls.map(call => call[1]);
+    expect(second).toEqual(first);
+    expect(wrapper.emitted('done')).toHaveLength(1);
+  });
+
+  it('makes one line of a variant that the order held on several lines', async () => {
+    InclamoAPI.newOrderPrefill.mockResolvedValue({
+      data: { order_number: '#1001', lines: [{ product: mug, variant: mug.variants[0], quantity: 1 }, { product: mug, variant: mug.variants[0], quantity: 2 }], skipped: [] },
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const wrapper = await open({}, order());
+
+    expect(findAll(wrapper, 'inclamo-new-order-line')).toHaveLength(1);
+    expect(find(wrapper, 'inclamo-new-order-quantity').element.value).toBe('3');
+    expect(warn.mock.calls.flat().join(' ')).not.toContain('Duplicate keys');
+    warn.mockRestore();
+  });
+
+  it('drops the items of an earlier "order again" that arrive after the dialog was opened again', async () => {
+    let answerFirst;
+    InclamoAPI.newOrderPrefill
+      .mockImplementationOnce(() => new Promise(resolve => { answerFirst = resolve; }))
+      .mockResolvedValueOnce({ data: { order_number: '#1002', lines: [{ product: board, variant: board.variants[0], quantity: 1 }], skipped: [] } });
+    const wrapper = mount(NewOrderDialog, { props: { conversationId: 7, customer, currency: 'UAH' }, global: { stubs } });
+    wrapper.vm.open(order());
+    await flush();
+
+    await wrapper.vm.open(order({ id: 'gid://shopify/Order/2', number: '#1002' }));
+    await flush();
+    answerFirst({ data: { order_number: '#1001', lines: [{ product: mug, variant: mug.variants[0], quantity: 2 }], skipped: [{ title: 'Old Plate', quantity: 1 }] } });
+    await flush();
+
+    expect(findAll(wrapper, 'inclamo-new-order-line')).toHaveLength(1);
+    expect(find(wrapper, 'inclamo-new-order-lines').text()).toContain('Snowboard');
+    expect(find(wrapper, 'inclamo-new-order-lines').text()).not.toContain('Blue Mug');
+    expect(find(wrapper, 'inclamo-new-order-skipped').exists()).toBe(false);
+    expect(find(wrapper, 'inclamo-new-order-prefilling').exists()).toBe(false);
+  });
+
   it('starts from the items and quantities of an existing order and names what is no longer sold', async () => {
     InclamoAPI.newOrderPrefill.mockResolvedValue({
       data: { order_number: '#1001', lines: [{ product: mug, variant: mug.variants[0], quantity: 2 }], skipped: [{ title: 'Old Plate', quantity: 1 }] },

@@ -23,12 +23,17 @@ const actionId = ref('');
 const busy = ref(false);
 const message = ref('');
 const settled = ref(false);
+// The request sent with this id, while how it ended is not known. It may
+// have reached the store, so it is sent again exactly as it was, and the
+// form cannot be changed meanwhile: a change would not be what the store did.
+const sent = ref(null);
 
 const open = () => {
   actionId.value = newActionId();
   busy.value = false;
   message.value = '';
   settled.value = false;
+  sent.value = null;
   emit('opened');
   dialog.value.open();
 };
@@ -46,8 +51,9 @@ const submit = async () => {
   if (busy.value || settled.value) return;
   busy.value = true;
   message.value = '';
+  sent.value = sent.value || { ...props.build(), action_id: actionId.value };
   try {
-    const { data } = await InclamoAPI.performAction(props.conversationId, { ...props.build(), action_id: actionId.value });
+    const { data } = await InclamoAPI.performAction(props.conversationId, sent.value);
     if (data.outcome === 'accepted') {
       dialog.value.close();
       emit('done', data);
@@ -57,10 +63,12 @@ const submit = async () => {
     // Running and unknown are final for this dialog; a refusal may be corrected and sent with a new id.
     // Pending: an earlier send of this id is still at the store, so the same id may be sent again.
     settled.value = !['refused', 'pending'].includes(data.outcome);
-    if (data.outcome === 'refused') actionId.value = newActionId();
-    else emit('done', data);
+    if (data.outcome === 'refused') {
+      actionId.value = newActionId();
+      sent.value = null;
+    } else emit('done', data);
   } catch (error) {
-    // No answer at all: the same id is kept, so trying again cannot act twice.
+    // No answer at all: the same request is kept, so trying again cannot act twice.
     message.value = t('DIALOG.UNKNOWN');
   } finally {
     busy.value = false;
@@ -82,9 +90,14 @@ defineExpose({ open });
     @confirm="submit"
   >
     <div class="flex flex-col gap-3 text-sm text-n-slate-12" data-testid="inclamo-action-dialog">
-      <slot />
+      <fieldset class="flex min-w-0 flex-col gap-3" :disabled="Boolean(sent)" data-testid="inclamo-action-form">
+        <slot />
+      </fieldset>
       <p v-if="message" class="p-2 rounded-md bg-n-ruby-3 text-n-ruby-11" data-testid="inclamo-action-message">
         {{ message }}
+      </p>
+      <p v-if="sent && !busy && !settled" class="text-xs text-n-slate-11" data-testid="inclamo-action-sent-as-is">
+        {{ t('DIALOG.SENT_AS_IS') }}
       </p>
     </div>
   </Dialog>

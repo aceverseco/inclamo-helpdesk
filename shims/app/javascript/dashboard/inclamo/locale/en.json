@@ -123,6 +123,7 @@
     "FAILED": "Shopify refused: {message}",
     "FAILED_PLAIN": "The action could not be performed.",
     "UNKNOWN": "The store did not confirm. The outcome is unknown: check the order in Shopify before trying again.",
+    "SENT_AS_IS": "What was sent can no longer be changed here: confirming again asks how that request ended.",
     "RUNNING": "Shopify is still working on it. The order shows as cancelling until it is done.",
     "NOT_ALLOWED": "An administrator has not allowed you to act on orders.",
     "CANCEL": {
