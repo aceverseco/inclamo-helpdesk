@@ -43,7 +43,7 @@ The connection SHALL require the scopes `read_customers` and `read_orders`. A to
 - **THEN** nothing is saved, and the form names `read_orders` as missing
 
 ### Requirement: Write scopes decide which actions exist
-Each order action SHALL be available only when the connection holds the scope it needs: `write_orders` for cancel, refund and address change, `write_orders` together with `write_draft_orders` for the replacement order. An action whose scope is missing SHALL be shown as unavailable with the name of the missing scope, and a request to perform it SHALL be refused without calling Shopify.
+Each order action SHALL be available only when the connection holds the scope it needs: `write_orders` for cancel, refund and address change, `write_orders` together with `write_draft_orders` and `read_products` for the replacement order. Putting items back in stock during a refund additionally needs `read_locations` and `read_merchant_managed_fulfillment_orders`; their absence SHALL NOT make the refund unavailable. An action whose scope is missing SHALL be shown as unavailable with the name of the missing scope, and a request to perform it SHALL be refused without calling Shopify.
 
 #### Scenario: Read-only token
 - **WHEN** the connection holds only `read_customers` and `read_orders`
@@ -59,6 +59,17 @@ Shopify does not give a merchant's own custom app the personal data of customers
 #### Scenario: Store whose plan hides customer data
 - **WHEN** an administrator connects a store that refuses customer personal data to custom apps
 - **THEN** the connection is saved as limited, and the administrator sees that customer matching, names and addresses are unavailable on this store and why
+
+### Requirement: An app the store refuses its orders is not connected
+Shopify gives a store's orders, draft orders and customers only to an app for which a distribution method has been chosen, and it refuses them only when the store has some to return. When the store refuses the app its orders, the connection SHALL NOT be saved and the form SHALL say that the store refuses the app its orders and that the app needs custom distribution. When a store that was connected begins to refuse, the panel SHALL show no orders, SHALL say that Shopify refuses the connected app, and SHALL tell an administrator what to change at the store and offer "check again". The connection SHALL stay saved.
+
+#### Scenario: App with no distribution method
+- **WHEN** an administrator submits the credentials of an app for which no distribution method was chosen, for a store that has orders
+- **THEN** nothing is saved, and the form says that the store refuses the app its orders and names custom distribution
+
+#### Scenario: Store starts refusing after it was connected
+- **WHEN** a store that was connected while it had no orders or customers refuses the app a customer while the panel reads
+- **THEN** the panel shows no orders and no lookup, says that Shopify refuses the connected app, tells the administrator to choose custom distribution, and after "check again" on a store that answers the panel works again
 
 ### Requirement: The credentials are a secret
 The client secret and every access token SHALL be stored encrypted at rest and SHALL NOT be returned by any endpoint, shown in the interface after saving, or written to logs, notes or error messages. If the installation has no encryption keys configured, connecting SHALL be refused with a message that says so.

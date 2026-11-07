@@ -1,0 +1,3 @@
+query app_customers {
+  customers(first: 1) { nodes { id } }
+}

@@ -1,0 +1,6 @@
+mutation seed_refund($input: RefundInput!, $key: String!) {
+  refundCreate(input: $input) @idempotent(key: $key) {
+    refund { id totalRefundedSet { shopMoney { amount currencyCode } } }
+    userErrors { field message }
+  }
+}

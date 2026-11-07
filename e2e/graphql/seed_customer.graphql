@@ -1,0 +1,6 @@
+mutation seed_customer($input: CustomerInput!) {
+  customerCreate(input: $input) {
+    customer { id displayName }
+    userErrors { field message }
+  }
+}

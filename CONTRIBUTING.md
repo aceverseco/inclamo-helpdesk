@@ -8,4 +8,4 @@ Rules that apply to all code in this repository:
 - Chatwoot's `enterprise/` directory is never used, patched or shipped here.
 - Features live in our own code (`custom/` overlay and our services). A change
   to a Chatwoot core file is accepted only as a small seam, recorded in the
-  change's design and proposed upstream.
+  change's design and carried as a patch in `patches/`.

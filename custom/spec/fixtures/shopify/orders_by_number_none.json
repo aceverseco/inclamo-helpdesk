@@ -1,0 +1,10 @@
+{
+  "variables": {
+    "query": "name:#999999"
+  },
+  "data": {
+    "orders": {
+      "nodes": []
+    }
+  }
+}

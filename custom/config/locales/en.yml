@@ -1,0 +1,29 @@
+en:
+  inclamo:
+    shopify_connection:
+      errors:
+        forbidden: Only an administrator can manage the store connection.
+        not_connected: No store is connected to this account.
+        encryption_not_configured: Encryption must be configured on this installation before a store can be connected.
+        already_connected: This account already has a store connection. Remove it before connecting another store.
+        invalid_domain: Enter the store's domain in the form your-store.myshopify.com.
+        app_not_installed: The app must be installed on the store first.
+        credentials_refused: The store refused these credentials.
+        missing_scopes: "The app lacks required access: %{missing_scopes}."
+        orders_refused: Shopify refuses this app the store's orders. In the Dev Dashboard open the app's Distribution, choose custom distribution, then try again.
+        shop_unavailable: This store cannot be reached. Check the domain.
+        store_unreachable: Shopify did not answer. Try again in a moment.
+    order_roles:
+      errors:
+        forbidden: Only an administrator can decide who acts on orders.
+    order_actions:
+      notes:
+        cancel: "Cancelled order %{number}. %{details}"
+        address: "Changed the shipping address of order %{number}."
+        refund: "Refunded %{refunded} on order %{number}."
+        replacement: "Created replacement order %{new_order_number} for order %{number}, free of charge."
+        details:
+          reason: "Reason: %{reason}."
+          refunded: Payment refunded.
+          restocked: Items restocked.
+          notified: Customer notified.

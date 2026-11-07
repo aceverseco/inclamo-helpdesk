@@ -1,0 +1,13 @@
+# Adds the overlay from this checkout to the official Chatwoot image.
+x-mounts: &mounts
+  volumes:
+    - storage:/app/storage
+    - ../custom:/app/custom:ro
+    - ../shims/config/initializers/00_inclamo_overlay.rb:/app/config/initializers/00_inclamo_overlay.rb:ro
+    - ../shims/lib/tasks/inclamo_overlay.rake:/app/lib/tasks/inclamo_overlay.rake:ro
+
+services:
+  rails:
+    <<: *mounts
+  sidekiq:
+    <<: *mounts

@@ -1,0 +1,8 @@
+# Lookup by order number for a store that hides customers' personal data.
+query orders_by_number_limited($query: String!) {
+  orders(first: 2, query: $query) {
+    nodes {
+      ...OrderFields
+    }
+  }
+}

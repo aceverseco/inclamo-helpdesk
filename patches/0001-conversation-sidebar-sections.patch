@@ -1,0 +1,76 @@
+diff --git a/app/javascript/dashboard/composables/useUISettings.js b/app/javascript/dashboard/composables/useUISettings.js
+index 35edbbd..a7ccec6 100644
+--- a/app/javascript/dashboard/composables/useUISettings.js
++++ b/app/javascript/dashboard/composables/useUISettings.js
+@@ -1,8 +1,10 @@
+ import { computed } from 'vue';
+ import { useStore, useStoreGetters } from 'dashboard/composables/store';
+ import wootConstants from 'dashboard/constants/globals';
++import extensionSections from 'dashboard/extensions/conversationSidebarSections';
+ 
+ export const DEFAULT_CONVERSATION_SIDEBAR_ITEMS_ORDER = Object.freeze([
++  ...extensionSections.map(({ name }) => ({ name })),
+   { name: 'conversation_actions' },
+   { name: 'macros' },
+   { name: 'conversation_info' },
+diff --git a/app/javascript/dashboard/extensions/conversationSidebarSections.js b/app/javascript/dashboard/extensions/conversationSidebarSections.js
+new file mode 100644
+index 0000000..fa525fc
+--- /dev/null
++++ b/app/javascript/dashboard/extensions/conversationSidebarSections.js
+@@ -0,0 +1,5 @@
++// Sections that an extension adds to the conversation sidebar. Each entry is
++// { name, openKey, title: () => string, component }: ContactPanel renders it
++// like one of its own sections, with the conversation and contact ids as props.
++// Empty in Chatwoot itself.
++export default [];
+diff --git a/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue b/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
+index 6d50e9d..bc99c4b 100644
+--- a/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
++++ b/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
+@@ -25,6 +25,7 @@ import SidebarActionsHeader from 'dashboard/components-next/SidebarActionsHeader
+ import LinearIssuesList from 'dashboard/components/widgets/conversation/linear/IssuesList.vue';
+ import LinearSetupCTA from 'dashboard/components/widgets/conversation/linear/LinearSetupCTA.vue';
+ import StripeCustomer from 'dashboard/components/widgets/conversation/StripeCustomer.vue';
++import extensionSections from 'dashboard/extensions/conversationSidebarSections';
+ 
+ const props = defineProps({
+   conversationId: {
+@@ -46,6 +47,8 @@ const {
+ } = useUISettings();
+ 
+ const dragging = ref(false);
++const extensionSection = name =>
++  extensionSections.find(section => section.name === name);
+ const conversationSidebarItems = ref([]);
+ 
+ const shopifyIntegration = useFunctionGetter(
+@@ -346,6 +349,28 @@ onMounted(() => {
+               <SharedFiles />
+             </AccordionItem>
+           </div>
++          <div v-else-if="extensionSection(element.name)">
++            <AccordionItem
++              :title="extensionSection(element.name).title()"
++              :is-open="
++                isContactSidebarItemOpen(extensionSection(element.name).openKey)
++              "
++              compact
++              @toggle="
++                value =>
++                  toggleSidebarUIState(
++                    extensionSection(element.name).openKey,
++                    value
++                  )
++              "
++            >
++              <component
++                :is="extensionSection(element.name).component"
++                :conversation-id="conversationId"
++                :contact-id="contactId"
++              />
++            </AccordionItem>
++          </div>
+         </template>
+       </Draggable>
+     </div>

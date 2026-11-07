@@ -1,0 +1,11 @@
+query seed_catalog {
+  shop { currencyCode }
+  locations(first: 5) { nodes { id name } }
+  products(first: 50, query: "status:active AND gift_card:false") {
+    nodes {
+      id
+      title
+      variants(first: 3) { nodes { id title price inventoryQuantity inventoryItem { id tracked } } }
+    }
+  }
+}

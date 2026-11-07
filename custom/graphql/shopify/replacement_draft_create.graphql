@@ -1,0 +1,25 @@
+# First step of a free replacement: the store copies the order into a draft,
+# with its customer and addresses, so they never pass through us.
+mutation replacement_draft_create($orderId: ID!) {
+  draftOrderCreateFromOrder(orderId: $orderId) {
+    draftOrder {
+      id
+      name
+      lineItems(first: 50) {
+        nodes {
+          id
+          title
+          variantTitle
+          sku
+          quantity
+          custom
+          variant { id }
+        }
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

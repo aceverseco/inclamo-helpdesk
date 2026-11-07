@@ -1,0 +1,16 @@
+# Third step: the draft becomes an order; stock is taken.
+mutation replacement_draft_complete($id: ID!) {
+  draftOrderComplete(id: $id) {
+    draftOrder {
+      id
+      order {
+        id
+        name
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

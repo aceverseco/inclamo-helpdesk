@@ -1,0 +1,6 @@
+mutation seed_product($input: ProductSetInput!) {
+  productSet(synchronous: true, input: $input) {
+    product { id }
+    userErrors { field message }
+  }
+}

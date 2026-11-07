@@ -1,0 +1,106 @@
+{
+  "variables": {
+    "query": "name:#1005"
+  },
+  "data": {
+    "orders": {
+      "nodes": [
+        {
+          "id": "gid://shopify/Order/18985501524126",
+          "legacyResourceId": "18985501524126",
+          "name": "#1005",
+          "createdAt": "2026-11-05T15:37:20Z",
+          "cancelledAt": "2026-11-05T15:37:21Z",
+          "cancelReason": "CUSTOMER",
+          "closed": false,
+          "displayFinancialStatus": "PAID",
+          "displayFulfillmentStatus": "FULFILLMENT_NOT_REQUIRED",
+          "returnStatus": "NO_RETURN",
+          "currencyCode": "UAH",
+          "presentmentCurrencyCode": "UAH",
+          "refundable": true,
+          "note": "e2e cancelled",
+          "tags": [
+            "e2e",
+            "e2e-t001"
+          ],
+          "totalPriceSet": {
+            "shopMoney": {
+              "amount": "885.95",
+              "currencyCode": "UAH"
+            }
+          },
+          "totalReceivedSet": {
+            "shopMoney": {
+              "amount": "885.95",
+              "currencyCode": "UAH"
+            }
+          },
+          "totalRefundedSet": {
+            "shopMoney": {
+              "amount": "0.0",
+              "currencyCode": "UAH"
+            }
+          },
+          "totalShippingPriceSet": {
+            "shopMoney": {
+              "amount": "0.0",
+              "currencyCode": "UAH"
+            }
+          },
+          "totalRefundedShippingSet": {
+            "shopMoney": {
+              "amount": "0.0",
+              "currencyCode": "UAH"
+            }
+          },
+          "lineItems": {
+            "nodes": [
+              {
+                "id": "gid://shopify/LineItem/50880935788702",
+                "title": "The Minimal Snowboard",
+                "variantTitle": null,
+                "sku": null,
+                "quantity": 1,
+                "currentQuantity": 1,
+                "refundableQuantity": 1,
+                "unfulfilledQuantity": 1,
+                "originalUnitPriceSet": {
+                  "shopMoney": {
+                    "amount": "885.95",
+                    "currencyCode": "UAH"
+                  }
+                },
+                "discountedUnitPriceSet": {
+                  "shopMoney": {
+                    "amount": "885.95",
+                    "currencyCode": "UAH"
+                  }
+                },
+                "image": null
+              }
+            ]
+          },
+          "fulfillments": [],
+          "refunds": [],
+          "customer": {
+            "id": "gid://shopify/Customer/31350524182686",
+            "displayName": "Noah Example"
+          },
+          "shippingAddress": {
+            "name": "Noah Example",
+            "address1": "1 Example Street",
+            "address2": null,
+            "city": "Springfield",
+            "province": "Illinois",
+            "provinceCode": "IL",
+            "zip": "62701",
+            "country": "United States",
+            "countryCodeV2": "US",
+            "phone": null
+          }
+        }
+      ]
+    }
+  }
+}

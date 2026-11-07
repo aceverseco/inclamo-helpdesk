@@ -1,0 +1,21 @@
+fragment OrderPersonalFields on Order {
+  customer {
+    id
+    displayName
+  }
+  shippingAddress {
+    name
+    firstName
+    lastName
+    company
+    address1
+    address2
+    city
+    province
+    provinceCode
+    zip
+    country
+    countryCodeV2
+    phone
+  }
+}

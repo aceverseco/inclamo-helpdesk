@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend specs on the pinned Chatwoot
+    # Chatwoot pins a Ruby patch release; prebuilt rubies lag on the newest runner image.
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ''
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --mount type=tmpfs,destination=/var/lib/postgresql/data
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: --entrypoint redis-server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pinned Chatwoot version
+        id: pin
+        run: echo "tag=$(cat custom/CHATWOOT_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out Chatwoot at the pinned tag
+        uses: actions/checkout@v4
+        with:
+          repository: chatwoot/chatwoot
+          ref: ${{ steps.pin.outputs.tag }}
+          path: build/chatwoot
+
+      - name: Assemble Chatwoot with the patches and the overlay
+        run: scripts/assemble.sh build/chatwoot
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+          working-directory: build/chatwoot
+
+      - name: Create the database and load the schema of Chatwoot
+        working-directory: build/chatwoot
+        run: bundle exec rake db:create db:schema:load
+
+      # Not `db:migrate`: that would rewrite schema.rb, and the test helper of
+      # Chatwoot rebuilds the test database whenever schema.rb changed.
+      - name: Run the overlay's migrations in the test database
+        working-directory: build/chatwoot
+        run: bundle exec rake inclamo:db:migrate
+        env:
+          RAILS_ENV: test
+
+      - name: Run the overlay's specs
+        working-directory: build/chatwoot
+        run: bundle exec rspec custom/spec --format progress
+        env:
+          # Throwaway keys: the store connection is refused without encryption.
+          ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: ci-only-primary-key-0000000000000000
+          ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: ci-only-deterministic-key-000000000
+          ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: ci-only-key-derivation-salt-0000000
+
+  graphql:
+    name: Shopify documents match the schema, fixtures hold no real people
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --no-audit --no-fund
+      - name: A document with an unknown field is refused
+        run: node scripts/check-graphql.mjs --self-test
+      - name: Every document is valid for the pinned API version
+        run: node scripts/check-graphql.mjs
+      - name: Recorded store answers hold no real personal data
+        run: node scripts/check-fixtures.mjs
+      - name: Interface strings of the overlay come from its locale file
+        run: node scripts/check-ui-strings.mjs
+      - name: Every scenario of the specs has an end-to-end test
+        run: node scripts/check-e2e-coverage.mjs
+
+  frontend:
+    name: Dashboard component tests on the pinned Chatwoot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pinned Chatwoot version
+        id: pin
+        run: echo "tag=$(cat custom/CHATWOOT_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out Chatwoot at the pinned tag
+        uses: actions/checkout@v4
+        with:
+          repository: chatwoot/chatwoot
+          ref: ${{ steps.pin.outputs.tag }}
+          path: build/chatwoot
+
+      - name: Assemble Chatwoot with the patches and the overlay
+        run: scripts/assemble.sh build/chatwoot
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: build/chatwoot/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: build/chatwoot/.nvmrc
+          cache: pnpm
+          cache-dependency-path: build/chatwoot/pnpm-lock.yaml
+
+      - name: Install the dashboard's dependencies
+        working-directory: build/chatwoot
+        run: pnpm install --frozen-lockfile
+
+      - name: Run the overlay's component tests
+        working-directory: build/chatwoot
+        run: pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/inclamo
+
+      - name: Chatwoot's own tests around the two seams still pass
+        working-directory: build/chatwoot
+        run: pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/composables/spec/useUISettings.spec.js app/javascript/dashboard/components-next/sidebar/specs
+

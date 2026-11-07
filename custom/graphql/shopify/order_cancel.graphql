@@ -1,0 +1,15 @@
+# Cancels an order. The store answers with a job; the order is cancelled when
+# the job is done.
+mutation order_cancel($orderId: ID!, $reason: OrderCancelReason!, $restock: Boolean!, $refundMethod: OrderCancelRefundMethodInput, $notifyCustomer: Boolean, $staffNote: String) {
+  orderCancel(orderId: $orderId, reason: $reason, restock: $restock, refundMethod: $refundMethod, notifyCustomer: $notifyCustomer, staffNote: $staffNote) {
+    job {
+      id
+      done
+    }
+    orderCancelUserErrors {
+      field
+      message
+      code
+    }
+  }
+}

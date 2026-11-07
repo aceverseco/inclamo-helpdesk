@@ -72,14 +72,14 @@ The agent SHALL be able to mark one order as the order the conversation is about
 - **THEN** no order is marked automatically
 
 ### Requirement: Order actions need a role given by an administrator
-Administrators SHALL always be able to perform order actions. An agent SHALL be able to perform them only while holding the order-actions role, which only an administrator can give and take away. One role SHALL cover every order action of this capability. A newly added agent SHALL NOT hold it. An agent without the role SHALL see the panel and the order data in full, SHALL see each action as unavailable with the reason, and a request to perform an action SHALL be refused without calling the store.
+Administrators SHALL always be able to perform order actions. An agent SHALL be able to perform them only while holding the order-actions role, which only an administrator can give and take away. One role SHALL cover every order action of this capability. A newly added agent SHALL NOT hold it. The administrator SHALL give and take the role on a page of the account settings that lists the team with a switch for each agent; the panel SHALL link to that page for administrators. An agent without the role SHALL see the panel and the order data in full, SHALL see each action as unavailable with the reason, and a request to perform an action SHALL be refused without calling the store.
 
 #### Scenario: Agent without the role
 - **WHEN** an agent who does not hold the role opens a conversation with a matched customer
 - **THEN** the orders are shown, every action is shown as unavailable with the reason "an administrator has not allowed you to act on orders", and a direct request to refund is refused
 
 #### Scenario: Administrator gives the role
-- **WHEN** an administrator gives the role to an agent
+- **WHEN** an administrator follows the panel's link to the settings page and switches the role on for an agent
 - **THEN** on that agent's next panel load the actions allowed by the store's scopes are available
 
 #### Scenario: Role taken away during a confirmation
@@ -102,11 +102,27 @@ The agent SHALL be able to cancel an order that the store allows to be cancelled
 - **THEN** the action is not offered, or if the state changed meanwhile, the store's refusal is shown in words and nothing else changes
 
 ### Requirement: Refund an order fully or partly
-The agent SHALL be able to refund an order: the full remaining amount, selected line items with quantities, shipping, or a custom amount up to what remains refundable. The confirmation SHALL show the amount and currency, where the money goes, whether items are restocked and whether the customer is notified. An amount above what remains refundable SHALL be refused before the store is called. One confirmation SHALL result in at most one refund, also when the request is repeated after a network failure.
+The agent SHALL be able to refund an order: the full remaining amount, selected line items with quantities, shipping, or a custom amount up to what remains refundable. The confirmation SHALL show the amount and currency, where the money goes, whether items are restocked and whether the customer is notified. An amount above what remains refundable SHALL be refused before the store is called. One confirmation SHALL result in at most one refund, also when the request is repeated after a network failure. When the agent asks for the items to be put back in stock, they SHALL go back into stock without the agent choosing where: items that have shipped at the location the store proposes for their return, items that have not shipped at the location that keeps them for shipping. The confirmation SHALL name the location. An item the store names no location for SHALL be refunded without restocking, and the confirmation SHALL say so. Putting items back in stock needs the scopes `read_locations` and `read_merchant_managed_fulfillment_orders`: without either the refund SHALL remain available, the items SHALL stay out of stock, and the confirmation SHALL say so and name the missing scope.
 
 #### Scenario: Partial refund by amount
 - **WHEN** the agent refunds 20.00 EUR of an order with 54.00 EUR refundable and confirms
 - **THEN** the store records one refund of 20.00 EUR, the panel shows 34.00 EUR as refundable, and a private note records the refund
+
+#### Scenario: Shipped item put back in stock
+- **WHEN** the agent refunds an item that has shipped, asks for it to be put back in stock, and confirms
+- **THEN** the confirmation named the location the item was shipped from, nothing more was asked of the agent, and the store records the refund with the item returned to that location
+
+#### Scenario: Unshipped item put back in stock
+- **WHEN** the agent refunds an item that has not shipped, asks for it to be put back in stock, and confirms
+- **THEN** the confirmation named the location that kept the item, and the store records the refund with the item back in stock there
+
+#### Scenario: Item the store names no location for
+- **WHEN** the agent refunds, with restocking, an item that has not shipped and whose location the store does not show
+- **THEN** the confirmation says the item stays out of stock, and the refund is made without restocking it
+
+#### Scenario: Locations scope missing
+- **WHEN** the connection lacks `read_locations` and the agent refunds an item with restocking
+- **THEN** the confirmation says the item stays out of stock and names the scope, and the refund is made without restocking it
 
 #### Scenario: Amount above the refundable
 - **WHEN** the agent enters 60.00 EUR for an order with 54.00 EUR refundable
@@ -145,6 +161,10 @@ The agent SHALL be able to duplicate an order of the customer as a replacement t
 #### Scenario: Draft orders scope missing
 - **WHEN** the connection holds `write_orders` but not `write_draft_orders`
 - **THEN** cancel, refund and address change are available, and the replacement is shown as unavailable naming `write_draft_orders`
+
+#### Scenario: Products scope missing
+- **WHEN** the connection holds `write_orders` and `write_draft_orders` but not `read_products`
+- **THEN** the replacement is shown as unavailable naming `read_products`, and the panel shows orders as before
 
 ### Requirement: Every action leaves a record
 Every action that the store accepted SHALL leave a private note in the conversation, visible to the team and not to the customer, naming the agent, the action, the order number and, for refunds, the amount and currency. Every attempt, accepted or refused, SHALL also be written to an action record kept by the helpdesk with the time, the agent, the conversation, the order, the action, its parameters without personal data, and the outcome.
