@@ -14,6 +14,8 @@ const props = defineProps({
   canConfirm: { type: Boolean, default: true },
   // Returns { action_name, order_id, params, address } for the request.
   build: { type: Function, required: true },
+  // What a refusal for want of the right says; by default, the order-actions role.
+  notAllowedText: { type: String, default: '' },
 });
 
 const emit = defineEmits(['done', 'opened']);
@@ -36,7 +38,7 @@ const open = () => {
 const explain = record => {
   if (record.outcome === 'running') return t('DIALOG.RUNNING');
   if (record.outcome === 'unknown') return t('DIALOG.UNKNOWN');
-  if (record.refusal === 'not_allowed') return t('DIALOG.NOT_ALLOWED');
+  if (record.refusal === 'not_allowed') return props.notAllowedText || t('DIALOG.NOT_ALLOWED');
   if (record.store_message) return t('DIALOG.FAILED', { message: record.store_message });
   const key = `ORDER.WHY_NOT.${record.refusal}`;
   return t(key) === key ? t('DIALOG.FAILED_PLAIN') : t(key, { scopes: '' });

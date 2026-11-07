@@ -16,6 +16,10 @@ en:
     order_roles:
       errors:
         forbidden: Only an administrator can decide who acts on orders.
+    discounts:
+      errors:
+        forbidden: Only an administrator can manage discount presets and who gives discounts.
+        not_allowed: You are not allowed to give discounts. Ask an administrator.
     order_actions:
       notes:
         cancel: "Cancelled order %{number}. %{details}"
@@ -23,6 +27,16 @@ en:
         refund: "Refunded %{refunded} on order %{number}."
         replacement: "Created replacement order %{new_order_number} for order %{number}, free of charge."
         new_order: "Created order %{draft_name} for %{total}, awaiting payment. %{delivery}"
+        discount: "Created discount code %{code} from the preset \"%{preset}\": %{value} off the order, %{uses}, %{audience}, %{expiry}."
+        discount_details:
+          uses:
+            one: usable once
+            other: "usable %{count} times"
+          audience:
+            customer: for this customer only
+            anyone: for anyone, once per buyer
+          expires: "expires on %{date}"
+          never: never expires
         details:
           reason: "Reason: %{reason}."
           refunded: Payment refunded.

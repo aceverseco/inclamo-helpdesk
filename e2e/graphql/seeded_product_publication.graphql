@@ -1,0 +1,6 @@
+query seeded_product_publication($id: ID!, $publicationId: ID!) {
+  product(id: $id) {
+    onlineStorePreviewUrl
+    publishedOnPublication(publicationId: $publicationId)
+  }
+}

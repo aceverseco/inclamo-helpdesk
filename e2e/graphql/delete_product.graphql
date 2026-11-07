@@ -1,0 +1,6 @@
+mutation delete_product($input: ProductDeleteInput!) {
+  productDelete(input: $input) {
+    deletedProductId
+    userErrors { field message }
+  }
+}

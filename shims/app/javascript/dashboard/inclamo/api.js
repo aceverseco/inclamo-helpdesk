@@ -38,6 +38,34 @@ class InclamoAPI extends ApiClient {
     return axios.delete(`${this.url}/order_roles/${userId}`);
   }
 
+  getDiscountPresets() {
+    return axios.get(`${this.url}/discount_presets`);
+  }
+
+  createDiscountPreset(preset) {
+    return axios.post(`${this.url}/discount_presets`, preset);
+  }
+
+  updateDiscountPreset(id, preset) {
+    return axios.patch(`${this.url}/discount_presets/${id}`, preset);
+  }
+
+  deleteDiscountPreset(id) {
+    return axios.delete(`${this.url}/discount_presets/${id}`);
+  }
+
+  getDiscountGrants() {
+    return axios.get(`${this.url}/discount_grants`);
+  }
+
+  giveDiscountGrant(userId) {
+    return axios.post(`${this.url}/discount_grants`, { user_id: userId });
+  }
+
+  takeDiscountGrant(userId) {
+    return axios.delete(`${this.url}/discount_grants/${userId}`);
+  }
+
   getPanel(conversationId, after) {
     return axios.get(`${this.conversation(conversationId)}/panel`, { params: after ? { after } : {} });
   }

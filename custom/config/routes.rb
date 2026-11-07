@@ -11,6 +11,8 @@ namespace :api, defaults: { format: 'json' } do
         namespace :inclamo do
           resource :status, only: [:show], controller: 'status'
           resources :order_roles, only: [:index, :create, :destroy]
+          resources :discount_presets, only: [:index, :create, :update, :destroy]
+          resources :discount_grants, only: [:index, :create, :destroy]
           namespace :shopify do
             resource :connection, only: [:show, :create, :destroy], controller: '/api/v1/accounts/inclamo/shopify_connections' do
               post :recheck

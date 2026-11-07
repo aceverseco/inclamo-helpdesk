@@ -126,6 +126,51 @@ export async function openStore(run) {
       return (await shopify('seeded_orders', { query: `tag:'${tag}'`, after: null })).orders.nodes;
     },
 
+    // Two products of this run for the reply inserts, each with its own SKU:
+    // `shown` is published in the online store, `hidden` is active but not
+    // published there. Removed by clean(). A development store is
+    // password-protected, so the store gives neither a storefront link;
+    // `shown.url` is the address it has once the store opens, for the proxy
+    // to answer with as a live store does (patch `storefront`).
+    async storefrontProducts() {
+      const online = (await shopify('seed_publications')).publications.nodes.find(publication => publication.name === 'Online Store');
+      if (!online) throw new Error('the store has no Online Store sales channel');
+      const made = {};
+      for (const [key, label, publish] of [['shown', 'Shown Mug', true], ['hidden', 'Hidden Mug', false]]) {
+        const sku = `E2E-${run}-${key}`.toUpperCase();
+        const data = await shopify('seed_product', {
+          input: {
+            title: `E2E ${run} ${label}`,
+            status: 'ACTIVE',
+            tags,
+            productOptions: [{ name: 'Title', values: [{ name: 'Default Title' }] }],
+            variants: [{ optionValues: [{ optionName: 'Title', name: 'Default Title' }], price: '150.00', sku, inventoryItem: { tracked: false } }],
+          },
+        });
+        const id = data.productSet.product.id;
+        if (publish) await shopify('seed_publish', { id, input: [{ publicationId: online.id }] });
+        made[key] = { id, title: `E2E ${run} ${label}`, sku, price: 150 };
+      }
+      const shown = (await shopify('seeded_product_publication', { id: made.shown.id, publicationId: online.id })).product;
+      if (!shown.publishedOnPublication) throw new Error('the product was not published in the online store');
+      made.shown.url = shown.onlineStorePreviewUrl;
+      // The store's search lags behind what was just made.
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        const nodes = (await shopify('seeded_products', { query: `tag:'e2e-${run}'` })).products.nodes;
+        if (nodes.some(node => node.id === made.shown.id) && nodes.some(node => node.id === made.hidden.id)) return made;
+        await new Promise(resolve => setTimeout(resolve, 2_000));
+      }
+      throw new Error('the store search does not show the products of the run after a minute');
+    },
+
+    // Discount codes the helpdesk made from this run's presets: their titles
+    // start with the preset's name, and the tests name presets after the run.
+    async discounts() {
+      const prefix = `E2E-${run}`;
+      const nodes = (await shopify('seeded_discounts', { query: `title:${prefix}*` })).codeDiscountNodes.nodes;
+      return nodes.filter(node => (node.codeDiscount?.title || '').startsWith(prefix));
+    },
+
     async clean() {
       const removed = { orders: 0, customers: 0, kept: [] };
       const replacements = (await shopify('seeded_orders', { query: `tag:'replacement'`, after: null })).orders.nodes;
@@ -164,6 +209,26 @@ export async function openStore(run) {
           removed.customers += 1;
         } catch (error) {
           removed.kept.push(`${customer.displayName}: ${error.message.slice(0, 120)}`);
+        }
+      }
+      // Discount codes made from this run's presets, and the run's own products.
+      removed.discounts = 0;
+      for (const node of await store.discounts()) {
+        try {
+          await shopify('delete_discount', { id: node.id });
+          removed.discounts += 1;
+        } catch (error) {
+          removed.kept.push(`${node.codeDiscount?.title}: ${error.message.slice(0, 120)}`);
+        }
+      }
+      removed.products = 0;
+      const products = (await shopify('seeded_products', { query: `tag:'e2e-${run}'` })).products.nodes.filter(product => product.tags.includes(`e2e-${run}`));
+      for (const product of products) {
+        try {
+          await shopify('delete_product', { input: { id: product.id } });
+          removed.products += 1;
+        } catch (error) {
+          removed.kept.push(`${product.title}: ${error.message.slice(0, 120)}`);
         }
       }
       return removed;

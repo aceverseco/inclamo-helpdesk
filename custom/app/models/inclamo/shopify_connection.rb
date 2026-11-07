@@ -15,7 +15,9 @@ class Inclamo::ShopifyConnection < ApplicationRecord
     'replacement' => %w[write_orders write_draft_orders read_products],
     # A new order is a draft the customer pays through its invoice link; its
     # items are chosen from the catalogue.
-    'new_order' => %w[write_draft_orders read_products]
+    'new_order' => %w[write_draft_orders read_products],
+    # A discount code made from a preset, for the reply.
+    'discount' => %w[write_discounts]
   }.freeze
   # Actions that need the store's customers: not offered when it hides them.
   CUSTOMER_DATA_ACTIONS = %w[address new_order].freeze

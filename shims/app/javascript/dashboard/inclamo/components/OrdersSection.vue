@@ -6,6 +6,7 @@ import InclamoAPI from '../api';
 import OrderCard from './OrderCard.vue';
 import ConnectDialog from './ConnectDialog.vue';
 import NewOrderDialog from './NewOrderDialog.vue';
+import ReplyInserts from './ReplyInserts.vue';
 import { insertIntoReply } from '../reply';
 import { ORDER_ROLES_ROUTE } from '../routes';
 import { t } from '../i18n';
@@ -171,6 +172,7 @@ watch(
     </div>
 
     <template v-else>
+      <ReplyInserts :conversation-id="conversationId" :viewer="viewer" :connection="connection" :customer-matched="state === 'matched'" @changed="load" />
       <div v-if="state === 'limited'" class="mb-2 p-2 rounded-md bg-n-amber-3 text-n-amber-11" data-testid="inclamo-orders-limited">
         <p>{{ t('ORDERS.LIMITED.TEXT') }}</p>
         <p v-if="viewer.administrator" class="text-xs">{{ t('ORDERS.LIMITED.WHY') }}</p>

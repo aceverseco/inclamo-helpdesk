@@ -3,9 +3,9 @@
 # The record of one attempt to act on an order: who, in which conversation,
 # what, and how it ended. See Inclamo::Shopify::OrderActionRunner.
 class Inclamo::OrderAction < ApplicationRecord
-  ACTIONS = %w[cancel refund address replacement new_order].freeze
+  ACTIONS = %w[cancel refund address replacement new_order discount].freeze
   # Actions that are not about an existing order: their record has no order id.
-  ORDER_LESS = %w[new_order].freeze
+  ORDER_LESS = %w[new_order discount].freeze
   OUTCOMES = %w[pending running accepted refused unknown].freeze
 
   belongs_to :account
@@ -20,6 +20,8 @@ class Inclamo::OrderAction < ApplicationRecord
   # What a new order's record tells the dialog: the draft, its total, its
   # payment link and how the link reached the customer.
   NEW_ORDER_RESULT = %w[draft_id draft_name total invoice_url invoice_sent delivery].freeze
+  # What a discount's record tells the dialog: the code to insert.
+  DISCOUNT_RESULT = %w[code discount_id].freeze
 
   scope :unsettled, -> { where(outcome: %w[pending running unknown]) }
 
@@ -38,7 +40,7 @@ class Inclamo::OrderAction < ApplicationRecord
   def as_json(*)
     {
       action_id: action_id, action: action, order_id: order_id, order_number: order_number, outcome: outcome,
-      refusal: refusal, store_message: store_message, result: progress.slice('new_order_number', 'new_order_id', 'refunded', *NEW_ORDER_RESULT),
+      refusal: refusal, store_message: store_message, result: progress.slice('new_order_number', 'new_order_id', 'refunded', *NEW_ORDER_RESULT, *DISCOUNT_RESULT),
       created_at: created_at, completed_at: completed_at
     }
   end

@@ -1,0 +1,38 @@
+{
+  "variables": {
+    "input": {
+      "title": "Helpdesk: conversation 1",
+      "code": "thanks-fx7k2m9q",
+      "startsAt": "2026-11-06T12:00:00Z",
+      "endsAt": "2026-12-06T12:00:00.000Z",
+      "usageLimit": 1,
+      "appliesOncePerCustomer": true,
+      "context": {
+        "all": "ALL"
+      },
+      "customerGets": {
+        "value": {
+          "percentage": 0.1
+        },
+        "items": {
+          "all": true
+        }
+      }
+    }
+  },
+  "data": {
+    "discountCodeBasicCreate": {
+      "codeDiscountNode": null,
+      "userErrors": [
+        {
+          "field": [
+            "basicCodeDiscount",
+            "code"
+          ],
+          "code": "TAKEN",
+          "message": "Code must be unique. Please try a different code."
+        }
+      ]
+    }
+  }
+}

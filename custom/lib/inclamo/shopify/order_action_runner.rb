@@ -17,7 +17,7 @@ module Inclamo
     # order's, and its record has no order id.
     class OrderActionRunner
       HANDLERS = { 'cancel' => Actions::Cancel, 'address' => Actions::Address, 'refund' => Actions::Refund, 'replacement' => Actions::Replacement,
-                   'new_order' => Actions::NewOrder }.freeze
+                   'new_order' => Actions::NewOrder, 'discount' => Actions::Discount }.freeze
 
       def initialize(account:, account_user:, conversation:)
         @account = account
@@ -138,7 +138,9 @@ module Inclamo
       # Decided without calling the store.
       def gate(action)
         return 'unknown_action' unless HANDLERS.key?(action)
-        return 'not_allowed' unless OrderRole.allows?(@account_user)
+        # Giving discounts is its own right, apart from the order-actions role.
+        allowed = action == 'discount' ? DiscountGrant.allows?(@account_user) : OrderRole.allows?(@account_user)
+        return 'not_allowed' unless allowed
         return 'not_connected' unless @connection
         return 'connection_broken' if @connection.broken?
 
@@ -171,6 +173,8 @@ module Inclamo
         arguments[:address] = extra[:address] || extra['address'] if record.action == 'address'
         arguments[:shop_domain] = @connection.shop_domain if record.action == 'replacement'
         arguments.merge!(customer: extra[:customer], note: extra[:note] || extra['note']) if record.action == 'new_order'
+        # Only the request that started a discount creates its code; settling one looks it up.
+        arguments.merge!(customer: extra[:customer], starting: extra.key?(:customer)) if record.action == 'discount'
         state = handler.new(**arguments).call
         case state
         when :running then record.update!(outcome: 'running')
@@ -220,7 +224,21 @@ module Inclamo
         details << I18n.t('inclamo.order_actions.notes.details.restocked') if params['restock'] == true
         details << I18n.t('inclamo.order_actions.notes.details.notified') if params['notify'] == true
         facts = { number: record.order_number, details: details.join(' ') }.merge(record.progress.slice('new_order_number', 'refunded').symbolize_keys)
-        record.action == 'new_order' ? facts.merge(new_order_facts(record)) : facts
+        case record.action
+        when 'new_order' then facts.merge(new_order_facts(record))
+        when 'discount' then facts.merge(discount_facts(record))
+        else facts
+        end
+      end
+
+      # The code and the conditions copied from its preset; no customer data.
+      def discount_facts(record)
+        params = record.params
+        scope = 'inclamo.order_actions.notes.discount_details'
+        value = params['kind'] == 'percentage' ? "#{params['value']}%" : "#{format('%.2f', params['value'].to_d)} #{@connection.shop_currency}".strip
+        expiry = params['expires_at'] ? I18n.t("#{scope}.expires", date: Time.zone.parse(params['expires_at']).to_date.iso8601) : I18n.t("#{scope}.never")
+        { code: record.progress['code'] || params['code'], preset: params['preset_name'], value: value,
+          uses: I18n.t("#{scope}.uses", count: params['usage_limit'].to_i), audience: I18n.t("#{scope}.audience.#{params['audience']}"), expiry: expiry }
       end
 
       # The draft, its total and how the payment link reached the customer; no customer data.

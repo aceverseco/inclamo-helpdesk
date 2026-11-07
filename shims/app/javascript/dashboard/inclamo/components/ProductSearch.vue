@@ -12,6 +12,8 @@ const props = defineProps({
   // Whether a variant the store cannot sell may still be chosen.
   allowUnavailable: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
+  // Whether to mark a product that is not in the online store (it has no link).
+  showStorefront: { type: Boolean, default: false },
 });
 const emit = defineEmits(['select']);
 
@@ -104,6 +106,7 @@ defineExpose({ reset, search });
         <span class="flex items-center gap-2 text-xs font-medium text-n-slate-12">
           <img v-if="product.image_url" :src="product.image_url" alt="" class="size-6 rounded object-cover" />
           {{ product.title }}
+          <span v-if="showStorefront && !product.online_store_url" class="font-normal text-n-slate-11" data-testid="inclamo-product-no-link">{{ t('INSERTS.PRODUCT.NOT_IN_STORE') }}</span>
         </span>
         <button
           v-for="variant in product.variants"
