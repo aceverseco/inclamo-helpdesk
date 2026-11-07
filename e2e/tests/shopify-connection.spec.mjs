@@ -68,7 +68,7 @@ test('Valid client ID and secret', async ({ page }) => {
   const saved = await admin.connection();
   expect(saved).toMatchObject({ connected: true, status: 'working', shop_domain: bench().shop_domain, auth_kind: 'client_credentials' });
   expect(saved.shop_name).toBeTruthy();
-  expect(saved.actions.map(action => action.name)).toEqual(['cancel', 'refund', 'address', 'replacement', 'new_order']);
+  expect(saved.actions.map(action => action.name)).toEqual(['cancel', 'refund', 'address', 'replacement', 'new_order', 'edit_items']);
   await expect(section.getByTestId('inclamo-manage')).toContainText(saved.shop_name);
 });
 
@@ -250,7 +250,7 @@ test('Scopes change at the store', async ({ page }) => {
 
   await section.getByTestId('inclamo-manage-recheck').click();
 
-  await expect.poll(async () => (await admin.connection()).actions.filter(action => action.available).map(action => action.name)).toEqual(['cancel', 'refund', 'address', 'replacement', 'new_order']);
+  await expect.poll(async () => (await admin.connection()).actions.filter(action => action.available).map(action => action.name)).toEqual(['cancel', 'refund', 'address', 'replacement', 'new_order', 'edit_items']);
 });
 
 test('Token revoked at the store', async ({ page }) => {
