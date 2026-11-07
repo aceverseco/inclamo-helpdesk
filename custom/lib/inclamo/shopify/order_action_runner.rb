@@ -21,6 +21,9 @@ module Inclamo
     # step 3: it is about the customer matched to the conversation, whom its
     # handler gets with `customer:`. The handler's `refusal` replaces the
     # order's, and its record has no order id.
+    #
+    # What a handler is given besides the store, the record and the order it
+    # declares itself (`context`), so that this file knows no action by name.
     class OrderActionRunner
       HANDLERS = { 'cancel' => Actions::Cancel, 'address' => Actions::Address, 'refund' => Actions::Refund, 'replacement' => Actions::Replacement,
                    'new_order' => Actions::NewOrder }.freeze
@@ -55,7 +58,7 @@ module Inclamo
         return refuse!(record, refusal) if refusal
 
         record.save! # before the store is asked to change anything
-        run(record, order, extra)
+        run(record, handler_for(record, order, extra))
       rescue Error => e
         # The store could not be read: nothing was attempted.
         refuse!(record, 'store_unreachable', e.class.name.demodulize.underscore)
@@ -84,7 +87,7 @@ module Inclamo
         raise Actions::Refused, refusal if refusal
 
         draft = OrderAction.new(action: 'new_order', action_id: 'preview', params: recordable('new_order', params))
-        handler = Actions::NewOrder.new(store: StoreConnection.new(@connection), record: draft, customer: matched_customer)
+        handler = handler_for(draft, nil, { customer: matched_customer })
         refusal = handler.refusal(preview: true)
         raise Actions::Refused, refusal if refusal
 
@@ -121,12 +124,12 @@ module Inclamo
       end
 
       def perform_order_less(record, extra)
-        customer = matched_customer
-        refusal = HANDLERS.fetch(record.action).new(store: StoreConnection.new(@connection), record: record, customer: customer).refusal
+        handler = handler_for(record, nil, extra.merge(customer: matched_customer))
+        refusal = handler.refusal
         return refuse!(record, refusal) if refusal
 
         record.save! # before the store is asked to change anything
-        run(record, nil, extra.merge(customer: customer))
+        run(record, handler)
       end
 
       # The store's customer matched to the conversation's contact, with their
@@ -180,11 +183,11 @@ module Inclamo
         return record if record.action == 'address' && extra.blank?
         return record if gate(record.action)
 
-        order = record.order_less? ? nil : reader.order(record.order_id)
-        return record unless order || record.order_less?
+        handler = handler_for_open(record, extra)
+        return record unless handler
         return record unless claim!(record)
 
-        run(record, order, extra)
+        run(record, handler)
       rescue Error
         record
       end
@@ -210,8 +213,7 @@ module Inclamo
         was = record.outcome
         return unless claim!(record)
 
-        order = record.order_less? ? nil : reader.order(record.order_id)
-        state = (order || record.order_less?) && handler_for_reading(record, order).resolve
+        state = handler_for_open(record)&.resolve
         case state
         when :accepted then accept!(record)
         when :running then record.update!(outcome: 'running')
@@ -226,20 +228,22 @@ module Inclamo
         record.update!(outcome: was == 'pending' ? 'unknown' : was)
       end
 
-      def handler_for_reading(record, order)
-        arguments = { store: StoreConnection.new(@connection), record: record, order: order }
-        arguments[:address] = nil if record.action == 'address'
-        arguments[:shop_domain] = @connection.shop_domain if record.action == 'replacement'
-        HANDLERS.fetch(record.action).new(**arguments)
+      def handler_for(record, order, extra = {})
+        handler = HANDLERS.fetch(record.action)
+        handler.new(store: StoreConnection.new(@connection), record: record, order: order, **handler.context(connection: @connection, extra: extra))
       end
 
-      def run(record, order, extra)
-        handler = HANDLERS.fetch(record.action)
-        arguments = { store: StoreConnection.new(@connection), record: record, order: order }
-        arguments[:address] = extra[:address] || extra['address'] if record.action == 'address'
-        arguments[:shop_domain] = @connection.shop_domain if record.action == 'replacement'
-        arguments.merge!(customer: extra[:customer], note: extra[:note] || extra['note']) if record.action == 'new_order'
-        state = handler.new(**arguments).call
+      # The handler of an open attempt, with its order read again; nil when
+      # the store no longer has the order. An order-less attempt reads none.
+      def handler_for_open(record, extra = {})
+        return handler_for(record, nil, extra) if record.order_less?
+
+        order = reader.order(record.order_id)
+        order && handler_for(record, order, extra)
+      end
+
+      def run(record, handler)
+        state = handler.call
         case state
         when :running then record.update!(outcome: 'running')
         # Not decided yet (a lost new order the store's search may not show yet).
@@ -289,15 +293,7 @@ module Inclamo
         details << I18n.t('inclamo.order_actions.notes.details.restocked') if params['restock'] == true
         details << I18n.t('inclamo.order_actions.notes.details.notified') if params['notify'] == true
         facts = { number: record.order_number, details: details.join(' ') }.merge(record.progress.slice('new_order_number', 'refunded').symbolize_keys)
-        record.action == 'new_order' ? facts.merge(new_order_facts(record)) : facts
-      end
-
-      # The draft, its total and how the payment link reached the customer; no customer data.
-      def new_order_facts(record)
-        total = record.progress['total'] || {}
-        delivered = record.progress['invoice_sent'] ? 'invoice_emailed' : 'link_in_reply'
-        { draft_name: record.progress['draft_name'], total: [total['amount'], total['currency']].compact.join(' '),
-          delivery: I18n.t("inclamo.order_actions.notes.details.#{delivered}") }
+        facts.merge(HANDLERS.fetch(record.action).note_facts(record))
       end
     end
   end

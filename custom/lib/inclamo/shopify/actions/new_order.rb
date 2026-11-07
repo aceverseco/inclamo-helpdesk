@@ -38,6 +38,20 @@ module Inclamo
           @note = note.to_s.strip.first(NOTE_LENGTH).presence
         end
 
+        # The customer is given only to the request that starts the action;
+        # the note comes with the request and is not recorded.
+        def self.context(extra:, **)
+          { customer: extra[:customer], note: extra[:note] || extra['note'] }
+        end
+
+        # The draft, its total and how the payment link reached the customer; no customer data.
+        def self.note_facts(record)
+          total = record.progress['total'] || {}
+          delivered = record.progress['invoice_sent'] ? 'invoice_emailed' : 'link_in_reply'
+          { draft_name: record.progress['draft_name'], total: [total['amount'], total['currency']].compact.join(' '),
+            delivery: I18n.t("inclamo.order_actions.notes.details.#{delivered}") }
+        end
+
         # The query for one customer's drafts made from the helpdesk; `open`
         # leaves out the ones already paid.
         def self.drafts_query(customer_id, open: true)
@@ -50,7 +64,7 @@ module Inclamo
           {
             id: node['id'], number: node['name'], status: node['status'].to_s.downcase, created_at: node['createdAt'],
             total: money(node['totalPriceSet']), invoice_url: node['invoiceUrl'], invoice_sent: node['invoiceSentAt'].present?,
-            admin_url: "https://admin.shopify.com/store/#{shop_domain.delete_suffix('.myshopify.com')}/draft_orders/#{node['legacyResourceId']}",
+            admin_url: Shopify.admin_url(shop_domain, 'draft_orders', node['legacyResourceId']),
             items: Array(node.dig('lineItems', 'nodes')).map { |line| { title: line['name'], quantity: line['quantity'] } }
           }
         end
@@ -236,7 +250,7 @@ module Inclamo
           begin
             user_errors!(answer['userErrors'])
           rescue Refused => e
-            raise Refused.new(e.code, [e.message, cleanup_message].compact.join(' '))
+            raise Refused.new(e.code, [e.message, remove_draft(draft_id, @record.progress['draft_name'], @store.record.shop_domain)].compact.join(' '))
           end
           remember!(invoice_sent: true)
         end
@@ -247,24 +261,6 @@ module Inclamo
           sent = draft && draft['invoiceSentAt'].present?
           remember!(invoice_sent: true) if sent
           sent
-        end
-
-        # Removes a draft whose invoice the store refused; when that fails, names it.
-        def cleanup_message
-          answer = @store.query(:replacement_draft_delete, { id: draft_id })['draftOrderDelete']
-          if Array(answer['userErrors']).empty?
-            remember!(draft_id: nil, removed: true)
-            return
-          end
-
-          left_behind
-        rescue Error
-          left_behind
-        end
-
-        def left_behind
-          "The draft #{@record.progress['draft_name']} could not be removed: " \
-            "https://admin.shopify.com/store/#{@store.record.shop_domain.delete_suffix('.myshopify.com')}/draft_orders/#{@record.progress['draft_number']}"
         end
       end
     end

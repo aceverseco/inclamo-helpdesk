@@ -18,26 +18,21 @@ module Inclamo
           @shop_domain = shop_domain
         end
 
+        def self.context(connection:, **)
+          { shop_domain: connection.shop_domain }
+        end
+
         def call
           return :accepted if @record.progress['new_order_id']
           return finish_from_store if @record.progress['draft_id'] && completed_at_store?
 
           lines = kept_lines # validated before anything is created
           create_draft unless @record.progress['draft_id']
-          begin
+          # Whether the store acted is not known after a lost answer: the draft
+          # may be the order by now, so it stays then.
+          removing_draft_on_failure(draft_id, @record.progress['draft_name'], @shop_domain) do
             update_draft(lines) unless @record.progress['updated']
             complete_draft
-          rescue Refused => e
-            raise Refused.new(e.code, [e.message, cleanup_message].compact.join(' '))
-          rescue Error => e
-            # Whether the store acted is not known: the draft may be the order by now.
-            raise if e.outcome_unknown?
-
-            # The store did not act on this step (it said no, throttled, refused
-            # the token or was not reached): the draft goes, like after a refusal.
-            refused = e.is_a?(Error::QueryError)
-            raise Refused.new(refused ? 'store_refused' : 'store_unreachable',
-                              [refused ? e.message.first(500) : e.class.name.demodulize.underscore, cleanup_message].compact.join(' '))
           end
           :accepted
         end
@@ -141,22 +136,6 @@ module Inclamo
         def finish_from_store
           remember!(new_order_id: @completed['id'], new_order_number: @completed['name'])
           :accepted
-        end
-
-        # Removes the unfinished draft; when that fails, names it so that it is not left unnoticed.
-        def cleanup_message
-          answer = @store.query(:replacement_draft_delete, { id: draft_id })['draftOrderDelete']
-          return if Array(answer['userErrors']).empty?
-
-          left_behind
-        rescue Error
-          left_behind
-        end
-
-        def left_behind
-          number = draft_id.to_s.split('/').last
-          "The unfinished draft #{@record.progress['draft_name']} could not be removed: " \
-            "https://admin.shopify.com/store/#{@shop_domain.delete_suffix('.myshopify.com')}/draft_orders/#{number}"
         end
       end
     end
