@@ -44,6 +44,25 @@ RSpec.describe 'Inclamo SLA policies API', type: :request do
     expect(response.parsed_body['policy']).to include('all_inboxes' => false, 'inbox_ids' => [inbox.id])
   end
 
+  it 'refuses a switch sent as null with 422 and a message, not a server error' do
+    post path, params: standard.merge(business_hours_only: nil), headers: as_admin, as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body['messages']).to include(I18n.t('inclamo.sla.errors.business_hours_needed'))
+
+    post path, params: standard.merge(all_inboxes: nil, inbox_ids: [inbox.id]), headers: as_admin, as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body['messages']).to include(I18n.t('inclamo.sla.errors.all_inboxes_needed'))
+    expect(Inclamo::SlaPolicy.count).to eq(0)
+  end
+
+  it 'names the target that is too long' do
+    post path, params: standard.merge(first_response_seconds: 400 * 86_400), headers: as_admin, as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body['messages']).to eq([I18n.t('inclamo.sla.errors.first_response_range')])
+    expect(response.parsed_body['fields']).to eq(['first_response_seconds'])
+  end
+
   it 'changes a policy, and a target can be cleared while the other stays' do
     policy = Inclamo::SlaPolicy.create!(standard.merge(account: account))
 

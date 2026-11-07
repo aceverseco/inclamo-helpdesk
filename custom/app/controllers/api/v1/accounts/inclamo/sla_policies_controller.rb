@@ -3,7 +3,8 @@
 # SLA policies of the account and their summary. Only administrators see and
 # change them. Targets are in seconds; the page offers minutes, hours and days.
 class Api::V1::Accounts::Inclamo::SlaPoliciesController < Api::V1::Accounts::BaseController
-  before_action :require_administrator
+  include ::Inclamo::RequireAdministrator
+  require_administrator 'inclamo.sla.errors.forbidden'
   before_action :find_policy, only: [:update, :destroy]
 
   def index
@@ -41,12 +42,6 @@ class Api::V1::Accounts::Inclamo::SlaPoliciesController < Api::V1::Accounts::Bas
   end
 
   private
-
-  def require_administrator
-    return if Current.account_user&.administrator?
-
-    render json: { error: 'forbidden', message: I18n.t('inclamo.sla.errors.forbidden') }, status: :forbidden
-  end
 
   def scope
     ::Inclamo::SlaPolicy.where(account_id: Current.account.id)

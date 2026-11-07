@@ -225,6 +225,7 @@
         "NAME_NEEDED": "Give the policy a name.",
         "TARGET_NEEDED": "A target is needed: set a first response, a resolution or both.",
         "TARGET_POSITIVE": "A target must be more than zero.",
+        "TARGET_TOO_LONG": "A target can be at most 365 days.",
         "INBOXES_NEEDED": "Choose at least one inbox, or let the policy cover all inboxes.",
         "NOT_SAVED": "The policy could not be saved. Try again."
       },

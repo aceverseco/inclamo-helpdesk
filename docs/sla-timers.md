@@ -49,6 +49,7 @@ as missed at that moment.
 
 If a chosen inbox is deleted, the policy simply stops listing it the next time
 it is saved.
+
 ## When the timers stop
 
 Both timers start when the conversation is created.

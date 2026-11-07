@@ -116,6 +116,32 @@ describe('SlaPoliciesPage', () => {
     expect(find(wrapper, 'inclamo-sla-form-error').text()).toContain('not in this account');
   });
 
+  it('refuses a target longer than a year before asking the server', async () => {
+    const wrapper = await show([]);
+
+    await find(wrapper, 'inclamo-sla-add').trigger('click');
+    await find(wrapper, 'inclamo-sla-name').setValue('Long');
+    await find(wrapper, 'inclamo-sla-first-value').setValue('400');
+    await find(wrapper, 'inclamo-sla-first-unit').setValue('days');
+    await find(wrapper, 'inclamo-sla-form').trigger('submit');
+    await flush();
+
+    expect(find(wrapper, 'inclamo-sla-form-error').text()).toContain('at most 365 days');
+    expect(InclamoAPI.createSlaPolicy).not.toHaveBeenCalled();
+  });
+
+  it('leaves out a chosen inbox deleted since, so the policy can be saved', async () => {
+    const wrapper = await show([standard, { ...vip, inbox_ids: [11, 99] }]);
+    InclamoAPI.updateSlaPolicy.mockResolvedValue({ data: { policy: vip } });
+
+    await find(wrapper, 'inclamo-sla-edit-2').trigger('click');
+    await find(wrapper, 'inclamo-sla-name').setValue('VIP renamed');
+    await find(wrapper, 'inclamo-sla-form').trigger('submit');
+    await flush();
+
+    expect(InclamoAPI.updateSlaPolicy).toHaveBeenCalledWith(2, expect.objectContaining({ name: 'VIP renamed', inbox_ids: [11] }));
+  });
+
   it('edits a policy in its units and for chosen inboxes', async () => {
     const wrapper = await show();
     InclamoAPI.updateSlaPolicy.mockResolvedValue({ data: { policy: vip } });

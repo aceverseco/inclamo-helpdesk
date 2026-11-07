@@ -11,9 +11,15 @@ class Inclamo::SlaPolicy < ApplicationRecord
   has_many :timers, class_name: 'Inclamo::SlaTimer', foreign_key: :policy_id, inverse_of: :policy, dependent: nil
 
   before_validation :normalise_inboxes
-  validates :name, presence: true, length: { maximum: 120 }
-  validates :first_response_seconds, :resolution_seconds,
-            numericality: { only_integer: true, greater_than: 0, less_than_or_equal_to: MAX_TARGET_SECONDS }, allow_nil: true
+  # Each message is a whole sentence: the page shows them as they come.
+  validates :name, presence: { message: ->(*) { I18n.t('inclamo.sla.errors.name_needed') } },
+                   length: { maximum: 120, message: ->(*) { I18n.t('inclamo.sla.errors.name_too_long') } }
+  validates :first_response_seconds, numericality: { only_integer: true, greater_than: 0, less_than_or_equal_to: MAX_TARGET_SECONDS,
+                                                     message: ->(*) { I18n.t('inclamo.sla.errors.first_response_range') } }, allow_nil: true
+  validates :resolution_seconds, numericality: { only_integer: true, greater_than: 0, less_than_or_equal_to: MAX_TARGET_SECONDS,
+                                                 message: ->(*) { I18n.t('inclamo.sla.errors.resolution_range') } }, allow_nil: true
+  validates :business_hours_only, inclusion: { in: [true, false], message: ->(*) { I18n.t('inclamo.sla.errors.business_hours_needed') } }
+  validates :all_inboxes, inclusion: { in: [true, false], message: ->(*) { I18n.t('inclamo.sla.errors.all_inboxes_needed') } }
   validate :a_target_is_set
   validate :inboxes_belong_to_the_account
 
@@ -48,8 +54,16 @@ class Inclamo::SlaPolicy < ApplicationRecord
 
   private
 
+  # An inbox chosen before and deleted since leaves the list: the page no
+  # longer shows it, so it could not be unticked. An unknown inbox chosen now
+  # is refused (inboxes_belong_to_the_account).
   def normalise_inboxes
-    self.inbox_ids = all_inboxes? ? [] : Array(inbox_ids).compact_blank.map(&:to_i).uniq
+    return self.inbox_ids = [] if all_inboxes?
+
+    ids = Array(inbox_ids).compact_blank.map(&:to_i).uniq
+    chosen_before = persisted? ? ids & Array(inbox_ids_in_database) : []
+    ids -= chosen_before - account.inboxes.where(id: chosen_before).pluck(:id) if chosen_before.any? && account
+    self.inbox_ids = ids
   end
 
   def a_target_is_set

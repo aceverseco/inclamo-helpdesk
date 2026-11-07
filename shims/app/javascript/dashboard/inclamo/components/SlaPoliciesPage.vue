@@ -7,7 +7,7 @@ import SettingsLayout from 'dashboard/routes/dashboard/settings/SettingsLayout.v
 import BaseSettingsHeader from 'dashboard/routes/dashboard/settings/components/BaseSettingsHeader.vue';
 import InclamoAPI from '../api';
 import { t } from '../i18n';
-import { UNITS, toSeconds, fromSeconds, duration } from '../sla';
+import { UNITS, MAX_TARGET_SECONDS, toSeconds, fromSeconds, duration } from '../sla';
 
 const policies = ref([]);
 const inboxes = ref([]);
@@ -61,7 +61,8 @@ const open = policy => {
     resolutionUnit: resolution.unit,
     businessHoursOnly: policy?.business_hours_only || false,
     allInboxes: policy ? policy.all_inboxes : true,
-    inboxIds: [...(policy?.inbox_ids || [])],
+    // An inbox deleted since it was chosen has no box to untick: leave it out.
+    inboxIds: (policy?.inbox_ids || []).filter(id => inboxes.value.some(inbox => inbox.id === id)),
   });
   errors.value = [];
   deleting.value = null;
@@ -88,6 +89,7 @@ const problems = () => {
   if (!name) found.push(t('SETTINGS.SLA.ERRORS.NAME_NEEDED'));
   if (Number.isNaN(first) || Number.isNaN(resolution)) found.push(t('SETTINGS.SLA.ERRORS.TARGET_POSITIVE'));
   else if (first === null && resolution === null) found.push(t('SETTINGS.SLA.ERRORS.TARGET_NEEDED'));
+  else if (first > MAX_TARGET_SECONDS || resolution > MAX_TARGET_SECONDS) found.push(t('SETTINGS.SLA.ERRORS.TARGET_TOO_LONG'));
   if (!form.allInboxes && form.inboxIds.length === 0) found.push(t('SETTINGS.SLA.ERRORS.INBOXES_NEEDED'));
   return found;
 };

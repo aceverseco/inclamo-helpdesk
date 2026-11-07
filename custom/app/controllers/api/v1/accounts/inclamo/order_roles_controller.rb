@@ -2,7 +2,8 @@
 
 # Who in the account may act on orders. Only administrators see and change it.
 class Api::V1::Accounts::Inclamo::OrderRolesController < Api::V1::Accounts::BaseController
-  before_action :require_administrator
+  include ::Inclamo::RequireAdministrator
+  require_administrator 'inclamo.order_roles.errors.forbidden'
 
   def index
     render json: { members: members }
@@ -29,12 +30,6 @@ class Api::V1::Accounts::Inclamo::OrderRolesController < Api::V1::Accounts::Base
   end
 
   private
-
-  def require_administrator
-    return if Current.account_user&.administrator?
-
-    render json: { error: 'forbidden', message: I18n.t('inclamo.order_roles.errors.forbidden') }, status: :forbidden
-  end
 
   def find_member(user_id)
     Current.account.account_users.find_by(user_id: user_id)

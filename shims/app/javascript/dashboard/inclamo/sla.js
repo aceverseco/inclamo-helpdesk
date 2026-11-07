@@ -3,6 +3,8 @@
 import { t } from './i18n';
 
 export const UNITS = { minutes: 60, hours: 3600, days: 86400 };
+// The longest target the server takes: a year.
+export const MAX_TARGET_SECONDS = 365 * UNITS.days;
 
 export const toSeconds = (value, unit) => {
   if (value === '' || value === null || value === undefined) return null;

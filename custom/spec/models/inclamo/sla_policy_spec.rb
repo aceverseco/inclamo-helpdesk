@@ -41,6 +41,34 @@ RSpec.describe Inclamo::SlaPolicy do
     expect(chosen.covers?(create(:inbox, account: account).id)).to be(false)
   end
 
+  it 'drops a chosen inbox deleted since, so the policy can still be saved' do
+    kept = create(:inbox, account: account)
+    record = policy(all_inboxes: false, inbox_ids: [inbox.id, kept.id])
+    inbox.destroy!
+
+    record.update!(name: 'Renamed', inbox_ids: [inbox.id, kept.id])
+
+    expect(record.reload).to have_attributes(name: 'Renamed', inbox_ids: [kept.id])
+    expect(record.update(inbox_ids: [kept.id, create(:inbox, account: create(:account)).id])).to be(false)
+  end
+
+  it 'says which target is out of range, and that its limit is 365 days' do
+    record = described_class.new(account: account, name: 'Long', first_response_seconds: 400 * 86_400, resolution_seconds: 0)
+
+    expect(record).not_to be_valid
+    expect(record.errors.map(&:message)).to contain_exactly(I18n.t('inclamo.sla.errors.first_response_range'),
+                                                            I18n.t('inclamo.sla.errors.resolution_range'))
+    expect(I18n.t('inclamo.sla.errors.first_response_range')).to include('first-response', '365 days')
+  end
+
+  it 'needs both switches set, with a message for each' do
+    record = described_class.new(account: account, name: 'Unset', first_response_seconds: 60, business_hours_only: nil, all_inboxes: nil)
+
+    expect(record).not_to be_valid
+    expect(record.errors.map(&:message)).to include(I18n.t('inclamo.sla.errors.business_hours_needed'),
+                                                    I18n.t('inclamo.sla.errors.all_inboxes_needed'))
+  end
+
   it 'forgets chosen inboxes once it covers all of them' do
     record = policy(all_inboxes: false, inbox_ids: [inbox.id])
     record.update!(all_inboxes: true)
