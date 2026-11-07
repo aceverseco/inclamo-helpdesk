@@ -19,7 +19,7 @@ Not in this change: marking an order as paid without a payment, custom items tha
 ### Modified Capabilities
 - none.
 
-## Assumptions to confirm
+## Assumptions (confirmed by the founder on 2026-11-07)
 
 1. The agent cannot mark the new order as paid; money goes only through the store's payment link.
 2. Only catalogue products can be added, no free-text items.

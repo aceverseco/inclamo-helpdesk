@@ -24,5 +24,5 @@
 
 - [x] 4.1 Add `order-creation` to the coverage check's capability map with `e2e/tests/order-creation.spec.mjs`; make the seed remove every draft tagged by the run; verify nothing is left in the store after the run
 - [x] 4.2 Write the eleven tests named after the scenarios, checking the store through the Admin API for the draft, its lines and the sent invoice; verify they pass on the stand
-- [ ] 4.3 Run the full suite in CI on an `e2e/**` branch; verify all tests pass and the log holds no token-shaped string and no store domain
+- [x] 4.3 Run the full suite in CI on an `e2e/**` branch; verify all tests pass and the log holds no token-shaped string and no store domain
 - [x] 4.4 Describe the action in `docs/`; verify the scopes named there match the spec
