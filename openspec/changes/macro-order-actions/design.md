@@ -36,6 +36,12 @@ The automation rule editor is left untouched.
 
 **D6. Bulk and API runs.** A run through the API with several conversations has no dialog; each conversation runs with its own tied order under the same server checks. The dashboard's bulk macro surface, if a release adds one, is covered by the same hook or the steps are hidden there.
 
+**D7. Choices the spec left open, confirmed by the founder on 2026-11-07.**
+- The cancel step gives Shopify the reason `CUSTOMER` (cancelled at the customer's request).
+- The shipping refund notifies the customer, as the full refund does.
+- A store outcome of "running" (cancellation not finished) or "unknown" (no confirmation) stops the macro like a refusal, so no message to the customer follows an action that may not have happened.
+- When the preview already knows a step will be refused (no role, missing scope, nothing to refund), the dialog shows the reason and keeps "Run the macro": the server then stops the macro and writes the private note. Only "no order tied" offers close alone (D5).
+
 ## Risks / Trade-offs
 
 - [A fourth patch] → same build gate and Chatwoot tests as the other seams.
