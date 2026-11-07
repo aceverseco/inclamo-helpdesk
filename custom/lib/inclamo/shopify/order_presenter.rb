@@ -105,7 +105,8 @@ module Inclamo
         return unless address
 
         {
-          name: address['name'], address1: address['address1'], address2: address['address2'], city: address['city'],
+          name: address['name'], first_name: address['firstName'], last_name: address['lastName'], company: address['company'],
+          address1: address['address1'], address2: address['address2'], city: address['city'],
           province: address['province'], province_code: address['provinceCode'], zip: address['zip'],
           country: address['country'], country_code: address['countryCodeV2'], phone: address['phone']
         }

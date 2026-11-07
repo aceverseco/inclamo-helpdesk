@@ -18,6 +18,15 @@ RSpec.describe Inclamo::Shopify::OrderPresenter do
     expect(order[:shipping_address]).to include(city: 'Springfield', country_code: 'US')
   end
 
+  it 'gives the address form the first and last name and the company as the store keeps them' do
+    node = shopify_fixture('order_details_open')['order']
+    node['shippingAddress'] = node['shippingAddress'].merge('name' => 'Mary Ann Example', 'firstName' => 'Mary Ann', 'lastName' => 'Example', 'company' => 'Example Works')
+
+    address = described_class.new(node, shop_domain: 'example-store.myshopify.com').as_json[:shipping_address]
+
+    expect(address).to include(first_name: 'Mary Ann', last_name: 'Example', company: 'Example Works')
+  end
+
   it 'shows what was refunded and what remains refundable' do
     order = present('order_details_refunded')
 

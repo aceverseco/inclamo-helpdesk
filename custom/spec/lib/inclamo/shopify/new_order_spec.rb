@@ -280,9 +280,10 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'new order' do
                                             action: 'new_order', params: order_params, outcome: 'pending')
 
       runner.settle_open!
-      expect(record.reload.outcome).to eq('unknown')
+      expect(record.reload.outcome).to eq('pending')
 
-      travel_to(31.seconds.from_now) { runner.settle_open! }
+      # A request that never asked the store, and ended: nothing was created.
+      travel_to((Inclamo::Shopify::OrderActionRunner::LEASE + 1.second).from_now) { runner.settle_open! }
       expect(record.reload).to have_attributes(outcome: 'refused', refusal: 'not_created')
       expect(operation_requests('new_order_create')).not_to have_been_made
     end

@@ -48,27 +48,41 @@ const awaitingPayment = computed(() => panel.value?.awaiting_payment || []);
 const unconfirmedOrders = computed(() => (panel.value?.open_actions || []).filter(action => action.action === 'new_order'));
 const startNewOrder = order => newOrderDialog.value.open(order || null);
 
+// Every answer that replaces the panel is numbered when it is asked for, and
+// only the latest one asked is shown: an answer that arrives late, for an
+// earlier read or for the conversation the agent has left, is dropped.
+let asked = 0;
+const latest = async request => {
+  const ticket = (asked += 1);
+  const answer = await request();
+  return ticket === asked ? answer : null;
+};
+
 // The spinner shows on the first read only; a refresh after an action keeps
 // what is on screen, so an expanded order stays expanded.
 const load = async () => {
+  const ticket = (asked += 1);
   loading.value = panel.value === null;
   failed.value = false;
   lookupResult.value = null;
   try {
     const { data } = await InclamoAPI.getPanel(props.conversationId);
+    if (ticket !== asked) return;
     panel.value = data;
     orders.value = data.orders || [];
   } catch (error) {
-    failed.value = true;
+    if (ticket === asked) failed.value = true;
   } finally {
-    loading.value = false;
+    if (ticket === asked) loading.value = false;
   }
 };
 
 const loadMore = async () => {
+  const ticket = asked;
   loadingMore.value = true;
   try {
     const { data } = await InclamoAPI.getPanel(props.conversationId, panel.value.page.cursor);
+    if (ticket !== asked) return;
     orders.value = [...orders.value, ...(data.orders || [])];
     panel.value = { ...panel.value, page: data.page };
   } finally {
@@ -76,28 +90,30 @@ const loadMore = async () => {
   }
 };
 
-const apply = data => {
-  panel.value = data;
-  orders.value = data.orders || [];
+const apply = answer => {
+  if (!answer) return;
+  panel.value = answer.data;
+  orders.value = answer.data.orders || [];
 };
 
 const findOrder = async () => {
   if (!lookupNumber.value.trim()) return;
+  const conversation = props.conversationId;
   lookupBusy.value = true;
   try {
-    const { data } = await InclamoAPI.lookup(props.conversationId, lookupNumber.value.trim());
-    lookupResult.value = data;
+    const { data } = await InclamoAPI.lookup(conversation, lookupNumber.value.trim());
+    if (conversation === props.conversationId) lookupResult.value = data;
   } catch (error) {
-    lookupResult.value = { found: false };
+    if (conversation === props.conversationId) lookupResult.value = { found: false };
   } finally {
     lookupBusy.value = false;
   }
 };
 
-const choose = async customerId => apply((await InclamoAPI.chooseCustomer(props.conversationId, customerId)).data);
-const forget = async () => apply((await InclamoAPI.forgetCustomer(props.conversationId)).data);
-const mark = async order => apply((await InclamoAPI.markOrder(props.conversationId, order.id)).data);
-const unmark = async () => apply((await InclamoAPI.clearOrder(props.conversationId)).data);
+const choose = async customerId => apply(await latest(() => InclamoAPI.chooseCustomer(props.conversationId, customerId)));
+const forget = async () => apply(await latest(() => InclamoAPI.forgetCustomer(props.conversationId)));
+const mark = async order => apply(await latest(() => InclamoAPI.markOrder(props.conversationId, order.id)));
+const unmark = async () => apply(await latest(() => InclamoAPI.clearOrder(props.conversationId)));
 const recheck = async () => {
   try {
     await InclamoAPI.recheck();

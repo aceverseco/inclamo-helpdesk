@@ -24,14 +24,16 @@ const FIELDS = [
 const frame = ref(null);
 const form = reactive({});
 
-// The form starts from the current address.
+// The form starts from the current address, every field of it, so that what
+// the agent does not touch is sent back as it was.
 const reset = () => {
   const current = props.order.shipping_address || {};
+  const named = current.first_name != null || current.last_name != null;
   const [first, ...rest] = (current.name || '').split(' ');
   Object.assign(form, {
-    first_name: first || '',
-    last_name: rest.join(' '),
-    company: '',
+    first_name: (named ? current.first_name : first) || '',
+    last_name: (named ? current.last_name : rest.join(' ')) || '',
+    company: current.company || '',
     address1: current.address1 || '',
     address2: current.address2 || '',
     city: current.city || '',

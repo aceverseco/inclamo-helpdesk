@@ -130,6 +130,19 @@ module Inclamo
           :accepted
         end
 
+        # Settles an attempt whose answer was lost by reading the store only
+        # (a panel read): its draft is looked for by the marker, and whether
+        # the store emailed the invoice. Nothing is created or sent.
+        def resolve
+          unless draft_id
+            return if @record.created_at.present? && @record.created_at > LOOK_AFTER.ago
+
+            (@record.progress['attempted'] && find_lost_draft) or raise Refused, 'not_created'
+          end
+          invoice_sent_at_store? if delivery == 'email' && !@record.progress['invoice_sent']
+          :accepted
+        end
+
         private
 
         def draft_id
@@ -216,7 +229,8 @@ module Inclamo
         # dialog puts the link into the reply. A refused invoice removes the draft.
         def deliver
           return unless delivery == 'email'
-          return if @record.progress['invoice_sent'] || invoice_sent_at_store?
+          # A repeated request (no customer given) may follow an invoice the store sent already.
+          return if @record.progress['invoice_sent'] || (@customer.nil? && invoice_sent_at_store?)
 
           answer = @store.query(:new_order_invoice_send, { id: draft_id })['draftOrderInvoiceSend']
           begin
@@ -229,8 +243,6 @@ module Inclamo
 
         # After a lost answer: did the invoice go out anyway?
         def invoice_sent_at_store?
-          return false unless @record.progress['attempted'] && @record.outcome == 'unknown'
-
           draft = @store.query(:new_order_draft, { id: draft_id })['draftOrder']
           sent = draft && draft['invoiceSentAt'].present?
           remember!(invoice_sent: true) if sent

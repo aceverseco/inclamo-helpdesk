@@ -14,12 +14,15 @@ module Inclamo
         @record = ShopifyConnection.find_by(account_id: account.id)
       end
 
+      # With `after`, a further page of orders: what the first read settled
+      # and refreshed is not read again.
       def as_json(after: nil)
         base = { viewer: viewer, connection: connection }
         return base.merge(state: 'not_connected') unless @record
         return base.merge(state: 'broken') if @record.broken?
+        return base.merge(body(after)) if after
 
-        OrderActionRunner.new(account: @account, account_user: @account_user, conversation: @conversation).settle_open!
+        OrderActionRunner.new(account: @account, account_user: @account_user, conversation: @conversation, connection: @record).settle_open!
         base.merge(body(after)).merge(marked_order).merge(open_actions)
       rescue Error::ConnectionBroken, Error::Unauthorized
         base.merge(connection: connection, state: 'broken')
@@ -36,10 +39,11 @@ module Inclamo
         { administrator: @account_user&.administrator? || false, can_act_on_orders: OrderRole.allows?(@account_user) }
       end
 
+      # The overlay's objects share @record, so a connection marked broken
+      # while the panel was read shows here without reading it again.
       def connection
         return { connected: false, encryption_configured: Chatwoot.encryption_configured? } unless @record
 
-        @record.reload if @record.persisted?
         {
           connected: true, status: @record.status, shop_name: @record.shop_name, shop_domain: @record.shop_domain,
           shop_currency: @record.shop_currency, customer_data: @record.customer_data_mode, actions: @record.actions_report
@@ -59,7 +63,7 @@ module Inclamo
       # The order this conversation is about, read again so that its attributes
       # on the conversation stay current. Cleared when the store no longer has it.
       def marked_order
-        marker = ConversationOrder.new(@conversation)
+        marker = ConversationOrder.new(@conversation, connection: @record)
         return { marked_order: nil } if marker.marked_id.blank?
 
         node = reader.order(marker.marked_id)

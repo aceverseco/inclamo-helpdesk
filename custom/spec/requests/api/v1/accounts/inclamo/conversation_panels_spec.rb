@@ -61,6 +61,46 @@ RSpec.describe 'Inclamo conversation order panel API', type: :request do
     expect(panel(after: cursor)['orders'].pluck('number')).to eq(%w[#1001])
   end
 
+  describe 'reading no more than it needs' do
+    let(:shipped) { shopify_fixture('order_details_shipped')['order'] }
+
+    before do
+      connect!
+      stub_shopify_fixture(:customers_search, 'customers_search_one')
+      stub_shopify_fixture(:order_details, 'order_details_shipped')
+      stub_shopify(:job_status, data: { job: { id: 'gid://shopify/Job/1', done: false } })
+      conversation.update!(custom_attributes: { 'shopify_order_id' => shipped['id'] })
+      Inclamo::OrderAction.create!(account: account, conversation: conversation, user: agent, action_id: 'action-cancel-0040', action: 'cancel',
+                                   order_id: shipped['id'], order_number: '#1002', outcome: 'running', progress: { 'job_id' => 'gid://shopify/Job/1' })
+    end
+
+    def reads_of_the_connection
+      reads = 0
+      watch = ->(*, payload) { reads += 1 if payload[:sql].to_s.match?(/\ASELECT .*FROM "inclamo_shopify_connections"/) }
+      ActiveSupport::Notifications.subscribed(watch, 'sql.active_record') { yield }
+      reads
+    end
+
+    it 'loads the store connection once for the whole panel' do
+      stub_shopify_fixture(:customer_orders, 'customer_orders')
+      headers = agent.create_new_auth_token
+
+      expect(reads_of_the_connection { get "#{base}/panel", headers: headers }).to eq(1)
+      expect(response.parsed_body).to include('state' => 'matched')
+      expect(response.parsed_body['marked_order']).to include('number' => '#1002')
+      expect(response.parsed_body['open_actions'].pluck('outcome')).to eq(['running'])
+    end
+
+    it 'reads only the next page of orders when more are loaded' do
+      cursor = shopify_fixture('customer_orders_page_1').dig('customer', 'orders', 'pageInfo', 'endCursor')
+      stub_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body).dig('variables', 'after') == cursor }
+                                              .to_return(status: 200, body: { data: shopify_fixture('customer_orders_page_2') }.to_json, headers: ShopifyStubs::JSON_HEADERS)
+
+      expect(panel(after: cursor)['orders'].pluck('number')).to eq(%w[#1001])
+      expect(WebMock).not_to have_requested(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].match?(/^query (job_status|order_details)\b/) }
+    end
+  end
+
   it 'lists the candidates instead of orders when the match is not unique, and remembers the agent\'s choice' do
     connect!
     maya = shopify_fixture('customers_search_one').dig('customers', 'nodes', 0)
