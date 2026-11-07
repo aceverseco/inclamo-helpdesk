@@ -28,5 +28,5 @@
 
 - [x] 5.1 Make the drop fall back to the first order of the matched customer's list when no order is tied, within the one 3-second budget; verify by specs on recorded answers that the tied order wins, that the latest order serves when none is tied, that a contact without a customer renders empty text, and that a store that does not answer leaves every variable of an untied conversation empty
 - [x] 5.2 Put `variables` on every order of the panel's list and make the dashboard's entry fall back to the first of them; verify by component tests that the editor resolves and the list previews the latest order when none is tied, and that the warning comes only when the panel found neither
-- [ ] 5.3 Add the two new end-to-end tests and rename the two whose scenarios changed; verify they pass on the stand and the full suite passes in CI on an `e2e/**` branch with a clean log
+- [x] 5.3 Add the two new end-to-end tests and rename the two whose scenarios changed; verify they pass on the stand and the full suite passes in CI on an `e2e/**` branch with a clean log
 - [x] 5.4 Update `docs/order-variables.md` ("Which order"); verify it names the default, the tie that overrides it and the case with neither
