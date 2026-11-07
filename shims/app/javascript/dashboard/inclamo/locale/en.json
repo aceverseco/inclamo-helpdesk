@@ -196,6 +196,68 @@
       "ALLOW": "Can act on orders",
       "LOADING": "Loading the team…",
       "FAILED": "The list could not be loaded. Reload the page to try again."
+    },
+    "AI_AGENT": {
+      "MENU": "AI agent",
+      "TITLE": "AI agent",
+      "INTRO": "An AI agent that answers your shoppers first and hands the conversation to your team when a person is needed.",
+      "LOADING": "Loading the AI agent…",
+      "FAILED": "The AI agent could not be loaded. Reload the page to try again.",
+      "ABOUT": {
+        "ANSWERS": "In the inboxes you pick, the agent replies to new conversations, reads the photos shoppers send, labels each request and raises the priority of urgent ones.",
+        "HANDOVER": "It hands a conversation to your team with a note when a person is needed. When someone on your team replies or takes the conversation, the agent stops.",
+        "SUBSCRIPTION": "The agent is a separate service with a subscription. It gives you a connection code to paste here."
+      },
+      "GET": "Get the AI agent",
+      "CODE": "Connection code",
+      "CODE_PLACEHOLDER": "Paste the code the AI service gave you",
+      "PICK": "Inboxes the agent answers in",
+      "NO_INBOXES": "This account has no inbox yet. Add one first.",
+      "HAS_OTHER_BOT": "Has another bot",
+      "HAS_DIALOGFLOW": "Has a Dialogflow bot",
+      "CONNECT": "Connect",
+      "CONNECTING": "Connecting…",
+      "STATE": {
+        "connected": "Connected",
+        "failing": "Failing: the AI service is not taking messages"
+      },
+      "FAILING": "Conversations the agent could not take go to your team, with a note. The page shows connected again as soon as the AI service takes a message.",
+      "INBOXES": "Answers in",
+      "LAST_REPLY": "Last reply of the agent",
+      "NO_REPLY_YET": "No reply yet",
+      "LAST_ERROR": "Last failed delivery",
+      "NO_ERROR": "None",
+      "FAILED_AT": "{kind}, {time}",
+      "CONNECTED_AT": "Connected",
+      "WHERE": "Conversations the agent is handling are under Pending in the conversation list. They move to Open when the agent hands them over or someone on your team replies or takes them.",
+      "DISCONNECT": "Disconnect",
+      "CONFIRM": {
+        "TITLE": "Disconnect the AI agent?",
+        "BODY": "Every conversation the agent is handling goes to your team as Open. The agent stops answering, and new conversations open as before. The Phone inbox, its conversations and the labels stay.",
+        "YES": "Disconnect",
+        "NO": "Keep it"
+      },
+      "DISCONNECTED_AT": "Disconnected on {time}.",
+      "NOT_TOLD": "The AI service could not be told: ask it to remove the connection on its side.",
+      "FAILURES": {
+        "http": "The AI service answered with error {status}",
+        "timeout": "The AI service did not answer in time",
+        "connection_failed": "The AI service could not be reached",
+        "unsafe_address": "The AI service address is not public",
+        "invalid_address": "The AI service address is not valid"
+      },
+      "ERRORS": {
+        "invalid_code": "This is not a valid connection code. Copy the whole code from the AI service and try again.",
+        "not_answered": "The AI service did not answer. Try again in a moment.",
+        "no_inboxes": "Pick at least one inbox.",
+        "invalid_inbox": "One of the inboxes cannot be given to the agent.",
+        "inbox_has_bot": "One of the inboxes has another bot now. Reload the page and pick again.",
+        "already_connected": "The AI agent is connected already. Reload the page.",
+        "not_connected": "The AI agent is not connected. Reload the page.",
+        "busy": "The connection is being changed right now. Try again in a moment.",
+        "encryption_not_configured": "Encryption must be configured on this installation before the AI agent can be connected.",
+        "forbidden": "Only an administrator can manage the AI agent."
+      }
     }
   }
 }

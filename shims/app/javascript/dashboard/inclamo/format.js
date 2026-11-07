@@ -17,6 +17,14 @@ export const date = value => {
   return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
+export const dateTime = value => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? ''
+    : parsed.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
 export const status = value => {
   if (!value) return '';
   if (has(`STATUS.${value}`)) return t(`STATUS.${value}`);
