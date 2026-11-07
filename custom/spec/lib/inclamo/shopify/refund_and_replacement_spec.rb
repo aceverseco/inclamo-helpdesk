@@ -33,16 +33,7 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
 
   describe 'refund' do
     def stub_suggestion(amount: total)
-      stub_shopify(:refund_suggestion, data: { order: { id: order['id'], name: order['name'], currencyCode: currency, suggestedRefund: {
-                     amountSet: { shopMoney: { amount: amount, currencyCode: currency } },
-                     maximumRefundableSet: { shopMoney: { amount: total, currencyCode: currency } },
-                     shipping: { amountSet: { shopMoney: { amount: '0.0', currencyCode: currency } }, maximumRefundableSet: { shopMoney: { amount: '0.0', currencyCode: currency } } },
-                     refundLineItems: lines.map { |line| { lineItem: { id: line['id'] }, quantity: line['quantity'], restockType: 'NO_RESTOCK' } },
-                     suggestedTransactions: [{ gateway: 'manual', formattedGateway: 'Manual', kind: 'SUGGESTED_REFUND',
-                                               amountSet: { shopMoney: { amount: amount, currencyCode: currency } },
-                                               maximumRefundableSet: { shopMoney: { amount: total, currencyCode: currency } },
-                                               parentTransaction: { id: 'gid://shopify/OrderTransaction/1' } }]
-                   } } })
+      stub_refund_suggestion(order, amount: amount)
     end
 
     def stub_refund(amount)

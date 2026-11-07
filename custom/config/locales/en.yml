@@ -49,5 +49,11 @@ en:
         store_unreachable: Shopify did not answer, so nothing was done.
         running: the store has not finished the cancellation yet. Check the order before telling the customer anything.
         unknown: the store did not confirm, so the outcome is unknown. Check the order in Shopify.
+        pending: an earlier run of this step has not finished yet. Check the order before telling the customer anything.
+        action_id_taken: the attempt of this step belongs to another order or conversation, so nothing was done.
         failed: it could not be done.
+        failed_after_done: the store did it, but the helpdesk failed right after, so its own note of it may be missing. Check the order before telling the customer anything.
         other: "it could not be done (%{code})."
+      unconfirmed:
+        one_at_a_time: A macro that acts on orders runs in one conversation at a time, after a confirmation.
+        not_confirmed: This macro acts on orders and was not confirmed as it is now, so no step of it ran. Reload the page and run it again.

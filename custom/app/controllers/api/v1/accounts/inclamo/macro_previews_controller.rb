@@ -2,8 +2,8 @@
 
 # What the order steps of a macro would do in a conversation, for the
 # confirmation the dashboard shows before the macro runs. Open to whoever may
-# see the conversation and run the macro. The confirmation is not the guard:
-# every step is checked again when it runs.
+# see the conversation and run the macro. Every step is checked again when it
+# runs; the agent's "Run" is recorded by MacroConfirmationsController.
 class Api::V1::Accounts::Inclamo::MacroPreviewsController < Api::V1::Accounts::Conversations::BaseController
   # POST .../inclamo/macro_previews  { macro_id, conversation_id }
   def create

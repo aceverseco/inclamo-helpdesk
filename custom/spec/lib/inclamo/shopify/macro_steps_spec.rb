@@ -58,16 +58,7 @@ RSpec.describe Inclamo::Shopify::MacroSteps do
   end
 
   def stub_suggestion(amount: total, shipping: '0.0')
-    stub_shopify(:refund_suggestion, data: { order: { id: order['id'], name: order['name'], currencyCode: currency, suggestedRefund: {
-                   amountSet: { shopMoney: { amount: amount, currencyCode: currency } },
-                   maximumRefundableSet: { shopMoney: { amount: total, currencyCode: currency } },
-                   shipping: { amountSet: { shopMoney: { amount: shipping, currencyCode: currency } }, maximumRefundableSet: { shopMoney: { amount: shipping, currencyCode: currency } } },
-                   refundLineItems: lines.map { |line| { lineItem: { id: line['id'] }, quantity: line['quantity'], restockType: 'NO_RESTOCK' } },
-                   suggestedTransactions: [{ gateway: 'manual', formattedGateway: 'Manual', kind: 'SUGGESTED_REFUND',
-                                             amountSet: { shopMoney: { amount: amount, currencyCode: currency } },
-                                             maximumRefundableSet: { shopMoney: { amount: total, currencyCode: currency } },
-                                             parentTransaction: { id: 'gid://shopify/OrderTransaction/1' } }]
-                 } } })
+    stub_refund_suggestion(order, amount: amount, shipping: shipping)
   end
 
   def stub_refund(amount, errors: [])
@@ -162,6 +153,18 @@ RSpec.describe Inclamo::Shopify::MacroSteps do
       expect(mutation_requests('replacement_draft_complete')).to have_been_made.once
       expect(notes).to eq(['Created replacement order #1050 for order #1001, free of charge.'])
     end
+
+    it 'sends again only the units the order still holds, not those refunded or removed since' do
+      order['lineItems']['nodes'][1]['currentQuantity'] = 0
+      stub_shopify(:order_details, data: { order: order })
+      stub_replacement
+
+      run(macro_with('inclamo_replacement'))
+
+      expect(mutation_requests('replacement_draft_update') do |variables|
+        variables.dig('input', 'lineItems') == [{ 'variantId' => 'gid://shopify/ProductVariant/1', 'quantity' => 1 }, { 'variantId' => 'gid://shopify/ProductVariant/3', 'quantity' => 1 }]
+      end).to have_been_made.once
+    end
   end
 
   describe 'a step that is not done stops the macro' do
@@ -251,6 +254,37 @@ RSpec.describe Inclamo::Shopify::MacroSteps do
       expect(sent).to be_empty
     end
 
+    it 'stops when its note cannot be written either, instead of letting Chatwoot go on' do
+      conversation.update!(custom_attributes: {})
+      allow(Messages::MessageBuilder).to receive(:new).and_wrap_original do |original, user, target, params|
+        raise ActiveRecord::Deadlocked, 'deadlock' if params[:private] && params[:content].start_with?('Macro "')
+
+        original.call(user, target, params)
+      end
+
+      run(macro_with('inclamo_refund_full', 'send_message', 'resolve_conversation'))
+
+      expect(sent).to be_empty
+      expect(conversation.reload.status).to eq('open')
+    end
+
+    it 'says the store did it when the helpdesk fails right after the store acted' do
+      stub_suggestion
+      stub_refund(total)
+      allow(Messages::MessageBuilder).to receive(:new).and_wrap_original do |original, user, target, params|
+        raise ActiveRecord::Deadlocked, 'deadlock' if params[:content].to_s.start_with?('Refunded ')
+
+        original.call(user, target, params)
+      end
+
+      run(macro_with('inclamo_refund_full', 'send_message'))
+
+      expect(Inclamo::OrderAction.last.outcome).to eq('accepted')
+      expect(notes.last).to include('"Refund the order in full": the store did it, but the helpdesk failed right after')
+      expect(notes.last).not_to include('could not be done')
+      expect(sent).to be_empty
+    end
+
     it 'keeps the steps before it done' do
       conversation.update!(custom_attributes: {})
 
@@ -277,6 +311,46 @@ RSpec.describe Inclamo::Shopify::MacroSteps do
       expect(sent).to eq(['Sorry, we refunded you.'])
       expect(conversation.reload.status).to eq('resolved')
       expect(WebMock).not_to have_requested(:any, /myshopify/)
+    end
+  end
+
+  describe 'a job that runs again' do
+    def job_for(macro)
+      MacrosExecutionJob.new(macro, conversation_ids: [conversation.display_id], user: admin)
+    end
+
+    it 'continues the attempt of its order step instead of acting a second time' do
+      stub_replacement
+      job = job_for(macro_with('inclamo_replacement', 'send_message'))
+
+      2.times { job.perform_now }
+
+      expect(Inclamo::OrderAction.count).to eq(1)
+      expect(mutation_requests('replacement_draft_create')).to have_been_made.once
+      expect(mutation_requests('replacement_draft_complete')).to have_been_made.once
+      expect(notes.grep(/Created replacement order/).size).to eq(1)
+    end
+
+    it 'stops while the attempt of the earlier run is still open, without acting again' do
+      stub_replacement
+      job = job_for(macro_with('inclamo_replacement', 'send_message'))
+      job.perform_now
+      Inclamo::OrderAction.last.update_columns(outcome: 'pending', updated_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
+
+      job.perform_now
+
+      expect(mutation_requests('replacement_draft_create')).to have_been_made.once
+      expect(notes.last).to include('an earlier run of this step has not finished yet')
+      expect(sent).to eq(['Sorry, we refunded you.'])
+    end
+
+    it 'acts again in another run of the macro' do
+      stub_replacement
+      macro = macro_with('inclamo_replacement')
+
+      2.times { job_for(macro).perform_now }
+
+      expect(Inclamo::OrderAction.count).to eq(2)
     end
   end
 

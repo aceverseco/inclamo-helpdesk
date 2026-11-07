@@ -71,17 +71,25 @@ module Inclamo
         case action.to_s
         when 'refund' then refund_plan(order, params).slice(:amount, :currency)
         when 'cancel' then cancellation_refund(order, params)
-        when 'replacement' then { units: Array(order.dig('lineItems', 'nodes')).sum { |line| line['quantity'].to_i } }
+        when 'replacement' then { units: Actions::Replacement.units_left(order) }
         else {}
         end
-      rescue Actions::Refused => e
-        refused = { refusal: e.code, message: (e.message unless e.message == e.code) }
-        refused[:missing_scopes] = @connection.missing_scopes_for(action) if e.code == 'missing_scope'
+      rescue Actions::Refused, Error => e
+        refused = self.class.refusal_for(e)
+        refused[:missing_scopes] = @connection.missing_scopes_for(action) if refused[:refusal] == 'missing_scope'
         refused
-      rescue Error::QueryError => e
-        { refusal: 'store_refused', message: e.message.first(500) }
-      rescue Error => e
-        { refusal: 'store_unreachable', message: nil, reason: e.class.name.demodulize.underscore }
+      end
+
+      # The refusal an error of an order action stands for, as records and
+      # confirmations name it: the code, the store's words, and for a store
+      # that could not be reached the kind of failure.
+      def self.refusal_for(error)
+        case error
+        when Actions::Refused then { refusal: error.code, message: (error.message unless error.message == error.code) }
+        # The store understood the request and said no, in words.
+        when Error::QueryError then { refusal: 'store_refused', message: error.message.first(500) }
+        else { refusal: 'store_unreachable', message: nil, reason: error.class.name.demodulize.underscore }
+        end
       end
 
       # Settles what an earlier request left open, e.g. a cancellation the
@@ -116,11 +124,17 @@ module Inclamo
       end
 
       # What a cancellation gives back: everything that remains when it
-      # refunds, nothing for an order that was not paid.
+      # refunds. Without an amount, `refund` says why: nothing was paid,
+      # everything paid was refunded already, or the amount could not be
+      # worked out now, which does not stop the cancellation itself.
       def cancellation_refund(order, params)
-        return {} unless params.to_h.stringify_keys['refund'] == true && OrderPresenter.new(order, shop_domain: '').refundable_amount.positive?
+        return {} unless params.to_h.stringify_keys['refund'] == true
+        return { refund: 'unpaid' } unless order.dig('totalReceivedSet', 'shopMoney', 'amount').to_d.positive?
+        return { refund: 'none_left' } unless OrderPresenter.new(order, shop_domain: '').refundable_amount.positive?
 
         refund_plan(order, { 'mode' => 'full' }).slice(:amount, :currency)
+      rescue Actions::Refused, Error
+        { refund: 'unknown' }
       end
 
       def recordable(action, params)
@@ -225,19 +239,13 @@ module Inclamo
         state = handler.new(**arguments).call
         state == :running ? record.update!(outcome: 'running') : accept!(record)
         record
-      rescue Actions::Refused => e
-        record.update!(outcome: 'refused', refusal: e.code, store_message: (e.message unless e.message == e.code), completed_at: Time.current)
-        record
-      rescue Error::QueryError => e
-        # The store understood the request and said no, in words.
-        record.update!(outcome: 'refused', refusal: 'store_refused', store_message: e.message.first(500), completed_at: Time.current)
-        record
-      rescue Error => e
-        # A lost answer is neither done nor failed; anything else never reached the store.
-        if e.outcome_unknown?
+      rescue Actions::Refused, Error => e
+        # A lost answer is neither done nor failed; anything else is a refusal.
+        if e.is_a?(Error) && e.outcome_unknown?
           record.update!(outcome: 'unknown', store_message: e.class.name.demodulize.underscore)
         else
-          record.update!(outcome: 'refused', refusal: 'store_unreachable', store_message: e.class.name.demodulize.underscore, completed_at: Time.current)
+          refused = self.class.refusal_for(e)
+          record.update!(outcome: 'refused', refusal: refused[:refusal], store_message: refused[:message] || refused[:reason], completed_at: Time.current)
         end
         record
       ensure

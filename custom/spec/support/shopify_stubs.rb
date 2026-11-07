@@ -30,6 +30,29 @@ module ShopifyStubs
       .to_return(status: status, body: body.to_json, headers: JSON_HEADERS)
   end
 
+  # The store's proposal for refunding `order`: `amount` back through one
+  # manual payment, `shipping` of the order's shipping left to refund. With a
+  # block, only for the requests whose variables the block accepts.
+  def stub_refund_suggestion(order, amount:, shipping: '0.0', &matching)
+    currency = order['currencyCode']
+    money = ->(value) { { shopMoney: { amount: value, currencyCode: currency } } }
+    total = money.call(order.dig('totalPriceSet', 'shopMoney', 'amount'))
+    suggestion = {
+      amountSet: money.call(amount), maximumRefundableSet: total,
+      shipping: { amountSet: money.call(shipping), maximumRefundableSet: money.call(shipping) },
+      refundLineItems: order.dig('lineItems', 'nodes').map { |line| { lineItem: { id: line['id'] }, quantity: line['quantity'], restockType: 'NO_RESTOCK' } },
+      suggestedTransactions: [{ gateway: 'manual', formattedGateway: 'Manual', kind: 'SUGGESTED_REFUND', amountSet: money.call(amount), maximumRefundableSet: total,
+                                parentTransaction: { id: 'gid://shopify/OrderTransaction/1' } }]
+    }
+    body = { data: { order: { id: order['id'], name: order['name'], currencyCode: currency, suggestedRefund: suggestion } } }
+    stub_request(:post, shopify_graphql_url)
+      .with do |request|
+        sent = JSON.parse(request.body)
+        sent['query'].match?(/^query refund_suggestion\b/) && (matching.nil? || matching.call(sent['variables']))
+      end
+      .to_return(status: 200, body: body.to_json, headers: JSON_HEADERS)
+  end
+
   def shop_info_data(scopes: %w[read_customers read_orders write_orders write_draft_orders read_draft_orders read_products])
     {
       shop: { name: 'Example Store', myshopifyDomain: 'example-store.myshopify.com', currencyCode: 'EUR',

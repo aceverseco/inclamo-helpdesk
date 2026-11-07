@@ -43,10 +43,12 @@ end
 
 # Order steps in macros (see Inclamo::Shopify::MacroSteps). Chatwoot's hook
 # only includes modules, which cannot replace a method the class defines, so
-# these two are prepended here, again after every reload.
+# these are prepended here, again after every reload.
 Rails.application.config.to_prepare do
   Macro.prepend(Inclamo::Shopify::MacroSteps::Validation)
   Macros::ExecutionService.prepend(Inclamo::Shopify::MacroSteps::Execution)
+  MacrosExecutionJob.prepend(Inclamo::Shopify::MacroSteps::Job)
+  Api::V1::Accounts::MacrosController.prepend(Inclamo::Shopify::MacroSteps::ExecutionGuard)
 end
 
 # Credentials of a store connection never reach the request log.
