@@ -12,9 +12,9 @@ module Inclamo
       ORDER_ID = %r{\Agid://shopify/Order/\d+\z}
       CUSTOMER_ID = %r{\Agid://shopify/Customer/\d+\z}
 
-      def initialize(record)
+      def initialize(record, time_limit: nil)
         @record = record
-        @store = StoreConnection.new(record)
+        @store = StoreConnection.new(record, time_limit: time_limit)
       end
 
       def self.forget!(account_id)

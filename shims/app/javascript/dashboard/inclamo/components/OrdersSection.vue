@@ -6,6 +6,7 @@ import InclamoAPI from '../api';
 import OrderCard from './OrderCard.vue';
 import ConnectDialog from './ConnectDialog.vue';
 import { ORDER_ROLES_ROUTE } from '../routes';
+import { notePanel } from '../orderState';
 import { t } from '../i18n';
 import { money } from '../format';
 
@@ -54,6 +55,7 @@ const load = async () => {
     if (ticket !== asked) return;
     panel.value = data;
     orders.value = data.orders || [];
+    notePanel(props.conversationId, data);
   } catch (error) {
     if (ticket === asked) failed.value = true;
   } finally {
@@ -78,6 +80,7 @@ const apply = answer => {
   if (!answer) return;
   panel.value = answer.data;
   orders.value = answer.data.orders || [];
+  notePanel(props.conversationId, answer.data);
 };
 
 const findOrder = async () => {

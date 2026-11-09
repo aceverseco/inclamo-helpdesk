@@ -1,4 +1,3 @@
-import { t, has } from './i18n';
 
 export const money = (amount, currency) => {
   if (amount === undefined || amount === null || amount === '') return '';
@@ -15,13 +14,6 @@ export const date = value => {
   if (!value) return '';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-};
-
-export const status = value => {
-  if (!value) return '';
-  if (has(`STATUS.${value}`)) return t(`STATUS.${value}`);
-  const words = String(value).toLowerCase().replace(/_/g, ' ');
-  return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
 // A new id for one confirmation; a repeated request carries the same one.

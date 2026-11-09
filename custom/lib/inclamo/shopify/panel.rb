@@ -50,8 +50,9 @@ module Inclamo
         }
       end
 
+      # With the values of the reply variables, for the dashboard's editor.
       def present_order(node)
-        OrderPresenter.new(node, shop_domain: @record.shop_domain).as_json
+        OrderPresenter.new(node, shop_domain: @record.shop_domain).as_json.merge(variables: OrderVariables.new(node).to_h)
       end
 
       private

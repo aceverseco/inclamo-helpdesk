@@ -139,7 +139,7 @@ describe('OrdersSection', () => {
 
     expect(has(wrapper, 'inclamo-orders-loading')).toBe(false);
     expect(has(wrapper, 'inclamo-order-#1001')).toBe(true);
-    finish({ data: matched({ orders: [order({ financial_status: 'REFUNDED' })] }) });
+    finish({ data: matched({ orders: [order({ financial_status: 'REFUNDED', financial_status_text: 'Refunded' })] }) });
     await flush();
     expect(wrapper.find('[data-testid="inclamo-order-statuses"]').text()).toContain('Refunded');
   });

@@ -231,6 +231,8 @@ RSpec.describe 'Inclamo conversation order panel API', type: :request do
       expect(response.parsed_body['marked_order']).to include('number' => '#1002')
       expect(conversation.reload.custom_attributes).to include('shopify_order_number' => '#1002', 'shopify_order_tracking_number' => 'E2Et001A')
       expect(panel['marked_order']).to include('number' => '#1002')
+      expect(panel.dig('marked_order', 'variables')).to include('number' => '#1002', 'total' => '1,585.90 UAH', 'fulfillment_status' => 'Shipped')
+      expect(panel['orders']).to all(include('financial_status_text', 'fulfillment_status_text'))
     end
 
     it 'is refreshed when the panel reads an order that changed in the store' do

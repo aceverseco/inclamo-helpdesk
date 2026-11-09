@@ -5,7 +5,7 @@ import RefundDialog from './RefundDialog.vue';
 import AddressDialog from './AddressDialog.vue';
 import ReplacementDialog from './ReplacementDialog.vue';
 import { t } from '../i18n';
-import { money, date, status } from '../format';
+import { money, date } from '../format';
 
 const props = defineProps({
   conversationId: { type: [Number, String], required: true },
@@ -54,7 +54,7 @@ const start = action => dialogs[action].value.open();
         <span class="text-xs text-n-slate-11" data-testid="inclamo-order-statuses">
           <template v-if="cancelling">{{ t('ORDER.CANCELLING') }}</template>
           <template v-else-if="order.cancelled_at">{{ t('ORDER.CANCELLED') }}</template>
-          <template v-else>{{ status(order.financial_status) }} · {{ status(order.fulfillment_status) }}</template>
+          <template v-else>{{ order.financial_status_text }} · {{ order.fulfillment_status_text }}</template>
         </span>
       </span>
     </button>
