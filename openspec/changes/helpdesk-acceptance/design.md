@@ -43,6 +43,7 @@ For each live order scenario, keep the input, actor/role, expected state, helpde
 - A failed role save left the checkbox optimistic and showed no failure. Restore the last confirmed value and show an inline error; a real browser test injects a 503 to verify it.
 - Discount grants and preset removal, and SLA reorder/removal, also lacked failure feedback. Preserve the confirmed values, show an alert and allow retry; five regression cases failed before the fix and passed after it.
 - Shopper screenshots taken before the content assertions showed loading placeholders. Capture only after the actual address/cancellation/items and totals are visible.
+- Visual review of the real checkout exposed a money mismatch: the helpdesk quoted UAH 1,585.90 with no shipping charge, while checkout added UAH 500. The test had matched the subtotal anywhere on the page. Existing order-creation behavior permits no shipping charge or an entered amount; represent no charge with an explicit zero-priced custom shipping line in both preview and creation. Verify the actual Total row for free and paid shipping. [Shopify ShippingLineInput](https://shopify.dev/docs/api/admin-graphql/latest/input-objects/ShippingLineInput) documents custom rate title and price.
 - The direct cancellation dialog explains irreversibility and refund/restock/notification choices, but does not show the refund amount in that confirmation. Record this as a UX follow-up; do not confuse the order card's amount with a fresh cancellation preview.
 
 ## Risks / Trade-offs

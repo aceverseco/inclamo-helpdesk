@@ -284,12 +284,12 @@ module Inclamo
           applied
         end
 
-        # A shipping charge of an amount; nil for none.
+        # No charge means a free custom rate. Omitting shippingLine lets
+        # checkout select a store rate and add it to the total the agent saw.
         def shipping_input
-          amount = params['shipping'].to_s
-          return if amount.blank?
+          amount = params['shipping'].presence.to_s
+          amount = '0' if amount.blank?
           return :invalid unless amount.match?(AMOUNT)
-          return if amount.to_d.zero?
 
           { title: 'Shipping', priceWithCurrency: { amount: amount, currencyCode: currency } }
         end

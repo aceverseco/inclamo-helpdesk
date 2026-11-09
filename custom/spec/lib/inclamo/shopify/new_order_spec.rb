@@ -113,12 +113,13 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'new order' do
       expect(operation_requests('new_order_calculate')).not_to have_been_made
     end
 
-    it 'adds up the quantities of a variant chosen twice and leaves out no discount and no shipping' do
+    it 'adds up duplicate variants and explicitly keeps shipping free when none is charged' do
       runner.new_order_preview(params: { 'lines' => [lines.first, lines.first] })
 
       expect(operation_requests('new_order_calculate') do |variables|
         variables['input']['lineItems'] == [{ 'variantId' => 'gid://shopify/ProductVariant/1', 'quantity' => 2 }] &&
-          !variables['input'].key?('appliedDiscount') && !variables['input'].key?('shippingLine')
+          !variables['input'].key?('appliedDiscount') &&
+          variables.dig('input', 'shippingLine', 'priceWithCurrency') == { 'amount' => '0', 'currencyCode' => 'UAH' }
       end).to have_been_made.once
     end
 
@@ -171,6 +172,19 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'new order' do
   end
 
   describe 'creating' do
+    [nil, '', '0', '0.00'].each do |shipping|
+      it "fixes a #{shipping.inspect} shipping charge at zero instead of letting checkout add a rate" do
+        result = create_order(order_params.merge('shipping' => shipping, 'delivery' => 'reply'))
+
+        expect(result.outcome).to eq('accepted')
+        expect(operation_requests('new_order_create') do |variables|
+          rate = variables.dig('input', 'shippingLine')
+          rate && rate['title'] == 'Shipping' && rate.dig('priceWithCurrency', 'amount').to_d.zero? &&
+            rate.dig('priceWithCurrency', 'currencyCode') == 'UAH'
+        end).to have_been_made.once
+      end
+    end
+
     it 'creates an unpaid draft for the customer with the lines, discount, shipping, note, tag and marker, and emails the invoice' do
       result = create_order(note: 'Gift wrap, please')
 

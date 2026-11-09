@@ -100,6 +100,8 @@ test('Setup and administrator settings are reviewable in the combined image', as
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(composer).toHaveCount(0);
+  // The saved list filter is Mine; this synthetic conversation is unassigned.
+  await page.getByText('All', { exact: true }).click();
   await expect(page.getByText('Acceptance Shopper', { exact: true }).first()).toBeVisible();
 });
 
@@ -156,24 +158,41 @@ test('A payment link opens the ordered items and amount for the shopper', async 
   expect(prefill.status).toBe(200);
   expect(prefill.body.lines.length).toBeGreaterThan(0);
   const lines = prefill.body.lines.map(line => ({ variant_id: line.variant.id, quantity: line.quantity }));
-  const made = await admin.act(conversation.id, { action_name: 'new_order', action_id: `acceptance-invoice-${Date.now()}`, params: { lines, delivery: 'reply' } });
-  expect(made.status).toBe(200);
-  expect(made.body.outcome).toBe('accepted');
-  const context = await browser.newContext();
-  try {
-    const shopper = await context.newPage();
-    await shopper.goto(made.body.result.invoice_url, { waitUntil: 'domcontentloaded' });
-    for (const line of prefill.body.lines) {
-      await expect(shopper.getByText(line.product.title, { exact: false }).first()).toBeVisible();
+  for (const shipping of [undefined, '5.00']) {
+    const made = await admin.act(conversation.id, { action_name: 'new_order', action_id: `acceptance-invoice-${Date.now()}`, params: { lines, shipping, delivery: 'reply' } });
+    expect(made.status).toBe(200);
+    expect(made.body.outcome).toBe('accepted');
+    const context = await browser.newContext();
+    try {
+      const shopper = await context.newPage();
+      await shopper.goto(made.body.result.invoice_url, { waitUntil: 'domcontentloaded' });
+      for (const line of prefill.body.lines) {
+        await expect(shopper.getByText(line.product.title, { exact: false }).first()).toBeVisible();
+      }
+      const totalLabel = shopper.getByText('Total', { exact: true }).last();
+      await expect(totalLabel).toBeVisible();
+      // Read the amount beside Total. Looking anywhere in the page can match
+      // a subtotal and miss an extra shipping charge added at checkout.
+      const checkoutTotal = () => totalLabel.evaluate(label => {
+        for (let row = label.parentElement; row; row = row.parentElement) {
+          const values = row.innerText.replace(/[,\s]/g, '').match(/\d+\.\d{2}/g);
+          if (values?.length) return values;
+        }
+        return [];
+      });
+      const expected = Number(made.body.result.total.amount).toFixed(2);
+      await expect.poll(checkoutTotal).toEqual([expected]);
+      const name = shipping ? '08b-shopper-payment-shipping.png' : '08-shopper-payment-link.png';
+      await shopper.screenshot({ path: info.outputPath(name), fullPage: true });
+      writeFileSync(info.outputPath(shipping ? 'payment-shipping.json' : 'payment-free.json'), JSON.stringify({
+        actor: 'administrator', shipping: shipping || '0', draft_id: made.body.result.draft_id,
+        total: made.body.result.total, checkout_total: expected, items: prefill.body.lines.map(line => ({ title: line.product.title, quantity: line.quantity })),
+      }, null, 2));
+    } finally {
+      await context.close();
     }
-    await expect.poll(async () => (await shopper.locator('body').innerText()).replace(/[,\s]/g, ''))
-      .toContain(Number(made.body.result.total.amount).toFixed(2));
-    await shopper.screenshot({ path: info.outputPath('08-shopper-payment-link.png'), fullPage: true });
-  } finally {
-    await context.close();
   }
 });
-
 
 test('Edited items and total reach Shopify and the shopper order view', async ({ page, browser }, info) => {
   await signIn(page, users.admin);

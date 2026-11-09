@@ -487,7 +487,7 @@
     "DISCOUNT_AMOUNT": "Amount ({currency})",
     "DISCOUNT_VALUE": "Discount value",
     "SHIPPING": "Shipping charge ({currency})",
-    "SHIPPING_NONE": "None",
+    "SHIPPING_NONE": "Free",
     "SHIPPING_LINE": "Shipping",
     "NOTE": "Note for the store",
     "CALCULATE": "Calculate the total",

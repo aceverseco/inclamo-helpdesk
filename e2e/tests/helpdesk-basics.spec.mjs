@@ -58,6 +58,7 @@ test('A private staff note notifies the mentioned colleague and is excluded from
   // opens the widget directly, so supply the same shopper identity explicitly.
   const token = await shopper.page.evaluate(() => window.authToken);
   await shopper.page.goto(`/widget?website_token=${inbox.website_token}&cw_conversation=${encodeURIComponent(token)}`);
+  await shopper.page.getByRole('button', { name: 'Continue conversation', exact: true }).click();
   await expect(shopper.page.locator('#chat-input')).toBeVisible();
   await expect(shopper.page.getByText(greeting, { exact: true }).first()).toBeVisible();
   await expect(shopper.page.getByText(note, { exact: false })).toHaveCount(0);
