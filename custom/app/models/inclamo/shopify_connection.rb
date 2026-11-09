@@ -22,7 +22,9 @@ class Inclamo::ShopifyConnection < ApplicationRecord
     'new_order' => %w[write_draft_orders read_products],
     # Adding a product also needs read_products, for the catalogue search;
     # without it the items already on the order can still be changed.
-    'edit_items' => %w[write_order_edits]
+    'edit_items' => %w[write_order_edits],
+    # A discount code made from a preset, for the reply.
+    'discount' => %w[write_discounts]
   }.freeze
   # Actions that need the store's customers: not offered when it hides them.
   CUSTOMER_DATA_ACTIONS = %w[address new_order customer_tags customer_note].freeze

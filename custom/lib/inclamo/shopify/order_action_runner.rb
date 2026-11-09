@@ -28,7 +28,7 @@ module Inclamo
     class OrderActionRunner
       HANDLERS = {
         'cancel' => Actions::Cancel, 'address' => Actions::Address, 'refund' => Actions::Refund, 'replacement' => Actions::Replacement,
-        'order_tags' => Actions::Tags, 'customer_tags' => Actions::Tags, 'order_note' => Actions::Note, 'customer_note' => Actions::Note, 'new_order' => Actions::NewOrder, 'edit_items' => Actions::EditItems
+        'order_tags' => Actions::Tags, 'customer_tags' => Actions::Tags, 'order_note' => Actions::Note, 'customer_note' => Actions::Note, 'new_order' => Actions::NewOrder, 'edit_items' => Actions::EditItems, 'discount' => Actions::Discount
       }.freeze
       LEASE = 5.minutes
       NOTE_ACTIONS = %w[order_note customer_note].freeze
@@ -241,7 +241,9 @@ module Inclamo
       # Decided without calling the store.
       def gate(action)
         return 'unknown_action' unless HANDLERS.key?(action)
-        return 'not_allowed' unless OrderRole.allows?(@account_user)
+        # Giving discounts is its own right, apart from the order-actions role.
+        allowed = action == 'discount' ? DiscountGrant.allows?(@account_user) : OrderRole.allows?(@account_user)
+        return 'not_allowed' unless allowed
         return 'not_connected' unless @connection
         return 'connection_broken' if @connection.broken?
 
@@ -390,7 +392,19 @@ module Inclamo
         invoice = EDIT_INVOICE_NOTES[record.progress['invoice']]
         details << I18n.t("inclamo.order_actions.notes.details.#{invoice}") if invoice
         facts = { number: record.order_number, tag: params['tag'], details: details.join(' ') }.merge(record.progress.slice('new_order_number', 'refunded').symbolize_keys)
+        return facts.merge(discount_facts(record)) if record.action == 'discount'
+
         facts.merge(HANDLERS.fetch(record.action).note_facts(record)).merge(edit_facts(record))
+      end
+
+      # The code and the conditions copied from its preset; no customer data.
+      def discount_facts(record)
+        params = record.params
+        scope = 'inclamo.order_actions.notes.discount_details'
+        value = params['kind'] == 'percentage' ? "#{params['value']}%" : "#{format('%.2f', params['value'].to_d)} #{@connection.shop_currency}".strip
+        expiry = params['expires_at'] ? I18n.t("#{scope}.expires", date: Time.zone.parse(params['expires_at']).to_date.iso8601) : I18n.t("#{scope}.never")
+        { code: record.progress['code'] || params['code'], preset: params['preset_name'], value: value,
+          uses: I18n.t("#{scope}.uses", count: params['usage_limit'].to_i), audience: I18n.t("#{scope}.audience.#{params['audience']}"), expiry: expiry }
       end
 
       # The changes of an items edit and what they mean for the money.

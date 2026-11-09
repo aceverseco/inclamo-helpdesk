@@ -39,6 +39,7 @@ What each scope is for:
 | `read_merchant_managed_fulfillment_orders` | putting refunded items back in stock | a refund still works; the items stay out of stock |
 | `write_customers` | changing a customer's tags and note | the customer's tags and note are shown but cannot be changed |
 | `write_order_edits` | changing the items of an order that has not fully shipped (adding a product also needs `read_products`) | editing items is unavailable |
+| `write_discounts` | creating a discount code from a preset for the reply | "Discount code" is unavailable |
 
 When you approve `read_locations`, Shopify describes it as access to your
 locations and to the store owner's phone number and physical address. The
@@ -111,6 +112,34 @@ orders**. A new agent is not allowed until you switch it on.
 Every action asks for confirmation and leaves a private note in the
 conversation with the agent's name. Every attempt, refused ones included, is
 kept on record.
+
+## 7. Put products and discount codes into replies
+
+At the top of the **Orders** section, also when the contact is not a customer
+of the store, an agent finds two buttons. Neither sends anything: the text goes
+into the reply the agent is writing, at the cursor, and the agent sends it.
+
+- **Insert product** (any agent; needs `read_products`): search the catalogue
+  by title or SKU and pick a product. Its name, price and link in your online
+  store go into the reply. In email and the website chat the name is the link;
+  in channels that show plain text the address is written out. A product that is
+  not published in your online store is marked so and goes in without a link.
+- **Discount code** (needs `write_discounts`): the agent picks one of the
+  discounts you set up, and the store creates a new code for it. The agent
+  cannot change the discount or the code's text. Every code leaves a private
+  note in the conversation with the agent's name, the discount and the expiry.
+
+Set the discounts up in **Settings → Discount codes**:
+
+- Each preset has a name agents see, a percentage or an amount off the whole
+  order, how many days the code lasts (leave it empty for a code that never
+  expires), how many times it can be used, and for whom: **this customer only**
+  (the customer the conversation is matched to; the preset is not offered when
+  there is none) or **anyone** (each buyer once).
+- Below the presets, switch on **May give discounts** for the agents you allow.
+  This is separate from who may act on orders. Administrators always may.
+
+Changing or removing a preset does not change codes already given.
 
 ## Changing scopes
 

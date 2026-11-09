@@ -1,5 +1,5 @@
-mutation delete_product($id: ID!) {
-  productDelete(input: { id: $id }) {
+mutation delete_product($input: ProductDeleteInput!) {
+  productDelete(input: $input) {
     deletedProductId
     userErrors { field message }
   }

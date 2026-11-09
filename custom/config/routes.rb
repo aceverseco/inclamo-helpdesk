@@ -14,6 +14,8 @@ namespace :api, defaults: { format: 'json' } do
           resources :rule_presets, only: [:index, :update]
           resources :macro_previews, only: [:create]
           resources :macro_confirmations, only: [:create]
+          resources :discount_presets, only: [:index, :create, :update, :destroy]
+          resources :discount_grants, only: [:index, :create, :destroy]
           namespace :shopify do
             resource :connection, only: [:show, :create, :destroy], controller: '/api/v1/accounts/inclamo/shopify_connections' do
               post :recheck

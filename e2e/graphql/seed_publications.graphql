@@ -1,0 +1,5 @@
+query seed_publications {
+  publications(first: 20) {
+    nodes { id name }
+  }
+}

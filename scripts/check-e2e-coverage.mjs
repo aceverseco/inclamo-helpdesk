@@ -35,6 +35,7 @@ const FILES = {
   'order-creation': ['order-creation.spec.mjs'],
   'macro-order-actions': ['macro-order-actions.spec.mjs'],
   'order-item-editing': ['order-item-editing.spec.mjs'],
+  'reply-inserts': ['reply-inserts.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each

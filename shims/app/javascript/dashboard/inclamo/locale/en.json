@@ -104,7 +104,9 @@
       "no_changes": "Change a quantity or add a product first.",
       "no_summary": "Calculate the new total before saving.",
       "summary_changed": "The order changed in the store meanwhile. The new total is shown: check it and save again.",
-      "store_refused": "Shopify refused the change."
+      "store_refused": "Shopify refused the change.",
+      "unknown_preset": "This discount preset no longer exists. Reload the panel.",
+      "customer_not_found": "This preset is for the customer of this conversation, who was not found in the store."
     },
     "ORDER_AGAIN": "Order again",
     "EDIT_UNAVAILABLE": "Editing items is unavailable. {reason}",
@@ -264,6 +266,66 @@
       "OPEN_LIST": "Open the automation list",
       "SWITCH_FAILED": "The rule could not be switched. Try again.",
       "MARKER_NOTE": "A rule belongs to its switch by the last line of its description. If you remove that line, the switch shows as off and switching it on creates a new rule."
+    },
+    "DISCOUNTS": {
+      "MENU": "Discount codes",
+      "TITLE": "Discount codes",
+      "INTRO": "The discounts agents may give from a conversation. An agent picks one and changes nothing. A code keeps its conditions when its preset changes later.",
+      "LOADING": "Loading the discount presets…",
+      "FAILED": "The page could not be loaded. Reload the page to try again.",
+      "PRESETS": "Presets",
+      "NO_PRESETS": "No presets yet. Agents cannot give discount codes until you add one.",
+      "ADD": "Add a preset",
+      "EDIT": "Edit",
+      "REMOVE": "Remove",
+      "REMOVE_CONFIRM": "Remove this preset? Codes already given stay valid.",
+      "SAVE": "Save",
+      "FIELDS": {
+        "NAME": "Name agents see",
+        "NAME_PLACEHOLDER": "Sorry for the delay",
+        "KIND": "Discount",
+        "VALUE": "Value",
+        "EXPIRES": "Expires after (days)",
+        "EXPIRES_PLACEHOLDER": "Never",
+        "USES": "Uses",
+        "AUDIENCE": "For"
+      },
+      "KINDS": {
+        "percentage": "Percentage off the order",
+        "amount": "Amount off the order ({currency})"
+      },
+      "WHO": "Who may give discounts",
+      "WHO_INTRO": "Separate from who may act on orders. Administrators always may.",
+      "ALLOW": "May give discounts",
+      "ERRORS": {
+        "INVALID": "Check this field.",
+        "name": {
+          "blank": "Give the preset a name.",
+          "too_long": "At most 60 characters."
+        },
+        "value": {
+          "not_a_number": "Enter a number, like 10 or 5.00.",
+          "greater_than": "The value must be above 0.",
+          "less_than_or_equal_to": "A percentage can be at most 100.",
+          "less_than": "The value is too large.",
+          "invalid": "Use at most two decimals."
+        },
+        "expires_in_days": {
+          "not_a_number": "Enter a number of days, or leave it empty for never.",
+          "not_an_integer": "Whole days only.",
+          "greater_than": "At least 1 day, or leave it empty for never.",
+          "less_than_or_equal_to": "At most 3650 days."
+        },
+        "usage_limit": {
+          "not_a_number": "Enter the number of uses.",
+          "not_an_integer": "Whole uses only.",
+          "greater_than": "At least 1 use.",
+          "less_than_or_equal_to": "At most 10000 uses."
+        },
+        "base": {
+          "failed": "The preset could not be saved. Try again."
+        }
+      }
     }
   },
   "REPLY_VARIABLES": {
@@ -411,5 +473,41 @@
     "INVOICE_INCLUDED": "The store's email about the change carries the invoice, so no second one is sent.",
     "NO_EMAIL": "The order has no email address, so no invoice can be emailed.",
     "CONFIRM": "Save changes"
+  },
+  "INSERTS": {
+    "PRODUCT": {
+      "OPEN": "Insert product",
+      "TITLE": "Insert a product into the reply",
+      "INTRO": "Pick a product: its name, price and link go into the reply you are writing.",
+      "NOT_IN_STORE": "· not in the online store, no link"
+    },
+    "DISCOUNT": {
+      "OPEN": "Discount code",
+      "TITLE": "Give a discount code",
+      "INTRO": "Pick one of the discounts an administrator set up. The store creates the code, and it goes into the reply you are writing.",
+      "PRESETS": "Discount presets",
+      "CONFIRM": "Create the code",
+      "CUSTOMER_NOT_FOUND": "Only for the customer of this conversation, who was not found in the store.",
+      "CUSTOMER_EMAIL": "Works only with this customer's email at checkout.",
+      "NOT_ALLOWED": "An administrator has not allowed you to give discounts.",
+      "UNAVAILABLE": "Discount code unavailable. {reason}",
+      "NO_PRESETS": "No discount presets yet.",
+      "SETTINGS_LINK": "Set them up"
+    }
+  },
+  "DISCOUNTS": {
+    "VALUE_PERCENTAGE": "{value}%",
+    "CONDITIONS": {
+      "OFF": "{value} off the order",
+      "NEVER": "never expires",
+      "ONE_DAY": "expires in 1 day",
+      "DAYS": "expires in {count} days",
+      "ONCE": "usable once",
+      "TIMES": "usable {count} times"
+    },
+    "AUDIENCE": {
+      "customer": "this customer only",
+      "anyone": "anyone, once per buyer"
+    }
   }
 }

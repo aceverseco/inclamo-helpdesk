@@ -1,0 +1,14 @@
+{
+  "variables": {
+    "code": "THANKS-FX7K2M9Q"
+  },
+  "data": {
+    "codeDiscountNodeByCode": {
+      "id": "gid://shopify/DiscountCodeNode/1615969484958",
+      "codeDiscount": {
+        "title": "Helpdesk: conversation 1",
+        "endsAt": "2026-12-06T12:00:00Z"
+      }
+    }
+  }
+}

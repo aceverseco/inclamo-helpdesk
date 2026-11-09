@@ -48,7 +48,8 @@ module Inclamo
       end
 
       def self.present_product(node, currency:)
-        product = { id: node['id'], title: node['title'], image_url: node.dig('featuredMedia', 'preview', 'image', 'url') }
+        # online_store_url: the storefront link; nil when the product is not published in the online store.
+        product = { id: node['id'], title: node['title'], image_url: node.dig('featuredMedia', 'preview', 'image', 'url'), online_store_url: node['onlineStoreUrl'] }
         variants = node.dig('variants', 'nodes')
         variants ? product.merge(variants: variants.map { |variant| present_variant(variant, currency: currency) }) : product
       end

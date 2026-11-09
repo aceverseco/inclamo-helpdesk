@@ -4,9 +4,9 @@
 # what, in which macro if any, and how it ended. See
 # Inclamo::Shopify::OrderActionRunner.
 class Inclamo::OrderAction < ApplicationRecord
-  ACTIONS = %w[cancel refund address replacement order_tags order_note customer_tags customer_note new_order edit_items].freeze
+  ACTIONS = %w[cancel refund address replacement order_tags order_note customer_tags customer_note new_order edit_items discount].freeze
   CUSTOMER_ACTIONS = %w[customer_tags customer_note].freeze
-  ORDER_LESS = %w[new_order].freeze
+  ORDER_LESS = %w[new_order discount].freeze
   OUTCOMES = %w[pending running accepted refused unknown].freeze
 
   belongs_to :account
@@ -32,6 +32,8 @@ class Inclamo::OrderAction < ApplicationRecord
   # What a new order's record tells the dialog: the draft, its total, its
   # payment link and how the link reached the customer.
   NEW_ORDER_RESULT = %w[draft_id draft_name total invoice_url invoice_sent delivery].freeze
+  # What a discount's record tells the dialog: the code to insert.
+  DISCOUNT_RESULT = %w[code discount_id].freeze
 
   def self.order_less?(action)
     ORDER_LESS.include?(action.to_s)
@@ -49,7 +51,7 @@ class Inclamo::OrderAction < ApplicationRecord
   # for the money (owed, due back, none) and, when the order changed since
   # the agent's summary, the new summary.
   def result
-    keys = %w[new_order_number new_order_id refunded] + NEW_ORDER_RESULT
+    keys = %w[new_order_number new_order_id refunded] + NEW_ORDER_RESULT + DISCOUNT_RESULT
     keys += %w[difference amount currency summary invoice invoice_message] if action == 'edit_items'
     progress.slice(*keys)
   end

@@ -2,8 +2,9 @@
 // entry a route and a line in the sidebar's Settings group.
 import OrderRolesPage from './components/OrderRolesPage.vue';
 import RulePresetsPage from './components/RulePresetsPage.vue';
+import DiscountSettingsPage from './components/DiscountSettingsPage.vue';
 import { t } from './i18n';
-import { ORDER_ROLES_ROUTE, RULE_PRESETS_ROUTE } from './routes';
+import { ORDER_ROLES_ROUTE, RULE_PRESETS_ROUTE, DISCOUNT_SETTINGS_ROUTE } from './routes';
 
 export default [
   {
@@ -20,6 +21,14 @@ export default [
     label: () => t('SETTINGS.RULE_PRESETS.MENU'),
     icon: 'i-lucide-list-checks',
     component: RulePresetsPage,
+    permissions: ['administrator'],
+  },
+  {
+    name: DISCOUNT_SETTINGS_ROUTE,
+    path: 'discount-codes',
+    label: () => t('SETTINGS.DISCOUNTS.MENU'),
+    icon: 'i-lucide-ticket-percent',
+    component: DiscountSettingsPage,
     permissions: ['administrator'],
   },
 ];

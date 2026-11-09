@@ -15,7 +15,8 @@
 //   patch         let Shopify answer, then change the answer by `value.patch`:
 //                 scopes (value.scopes), customers_denied, orders_denied,
 //                 second_customer, no_fulfillment_orders,
-//                 expires_in (value.seconds), job_pending, not_cancelled
+//                 expires_in (value.seconds), job_pending, not_cancelled,
+//                 storefront (value.urls: product id -> storefront link)
 //   refuse        answer as the store does when it refuses a mutation: HTTP 200
 //                 with `value.message` as a user error of `value.mutation`,
 //                 without asking Shopify, so that nothing changes in the store
@@ -82,6 +83,15 @@ const patches = {
   },
   not_cancelled: payload => {
     if (payload.data?.order) payload.data.order.cancelledAt = null;
+    return payload;
+  },
+  // The storefront link a live store gives a published product. A development
+  // store is password-protected and gives none; value.urls maps product ids
+  // to the address the product has once the store opens.
+  storefront: (payload, value) => {
+    for (const node of payload.data?.products?.nodes || []) {
+      if (value.urls[node.id]) node.onlineStoreUrl = value.urls[node.id];
+    }
     return payload;
   },
 };

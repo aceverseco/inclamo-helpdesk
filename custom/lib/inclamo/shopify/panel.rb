@@ -36,7 +36,9 @@ module Inclamo
       end
 
       def viewer
-        { administrator: @account_user&.administrator? || false, can_act_on_orders: OrderRole.allows?(@account_user) }
+        can_give = DiscountGrant.allows?(@account_user)
+        { administrator: @account_user&.administrator? || false, can_act_on_orders: OrderRole.allows?(@account_user),
+          can_give_discounts: can_give, discount_presets: can_give ? DiscountPreset.where(account_id: @account.id).ordered.map(&:as_json) : [] }
       end
 
       # What this member may change from the panel, decided by the role and the
@@ -54,7 +56,9 @@ module Inclamo
 
         {
           connected: true, status: @record.status, shop_name: @record.shop_name, shop_domain: @record.shop_domain,
-          shop_currency: @record.shop_currency, customer_data: @record.customer_data_mode, actions: @record.actions_report
+          shop_currency: @record.shop_currency, customer_data: @record.customer_data_mode, actions: @record.actions_report,
+          # Whether the catalogue can be searched, for "Insert product" (any agent).
+          products_readable: ProductSearch.new(@record).missing_scopes.empty?
         }
       end
 

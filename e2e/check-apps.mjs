@@ -13,7 +13,7 @@
 import { connect } from './lib/shopify.mjs';
 
 const GUIDE = ['read_customers', 'read_orders', 'write_orders', 'write_draft_orders', 'read_products', 'read_locations', 'read_merchant_managed_fulfillment_orders', 'write_customers', 'write_order_edits', 'write_discounts'];
-const SEEDER = ['write_customers', 'write_products', 'write_orders', 'write_draft_orders', 'write_inventory', 'read_locations', 'write_fulfillments', 'write_merchant_managed_fulfillment_orders', 'write_order_edits', 'write_discounts'];
+const SEEDER = ['write_customers', 'write_products', 'write_orders', 'write_draft_orders', 'write_inventory', 'read_locations', 'write_fulfillments', 'write_publications', 'write_merchant_managed_fulfillment_orders', 'write_order_edits', 'write_discounts'];
 // Optional scopes of the guide: the limited app must not hold them, so that it
 // stands for a merchant's app that was never given them.
 const OPTIONAL_WRITES = ['write_customers', 'write_order_edits', 'write_discounts'];

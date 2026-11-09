@@ -1,0 +1,43 @@
+{
+  "variables": {
+    "input": {
+      "title": "Helpdesk: conversation 1",
+      "code": "THANKS-FX7K2M9Q",
+      "startsAt": "2026-11-06T12:00:00Z",
+      "endsAt": "2026-12-06T12:00:00.000Z",
+      "usageLimit": 1,
+      "appliesOncePerCustomer": true,
+      "context": {
+        "all": "ALL"
+      },
+      "customerGets": {
+        "value": {
+          "percentage": 0.1
+        },
+        "items": {
+          "all": true
+        }
+      }
+    }
+  },
+  "data": {
+    "discountCodeBasicCreate": {
+      "codeDiscountNode": {
+        "id": "gid://shopify/DiscountCodeNode/1615969484958",
+        "codeDiscount": {
+          "title": "Helpdesk: conversation 1",
+          "endsAt": "2026-12-06T12:00:00Z",
+          "usageLimit": 1,
+          "codes": {
+            "nodes": [
+              {
+                "code": "THANKS-FX7K2M9Q"
+              }
+            ]
+          }
+        }
+      },
+      "userErrors": []
+    }
+  }
+}

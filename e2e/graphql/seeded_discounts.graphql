@@ -1,0 +1,30 @@
+query seeded_discounts($query: String!) {
+  codeDiscountNodes(first: 50, query: $query) {
+    nodes {
+      id
+      codeDiscount {
+        ... on DiscountCodeBasic {
+          title
+          status
+          usageLimit
+          appliesOncePerCustomer
+          endsAt
+          codes(first: 1) { nodes { code } }
+          context {
+            __typename
+            ... on DiscountCustomers { customers { id } }
+            ... on DiscountBuyerSelectionAll { all }
+          }
+          customerGets {
+            value {
+              __typename
+              ... on DiscountPercentage { percentage }
+              ... on DiscountAmount { amount { amount currencyCode } appliesOnEachItem }
+            }
+            items { __typename ... on AllDiscountItems { allItems } }
+          }
+        }
+      }
+    }
+  }
+}
