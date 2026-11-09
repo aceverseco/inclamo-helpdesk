@@ -9,6 +9,7 @@ let store;
 let conversation;
 let addressOrder;
 let cancelOrder;
+let editOrder;
 
 test.beforeAll(async ({ playwright }) => {
   test.setTimeout(300_000);
@@ -24,6 +25,7 @@ test.beforeAll(async ({ playwright }) => {
   const customer = await store.customer('Review');
   addressOrder = await store.draftOrder(customer, { items: 2 });
   cancelOrder = await store.draftOrder(customer);
+  editOrder = await store.draftOrder(customer, { quantity: 2 });
   conversation = await admin.conversation(inbox, { name: 'Acceptance Shopper', email: customer.email, message: 'Please help me change my order.' });
 });
 
@@ -63,11 +65,18 @@ test('Setup and administrator settings are reviewable in the combined image', as
     }
   }
   section = await openOrders(page, account, conversation.id);
-  await orderCard(section, addressOrder.number);
+  const card = await orderCard(section, addressOrder.number);
+  await card.getByTestId('inclamo-action-address').scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath('02-order-desktop.png'), fullPage: true });
   await page.setViewportSize({ width: 1024, height: 768 });
+  const composer = page.locator('.reply-box .ProseMirror').first();
+  await expect.poll(async () => (await composer.boundingBox())?.width || 0).toBeGreaterThanOrEqual(320);
+  await expect(card.getByTestId('inclamo-action-address')).toBeVisible();
   await page.screenshot({ path: info.outputPath('03-order-laptop.png'), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(composer).toHaveCount(0);
+  await expect(page.getByText('Acceptance Shopper', { exact: true }).first()).toBeVisible();
 });
 
 test('An address change is visible in Shopify and in the shopper order view', async ({ page, browser }, info) => {
@@ -86,8 +95,8 @@ test('An address change is visible in Shopify and in the shopper order view', as
   try {
     const shopper = await context.newPage();
     await shopper.goto(order.statusPageUrl, { waitUntil: 'domcontentloaded' });
-    await shopper.screenshot({ path: info.outputPath('05-shopper-address.png'), fullPage: true });
     await expect(shopper.getByText('2 Example Avenue', { exact: false }).first()).toBeVisible();
+    await shopper.screenshot({ path: info.outputPath('05-shopper-address.png'), fullPage: true });
   } finally {
     await context.close();
   }
@@ -109,8 +118,8 @@ test('A cancellation is visible in Shopify and in the shopper order view', async
   try {
     const shopper = await context.newPage();
     await shopper.goto(order.statusPageUrl, { waitUntil: 'domcontentloaded' });
-    await shopper.screenshot({ path: info.outputPath('07-shopper-cancelled.png'), fullPage: true });
     await expect(shopper.getByText(/order.*cancel(l)?ed|cancel(l)?ed.*order/i).first()).toBeVisible();
+    await shopper.screenshot({ path: info.outputPath('07-shopper-cancelled.png'), fullPage: true });
   } finally {
     await context.close();
   }
@@ -128,12 +137,44 @@ test('A payment link opens the ordered items and amount for the shopper', async 
   try {
     const shopper = await context.newPage();
     await shopper.goto(made.body.result.invoice_url, { waitUntil: 'domcontentloaded' });
-    await shopper.screenshot({ path: info.outputPath('08-shopper-payment-link.png'), fullPage: true });
     for (const line of prefill.body.lines) {
       await expect(shopper.getByText(line.product.title, { exact: false }).first()).toBeVisible();
     }
     await expect.poll(async () => (await shopper.locator('body').innerText()).replace(/[,\s]/g, ''))
       .toContain(Number(made.body.result.total.amount).toFixed(2));
+    await shopper.screenshot({ path: info.outputPath('08-shopper-payment-link.png'), fullPage: true });
+  } finally {
+    await context.close();
+  }
+});
+
+
+test('Edited items and total reach Shopify and the shopper order view', async ({ page, browser }, info) => {
+  await signIn(page, users.admin);
+  const section = await openOrders(page, account, conversation.id);
+  const card = await orderCard(section, editOrder.number);
+  const line = editOrder.lineItems.nodes[0];
+  await card.getByTestId('inclamo-action-edit_items').click();
+  const dialog = page.getByTestId('inclamo-action-dialog');
+  await dialog.locator(`[data-line-id="${line.id}"]`).getByTestId('inclamo-edit-quantity').fill('3');
+  await dialog.getByTestId('inclamo-edit-calculate').click();
+  await expect(dialog.getByTestId('inclamo-edit-summary')).toBeVisible();
+  await page.screenshot({ path: info.outputPath('09-edit-items-confirmation.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(page.getByTestId('inclamo-edit-lines')).toHaveCount(0);
+  const held = async () => (await store.shopify('shopper_order', { id: editOrder.id })).order;
+  await expect.poll(async () => (await held()).lineItems.nodes.find(item => item.id === line.id)?.currentQuantity).toBe(3);
+  const order = await held();
+  expect(Number(order.currentTotalPriceSet.shopMoney.amount)).toBeGreaterThan(editOrder.total);
+  const context = await browser.newContext();
+  try {
+    const shopper = await context.newPage();
+    await shopper.goto(order.statusPageUrl, { waitUntil: 'domcontentloaded' });
+    await expect(shopper.getByText(line.title, { exact: false }).first()).toBeVisible();
+    await expect.poll(async () => (await shopper.locator('body').innerText()).replace(/[,\s]/g, ''))
+      .toContain(Number(order.currentTotalPriceSet.shopMoney.amount).toFixed(2));
+    await page.screenshot({ path: info.outputPath('10-agent-after-edit.png'), fullPage: true });
+    await shopper.screenshot({ path: info.outputPath('11-shopper-edited-order.png'), fullPage: true });
   } finally {
     await context.close();
   }

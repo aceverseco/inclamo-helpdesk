@@ -238,7 +238,7 @@
       "ACCESS_TOKEN": "Admin API access token",
       "SCOPES": "Access the app needs",
       "SCOPES_READ": "read_customers, read_orders: required",
-      "SCOPES_WRITE": "write_orders: cancel, refund, address, order tags and note. write_customers: customer tags and note. write_draft_orders and read_products: replacement orders. read_locations and read_merchant_managed_fulfillment_orders: putting refunded items back in stock.",
+      "SCOPES_WRITE": "write_orders: cancel, refund, address, order tags and note. write_customers: customer tags and note. write_draft_orders and read_products: new and replacement orders. write_order_edits: change items and quantities. write_discounts: discount codes. read_locations and read_merchant_managed_fulfillment_orders: putting refunded items back in stock.",
       "CONFIRM": "Connect"
     },
     "SENT_AS_IS": "What was sent can no longer be changed here: confirming again asks how that request ended."

@@ -46,15 +46,21 @@ test('A shopper message and a human reply cross the widget and dashboard', async
   await shopper.page.screenshot({ path: info.outputPath('shopper-conversation.png'), fullPage: true });
 });
 
-test('A private staff note is excluded from the shopper conversation', async () => {
+test('A private staff note notifies the mentioned colleague and is excluded from the shopper conversation', async () => {
   const note = `Internal verification note ${runTag('private')}`;
-  const response = await agent.post(`/conversations/${conversation.id}/messages`, { content: note, private: true });
+  const content = `${note} [@E2E Admin](mention://user/${admin.userId}/E2E%20Admin)`;
+  const response = await agent.post(`/conversations/${conversation.id}/messages`, { content, private: true });
   expect(response.status).toBe(200);
-  expect((await messagesOf(admin, conversation.id)).some(message => message.private && message.content === note)).toBe(true);
-  await shopper.page.reload();
+  expect((await messagesOf(admin, conversation.id)).some(message => message.private && message.content === content)).toBe(true);
+  await expect.poll(async () => ((await admin.get('/notifications')).body.data?.payload || [])
+    .some(entry => entry.notification_type === 'conversation_mention' && entry.secondary_actor?.id === response.body.id)).toBe(true);
+  // The embedding SDK normally restores this token on reload. This test
+  // opens the widget directly, so supply the same shopper identity explicitly.
+  const token = await shopper.page.evaluate(() => window.authToken);
+  await shopper.page.goto(`/widget?website_token=${inbox.website_token}&cw_conversation=${encodeURIComponent(token)}`);
   await expect(shopper.page.locator('#chat-input')).toBeVisible();
   await expect(shopper.page.getByText(greeting, { exact: true }).first()).toBeVisible();
-  await expect(shopper.page.getByText(note, { exact: true })).toHaveCount(0);
+  await expect(shopper.page.getByText(note, { exact: false })).toHaveCount(0);
 });
 
 test('Resolving and snoozing a conversation preserve it and a shopper reply reopens it', async () => {
@@ -95,4 +101,49 @@ test('A shopper attachment reaches the human agent', async ({ page }, info) => {
   await page.goto(`/app/accounts/${account}/conversations/${conversation.id}`);
   await expect(page.locator(`#message${attachment.id}`)).toBeVisible();
   await page.screenshot({ path: info.outputPath('agent-attachment.png'), fullPage: true });
+});
+
+
+test('A published help article is readable by a shopper while a draft is private', async ({ browser }, info) => {
+  const slug = `acceptance-${runTag('knowledge').toLowerCase()}`;
+  const created = await admin.post('/portals', { portal: {
+    name: 'Acceptance Help Center', slug, config: { default_locale: 'en', allowed_locales: ['en'] },
+  } });
+  expect(created.status).toBe(200);
+  const context = await browser.newContext({ baseURL: process.env.HELPDESK_URL });
+  try {
+    const createArticle = (title, status, content) => admin.post(`/portals/${slug}/articles`, {
+      article: { title, status, content, author_id: admin.userId, locale: 'en' },
+    });
+    const published = await createArticle('How to change your delivery address', 'published', 'Contact support before your parcel ships.');
+    const draft = await createArticle('Internal unfinished policy', 'draft', 'This draft must stay private.');
+    expect(published.status).toBe(200);
+    expect(draft.status).toBe(200);
+    const page = await context.newPage();
+    const visible = await page.goto(`/hc/${slug}/articles/${published.body.payload.slug}`);
+    expect(visible.status()).toBe(200);
+    await expect(page.getByRole('heading', { name: 'How to change your delivery address', exact: true })).toBeVisible();
+    await expect(page.getByText('Contact support before your parcel ships.', { exact: true })).toBeVisible();
+    await page.screenshot({ path: info.outputPath('shopper-help-article.png'), fullPage: true });
+    const hidden = await page.goto(`/hc/${slug}/articles/${draft.body.payload.slug}`);
+    expect(hidden.status()).toBe(404);
+    await expect(page.getByText('This draft must stay private.', { exact: true })).toHaveCount(0);
+  } finally {
+    await context.close();
+    expect((await admin.delete(`/portals/${slug}`)).status).toBe(200);
+  }
+});
+
+test('Conversation reports count the exchange and open in the administrator dashboard', async ({ page }, info) => {
+  const until = Math.floor(Date.now() / 1000) + 60;
+  const url = new URL(`/api/v2/accounts/${account}/reports/summary?type=account&since=${until - 86400}&until=${until}`, process.env.HELPDESK_URL).href;
+  const report = await admin.get(url);
+  expect(report.status).toBe(200);
+  expect(Number(report.body.conversations_count)).toBeGreaterThan(0);
+  expect(Number(report.body.incoming_messages_count)).toBeGreaterThan(0);
+  expect(Number(report.body.outgoing_messages_count)).toBeGreaterThan(0);
+  await signIn(page, users.admin);
+  await page.goto(`/app/accounts/${account}/reports/overview`);
+  await expect(page.getByRole('heading', { name: /Overview/i }).first()).toBeVisible();
+  await page.screenshot({ path: info.outputPath('administrator-reports.png'), fullPage: true });
 });

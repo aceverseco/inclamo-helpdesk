@@ -420,10 +420,15 @@ test('Team member replies in a pending conversation', async ({ browser, page }) 
   await agent.post(`/conversations/${byApi.id}/messages`, { content: `A person here ${tag('reply-api')}` });
   await openConversation(page, users.agent, inDashboard.id);
   await page.getByRole('button', { name: 'Take over' }).click({ timeout: 45_000 });
-  const editor = page.locator('.ProseMirror[contenteditable="true"]').first();
-  await editor.click({ timeout: 30_000 });
+  // Take over switches from the note editor to the public reply editor.
+  // Wait for that transition before typing so the note draft is not replaced.
+  const replyBox = page.locator('.reply-box');
+  await expect(replyBox).not.toHaveClass(/is-private/);
+  const editor = replyBox.locator('.ProseMirror').first();
+  await expect(editor).toBeEditable();
   await editor.fill(`A person here ${tag('reply-ui')}`);
-  await page.getByRole('button', { name: /^Send/ }).first().click();
+  await expect(editor).toContainText(`A person here ${tag('reply-ui')}`);
+  await replyBox.getByRole('button', { name: /^Send/ }).click();
 
   for (const id of [byApi.id, inDashboard.id]) {
     await eventually(() => statusOf(id), status => status === 'open', { timeout: 45_000 });
