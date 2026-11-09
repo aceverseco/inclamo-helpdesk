@@ -1,0 +1,33 @@
+# An existing order's items with the variants they were bought as, to start a
+# new order from it ("order again"), and whose order it is. The current
+# quantity leaves out units refunded or removed since.
+query new_order_from_order($id: ID!) {
+  order(id: $id) {
+    id
+    name
+    customer { id }
+    lineItems(first: 50) {
+      nodes {
+        name
+        quantity
+        currentQuantity
+        variant {
+          id
+          title
+          sku
+          price
+          availableForSale
+          product {
+            id
+            title
+            status
+            isGiftCard
+            featuredMedia {
+              preview { image { url } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

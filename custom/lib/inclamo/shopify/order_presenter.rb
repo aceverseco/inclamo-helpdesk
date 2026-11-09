@@ -64,7 +64,7 @@ module Inclamo
       end
 
       def admin_url
-        "https://admin.shopify.com/store/#{@shop_domain.delete_suffix('.myshopify.com')}/orders/#{@node['legacyResourceId']}"
+        Shopify.admin_url(@shop_domain, 'orders', @node['legacyResourceId'])
       end
 
       def money(key)

@@ -56,6 +56,10 @@ module Inclamo
         @conversation.custom_attributes.to_h[ID_KEY]
       end
 
+      def marked_number
+        @conversation.custom_attributes.to_h['shopify_order_number']
+      end
+
       # Marks the order (as the Admin API returned it) and writes its attributes.
       # Also used to refresh them: nothing is written when nothing changed.
       # See ConversationAttributes for what a quiet write is.

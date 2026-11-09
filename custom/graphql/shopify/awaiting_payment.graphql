@@ -1,0 +1,9 @@
+# Orders a customer has not paid yet: drafts made from the helpdesk, newest
+# first. The query names the customer, our tag and the open statuses.
+query awaiting_payment($query: String!, $first: Int!) {
+  draftOrders(first: $first, query: $query, sortKey: UPDATED_AT, reverse: true) {
+    nodes {
+      ...AwaitingDraftFields
+    }
+  }
+}

@@ -84,8 +84,21 @@
       "customer_data_hidden": "Unavailable: the store does not share customers' addresses.",
       "already_cancelled": "The order is cancelled.",
       "already_shipped": "Already shipped.",
-      "nothing_to_refund": "Nothing left to refund."
-    }
+      "nothing_to_refund": "Nothing left to refund.",
+      "unknown_order": "The store no longer has this order.",
+      "no_customer": "Choose the customer of this conversation first.",
+      "not_customers_order": "This order belongs to another customer.",
+      "no_items": "Add at least one item.",
+      "too_many_items": "An order can hold at most 50 different items.",
+      "invalid_item": "An item is not a product of the store.",
+      "invalid_quantity": "Each quantity must be a whole number from 1 to 999.",
+      "invalid_discount": "The discount must be a percentage up to 100 or a positive amount.",
+      "invalid_shipping": "The shipping charge must be an amount, like 5.00.",
+      "invalid_delivery": "Choose how the customer gets the payment link.",
+      "no_email": "The customer has no email: put the link into the reply instead.",
+      "not_created": "The store did not create the order. Nothing was charged; you can try again."
+    },
+    "ORDER_AGAIN": "Order again"
   },
   "MARKS": {
     "TAGS": "Tags",
@@ -208,7 +221,8 @@
       "SCOPES_READ": "read_customers, read_orders: required",
       "SCOPES_WRITE": "write_orders: cancel, refund, address, order tags and note. write_customers: customer tags and note. write_draft_orders and read_products: replacement orders. read_locations and read_merchant_managed_fulfillment_orders: putting refunded items back in stock.",
       "CONFIRM": "Connect"
-    }
+    },
+    "SENT_AS_IS": "What was sent can no longer be changed here: confirming again asks how that request ended."
   },
   "SETTINGS": {
     "ORDER_ROLES": {
@@ -245,5 +259,113 @@
     "tracking_link": "Tracking link of the first shipment",
     "status_link": "Order status page for the customer",
     "items": "Items of the order, one per line"
+  },
+  "PRODUCTS": {
+    "LABEL": "Search the catalogue",
+    "PLACEHOLDER": "Product name or SKU",
+    "SEARCHING": "Searching…",
+    "NONE": "No products found.",
+    "MORE": "More products",
+    "UNAVAILABLE": "The store did not answer. Try again.",
+    "MISSING_SCOPE": "The connected app lacks access: {scopes}.",
+    "UNAVAILABLE_VARIANT": "Not available"
+  },
+  "NEW_ORDER": {
+    "OPEN": "New order",
+    "UNAVAILABLE": "New order unavailable. {reason}",
+    "TITLE": "New order for {name}",
+    "INTRO": "The order is created in Shopify unpaid. The customer pays through the store's payment link; nothing is charged here.",
+    "CONFIRM": "Create order",
+    "PREFILLING": "Loading the items of the order…",
+    "SKIPPED": "Not available for sale, not added: {items}.",
+    "NO_LINES": "No items yet. Search the catalogue above.",
+    "QUANTITY": "Quantity",
+    "REMOVE": "Remove",
+    "DISCOUNT": "Discount",
+    "DISCOUNT_NONE": "None",
+    "DISCOUNT_PERCENTAGE": "Percentage",
+    "DISCOUNT_AMOUNT": "Amount ({currency})",
+    "DISCOUNT_VALUE": "Discount value",
+    "SHIPPING": "Shipping charge ({currency})",
+    "SHIPPING_NONE": "None",
+    "SHIPPING_LINE": "Shipping",
+    "NOTE": "Note for the store",
+    "CALCULATE": "Calculate the total",
+    "SUBTOTAL": "Items",
+    "TAX": "Taxes",
+    "TAX_INCLUDED": "Taxes included",
+    "TOTAL": "Total",
+    "STALE": "The order changed. Calculate the total again.",
+    "DELIVERY": "Payment link",
+    "DELIVERY_EMAIL": "The store emails its invoice to {email}",
+    "DELIVERY_EMAIL_HINT": "The email is the store's own invoice template, as set in Shopify.",
+    "DELIVERY_REPLY": "Put the link into the reply",
+    "DELIVERY_REPLY_HINT": "The link goes where the cursor is in the reply box. Check that it is set to reply, not to a private note, and send it yourself."
+  },
+  "AWAITING": {
+    "TITLE": "Awaiting payment",
+    "CREATED": "Created {date}",
+    "INVOICE_SENT": "Invoice sent",
+    "NOT_SENT": "Invoice not sent",
+    "PAYMENT_LINK": "Payment link",
+    "INSERT": "Put into the reply",
+    "UNCONFIRMED": "The store did not confirm a new order yet. It shows here once Shopify has it."
+  },
+  "MACRO_STEPS": {
+    "STEPS": {
+      "inclamo_refund_full": {
+        "LABEL": "Refund the order in full",
+        "DESCRIPTION": "Refunds everything still refundable on the order tied to the conversation. The items are not put back in stock. Shopify notifies the customer.",
+        "EFFECT": "Refunds {amount}, everything still refundable. The items stay out of stock. Shopify notifies the customer."
+      },
+      "inclamo_refund_shipping": {
+        "LABEL": "Refund the shipping cost",
+        "DESCRIPTION": "Refunds only the shipping cost of the order tied to the conversation; the items are not refunded. Shopify notifies the customer.",
+        "EFFECT": "Refunds the shipping cost, {amount}. The items are not refunded. Shopify notifies the customer."
+      },
+      "inclamo_cancel_order": {
+        "LABEL": "Cancel the order",
+        "DESCRIPTION": "Cancels the order tied to the conversation at the customer's request, refunds it in full and puts the items back in stock. Shopify notifies the customer. Cannot be undone.",
+        "EFFECT": "Cancels the order and refunds {amount}. The items go back in stock. Shopify notifies the customer. This cannot be undone.",
+        "EFFECT_UNPAID": "Cancels the order. Nothing was paid, so nothing is refunded. The items go back in stock. Shopify notifies the customer. This cannot be undone.",
+        "EFFECT_REFUNDED_BEFORE": "Cancels the order. Everything paid was refunded before, so nothing more is refunded. The items go back in stock. Shopify notifies the customer. This cannot be undone.",
+        "EFFECT_AMOUNT_UNKNOWN": "Cancels the order and refunds whatever is left to refund; how much could not be checked just now. The items go back in stock. Shopify notifies the customer. This cannot be undone."
+      },
+      "inclamo_replacement": {
+        "LABEL": "Send a free replacement",
+        "DESCRIPTION": "Creates a new order in Shopify with the same items of the order tied to the conversation, to the same address, at no charge to the customer.",
+        "EFFECT": "Creates a new order with the same {units} items to the same address, at no charge. Stock is taken."
+      }
+    },
+    "CONFIRM": {
+      "TITLE": "Run the macro \"{name}\"?",
+      "LOADING": "Asking Shopify what this macro will do…",
+      "FAILED": "What this macro would do to the order could not be checked. Try again in a moment.",
+      "NO_ORDER": "No order is tied to this conversation, so its order steps have nothing to act on. Tie the order in the Orders section first.",
+      "ON_ORDER": "On order {number}:",
+      "WILL_STOP": "Will not be done: {reason} The macro stops at this step and the steps after it do not run.",
+      "AFTER_STOP": "Will not run: the macro stops at an earlier step.",
+      "CHECKED_AGAIN": "Everything is checked again with Shopify when the macro runs. The result is written as a private note.",
+      "CHANGED": "This macro was changed while you looked at it. Close this and run it again to see what it does now.",
+      "NOT_RECORDED": "Your confirmation did not reach the server, so the macro did not run. Try again in a moment.",
+      "NOT_OPENED": "The confirmation of this macro could not be opened, so it did not run. Try again in a moment.",
+      "RUN": "Run the macro",
+      "DONT_RUN": "Don't run",
+      "CLOSE": "Close"
+    },
+    "WHY_NOT": {
+      "not_allowed": "An administrator has not allowed you to act on orders.",
+      "not_connected": "No Shopify store is connected.",
+      "connection_broken": "The store connection needs attention: Shopify no longer accepts it.",
+      "missing_scope": "The connected app lacks access: {scopes}.",
+      "unknown_order": "The tied order was not found in the store.",
+      "nothing_to_refund": "Nothing is left to refund on this order.",
+      "no_shipping_to_refund": "This order has no shipping cost left to refund.",
+      "already_cancelled": "The order is already cancelled.",
+      "store_refused": "Shopify refused: {message}",
+      "store_unreachable": "Shopify did not answer.",
+      "other": "It cannot be done."
+    },
+    "ONE_AT_A_TIME": "A macro that acts on orders runs in one conversation at a time, after a confirmation."
   }
 }

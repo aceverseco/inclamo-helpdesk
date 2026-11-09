@@ -1,0 +1,98 @@
+{
+  "variables": {
+    "query": "customer_id:31352101142686 tag:inclamo-helpdesk (status:open OR status:invoice_sent)",
+    "first": 5
+  },
+  "data": {
+    "draftOrders": {
+      "nodes": [
+        {
+          "id": "gid://shopify/DraftOrder/1630539153566",
+          "legacyResourceId": "1630539153566",
+          "name": "#D66",
+          "status": "OPEN",
+          "createdAt": "2026-11-06T11:29:07Z",
+          "invoiceUrl": "https://shop.example.com/1000000001/invoices/462bdb64101fadc0848cfd2e528c1211",
+          "invoiceSentAt": null,
+          "totalPriceSet": {
+            "shopMoney": {
+              "amount": "785.95",
+              "currencyCode": "UAH"
+            }
+          },
+          "marker": {
+            "value": "5e7a9c1b-3d5f-4a7c-9e1b-2c4d6f8a0b3d"
+          },
+          "lineItems": {
+            "nodes": [
+              {
+                "name": "The Compare at Price Snowboard",
+                "quantity": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "gid://shopify/DraftOrder/1630539120798",
+          "legacyResourceId": "1630539120798",
+          "name": "#D65",
+          "status": "OPEN",
+          "createdAt": "2026-11-06T11:29:06Z",
+          "invoiceUrl": "https://shop.example.com/1000000001/invoices/9d44668dedbfd9bf557959770002541c",
+          "invoiceSentAt": null,
+          "totalPriceSet": {
+            "shopMoney": {
+              "amount": "2285.85",
+              "currencyCode": "UAH"
+            }
+          },
+          "marker": {
+            "value": "7a1c3e5f-2b4d-4f6a-8c0e-1d3f5a7b9c2e"
+          },
+          "lineItems": {
+            "nodes": [
+              {
+                "name": "The Minimal Snowboard",
+                "quantity": 1
+              },
+              {
+                "name": "The Complete Snowboard - Ice",
+                "quantity": 2
+              }
+            ]
+          }
+        },
+        {
+          "id": "gid://shopify/DraftOrder/1630539088030",
+          "legacyResourceId": "1630539088030",
+          "name": "#D64",
+          "status": "INVOICE_SENT",
+          "createdAt": "2026-11-06T11:29:05Z",
+          "invoiceUrl": "https://shop.example.com/1000000001/invoices/2e4c298ed6bcebb6090ba5fe2e433db8",
+          "invoiceSentAt": "2026-11-06T11:29:06Z",
+          "totalPriceSet": {
+            "shopMoney": {
+              "amount": "2062.27",
+              "currencyCode": "UAH"
+            }
+          },
+          "marker": {
+            "value": "0d9f4e1a-6b2c-4d8e-9a1f-3c5b7e2d4f60"
+          },
+          "lineItems": {
+            "nodes": [
+              {
+                "name": "The Minimal Snowboard",
+                "quantity": 1
+              },
+              {
+                "name": "The Complete Snowboard - Ice",
+                "quantity": 2
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -33,8 +33,8 @@ What each scope is for:
 | `read_customers` | finding the customer of a conversation by email or phone | the store cannot be connected |
 | `read_orders` | showing orders | the store cannot be connected |
 | `write_orders` | cancelling, refunding, changing the shipping address | those three actions are unavailable |
-| `write_draft_orders` | sending a free replacement | the replacement is unavailable |
-| `read_products` | sending a free replacement | the replacement is unavailable |
+| `write_draft_orders` | sending a free replacement; a new order with a payment link | the replacement and the new order are unavailable |
+| `read_products` | sending a free replacement; searching the catalogue for a new order | the replacement and the new order are unavailable |
 | `read_locations` | putting refunded items back in stock | a refund still works; the items stay out of stock |
 | `read_merchant_managed_fulfillment_orders` | putting refunded items back in stock | a refund still works; the items stay out of stock |
 | `write_customers` | changing a customer's tags and note | the customer's tags and note are shown but cannot be changed |
@@ -103,8 +103,8 @@ Shopify for a fresh access token every day by itself.
 ## 6. Decide who may act on orders
 
 Every agent who can see a conversation sees the customer's orders.
-Cancelling, refunding, changing an address and sending a replacement are for
-administrators, and for the agents you allow: **Orders → Who can act on
+Cancelling, refunding, changing an address, sending a replacement and creating
+a new order are for administrators, and for the agents you allow: **Orders → Who can act on
 orders**. A new agent is not allowed until you switch it on.
 
 Every action asks for confirmation and leaves a private note in the
@@ -137,5 +137,22 @@ steps 1 and 2 lifts that.
 - **Replacements.** A replacement is a new order with a total of zero: the
   items you keep, fully discounted, shipping free, to the address of the
   original order. Stock is taken when it is created.
+- **New orders.** From a conversation an agent can build an order for its
+  customer: products from your catalogue (searched by title or SKU), one
+  discount for the whole order (a percentage or an amount), a shipping charge
+  and a note. "Order again" on one of the customer's orders starts from its
+  items. Shopify calculates the totals before anything is created. The order
+  is created in Shopify as an unpaid draft for the customer and their default
+  address, tagged `inclamo-helpdesk`; it becomes an order when the customer
+  pays through its payment link. The agent chooses how the link reaches the
+  customer: Shopify emails its own invoice (your invoice template; only when
+  the customer has an email), or the link is put into the reply the agent is
+  writing. The helpdesk never marks an order as paid and never takes a
+  payment. Until it is paid, the panel lists it under "Awaiting payment" with
+  its payment link (the five newest). Unpaid ones stay among your drafts in
+  Shopify (**Orders → Drafts**) until you delete them. Each carries a metafield
+  `inclamo.action_id`, by which the helpdesk recognises a draft it created when
+  Shopify's answer was lost. Uses `write_draft_orders` and `read_products`;
+  not offered in the limited mode.
 - **Removing the connection** deletes the credentials from the helpdesk. Notes
   and the record of past actions stay.

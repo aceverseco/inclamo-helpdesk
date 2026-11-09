@@ -44,6 +44,23 @@ module Inclamo
         end
       end
 
+      # The customer's orders awaiting payment made from the helpdesk, newest
+      # first. `just_made` are ids of drafts made moments ago, which the
+      # store's search may not show yet: those missing from the list are read
+      # by id, and the list is not kept while there are any.
+      def awaiting_payment(customer_id, just_made: [])
+        return [] unless customer_id.to_s.match?(CUSTOMER_ID)
+
+        variables = { query: Actions::NewOrder.drafts_query(customer_id), first: Actions::NewOrder::AWAITING }
+        read = -> { @store.query(:awaiting_payment, variables).dig('draftOrders', 'nodes') }
+        listed = Array(just_made.empty? ? cached("awaiting:#{customer_id}", &read) : read.call)
+        missing = just_made - listed.pluck('id')
+        return listed if missing.empty?
+
+        found = Array(@store.query(:awaiting_payment_drafts, { ids: missing })['nodes']).compact
+        (found.select { |node| Actions::NewOrder::AWAITING_STATUSES.include?(node['status']) } + listed).first(Actions::NewOrder::AWAITING)
+      end
+
       def order(order_id)
         return unless order_id.to_s.match?(ORDER_ID)
 

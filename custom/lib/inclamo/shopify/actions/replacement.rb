@@ -18,26 +18,35 @@ module Inclamo
           @shop_domain = shop_domain
         end
 
+        def self.context(connection:, **)
+          { shop_domain: connection.shop_domain }
+        end
+
+        # The units the order holds now, line by line: what was refunded or
+        # removed by an edit is no longer the customer's. A replacement asked
+        # for without items sends these.
+        def self.lines_left(order)
+          Array(order.dig('lineItems', 'nodes')).filter_map do |line|
+            left = (line['currentQuantity'] || line['quantity']).to_i
+            { 'line_item_id' => line['id'], 'quantity' => left } if left.positive?
+          end
+        end
+
+        def self.units_left(order)
+          lines_left(order).sum { |line| line['quantity'] }
+        end
+
         def call
           return :accepted if @record.progress['new_order_id']
           return finish_from_store if @record.progress['draft_id'] && completed_at_store?
 
           lines = kept_lines # validated before anything is created
           create_draft unless @record.progress['draft_id']
-          begin
+          # Whether the store acted is not known after a lost answer: the draft
+          # may be the order by now, so it stays then.
+          removing_draft_on_failure(draft_id, @record.progress['draft_name'], @shop_domain) do
             update_draft(lines) unless @record.progress['updated']
             complete_draft
-          rescue Refused => e
-            raise Refused.new(e.code, [e.message, cleanup_message].compact.join(' '))
-          rescue Error => e
-            # Whether the store acted is not known: the draft may be the order by now.
-            raise if e.outcome_unknown?
-
-            # The store did not act on this step (it said no, throttled, refused
-            # the token or was not reached): the draft goes, like after a refusal.
-            refused = e.is_a?(Error::QueryError)
-            raise Refused.new(refused ? 'store_refused' : 'store_unreachable',
-                              [refused ? e.message.first(500) : e.class.name.demodulize.underscore, cleanup_message].compact.join(' '))
           end
           :accepted
         end
@@ -57,11 +66,12 @@ module Inclamo
           @record.progress['draft_id']
         end
 
-        # The original order's lines the agent kept, with the quantity for each.
+        # The original order's lines the agent kept, with the quantity for
+        # each; when none were named, every unit the order holds now.
         def kept_lines
           originals = Array(@order.dig('lineItems', 'nodes'))
           wanted = Array(params['items']).map { |item| item.to_h.stringify_keys }
-          wanted = originals.map { |line| { 'line_item_id' => line['id'], 'quantity' => line['quantity'] } } if wanted.empty?
+          wanted = self.class.lines_left(@order) if wanted.empty?
           by_id = originals.index_by { |line| line['id'] }
           kept = wanted.map do |item|
             line = by_id[item['line_item_id']] or raise Refused, 'unknown_item'
@@ -141,22 +151,6 @@ module Inclamo
         def finish_from_store
           remember!(new_order_id: @completed['id'], new_order_number: @completed['name'])
           :accepted
-        end
-
-        # Removes the unfinished draft; when that fails, names it so that it is not left unnoticed.
-        def cleanup_message
-          answer = @store.query(:replacement_draft_delete, { id: draft_id })['draftOrderDelete']
-          return if Array(answer['userErrors']).empty?
-
-          left_behind
-        rescue Error
-          left_behind
-        end
-
-        def left_behind
-          number = draft_id.to_s.split('/').last
-          "The unfinished draft #{@record.progress['draft_name']} could not be removed: " \
-            "https://admin.shopify.com/store/#{@shop_domain.delete_suffix('.myshopify.com')}/draft_orders/#{number}"
         end
       end
     end

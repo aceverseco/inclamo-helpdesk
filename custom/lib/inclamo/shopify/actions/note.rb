@@ -10,6 +10,14 @@ module Inclamo
       class Note < Base
         RECORDED = [].freeze
 
+        def self.context(connection:, extra:)
+          { note: extra[:note].nil? ? extra['note'] : extra[:note] }
+        end
+
+        def resolve
+          nil # The original note text is deliberately not persisted. Never write on a read.
+        end
+
         def initialize(note:, **rest)
           super(**rest)
           @note = note.to_s

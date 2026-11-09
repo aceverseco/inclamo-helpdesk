@@ -17,6 +17,11 @@ module Inclamo
           @address = address.to_h.stringify_keys
         end
 
+        # The new address comes with the request; reading an open attempt has none.
+        def self.context(extra:, **)
+          { address: extra[:address] || extra['address'] }
+        end
+
         def call
           missing = REQUIRED.select { |field| @address[field].blank? }
           raise Refused.new('address_incomplete', "missing: #{missing.join(', ')}") if missing.any?

@@ -16,8 +16,13 @@ class Inclamo::ShopifyConnection < ApplicationRecord
     'order_tags' => %w[write_orders],
     'order_note' => %w[write_orders],
     'customer_tags' => %w[write_customers],
-    'customer_note' => %w[write_customers]
+    'customer_note' => %w[write_customers],
+    # A new order is a draft the customer pays through its invoice link; its
+    # items are chosen from the catalogue.
+    'new_order' => %w[write_draft_orders read_products]
   }.freeze
+  # Actions that need the store's customers: not offered when it hides them.
+  CUSTOMER_DATA_ACTIONS = %w[address new_order customer_tags customer_note].freeze
 
   belongs_to :account
 
@@ -44,7 +49,7 @@ class Inclamo::ShopifyConnection < ApplicationRecord
   # Why an action cannot be performed with this connection, or nil.
   def unavailable_reason(action)
     return 'missing_scope' if missing_scopes_for(action).any?
-    return 'customer_data_hidden' if (action.to_s == 'address' || Inclamo::OrderAction.customer_action?(action)) && customer_data_limited?
+    return 'customer_data_hidden' if CUSTOMER_DATA_ACTIONS.include?(action.to_s) && customer_data_limited?
 
     nil
   end

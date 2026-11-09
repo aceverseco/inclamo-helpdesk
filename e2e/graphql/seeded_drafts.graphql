@@ -1,0 +1,5 @@
+query seeded_drafts($query: String!) {
+  draftOrders(first: 50, query: $query) {
+    nodes { id name status tags }
+  }
+}

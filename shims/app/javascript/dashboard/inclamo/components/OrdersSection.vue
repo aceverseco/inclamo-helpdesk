@@ -6,10 +6,12 @@ import InclamoAPI from '../api';
 import OrderCard from './OrderCard.vue';
 import ConnectDialog from './ConnectDialog.vue';
 import MarksBlock from './MarksBlock.vue';
+import NewOrderDialog from './NewOrderDialog.vue';
+import { insertIntoReply } from '../reply';
 import { ORDER_ROLES_ROUTE } from '../routes';
 import { notePanel } from '../orderState';
 import { t } from '../i18n';
-import { money } from '../format';
+import { money, date } from '../format';
 
 const props = defineProps({
   conversationId: { type: [Number, String], required: true },
@@ -25,6 +27,7 @@ const lookupNumber = ref('');
 const lookupBusy = ref(false);
 const lookupResult = ref(null);
 const connectDialog = ref(null);
+const newOrderDialog = ref(null);
 const confirmingRemoval = ref(false);
 
 const state = computed(() => panel.value?.state);
@@ -34,6 +37,19 @@ const markedId = computed(() => panel.value?.marked_order?.id);
 const can = computed(() => panel.value?.can || {});
 const lookupStates = ['none', 'no_identifier', 'limited'];
 const openActionFor = order => (panel.value?.open_actions || []).find(action => action.order_id === order.id) || null;
+
+// A new order is offered to whoever may act on orders; when the connected app
+// lacks a scope for it, a line names the scope instead.
+const newOrderScope = computed(() => (connection.value.actions || []).find(entry => entry.name === 'new_order'));
+const canCreateOrder = computed(() => viewer.value.can_act_on_orders && Boolean(newOrderScope.value?.available));
+const newOrderUnavailable = computed(() => {
+  const scope = newOrderScope.value;
+  if (!viewer.value.can_act_on_orders || !scope || scope.available) return '';
+  return t(`ORDER.WHY_NOT.${scope.reason}`, { scopes: (scope.missing_scopes || []).join(', ') });
+});
+const awaitingPayment = computed(() => panel.value?.awaiting_payment || []);
+const unconfirmedOrders = computed(() => (panel.value?.open_actions || []).filter(action => action.action === 'new_order'));
+const startNewOrder = order => newOrderDialog.value.open(order || null);
 
 // Every answer that replaces the panel is numbered when it is asked for, and
 // only the latest one asked is shown: an answer that arrives late, for an
@@ -216,6 +232,46 @@ watch(
           :editable="!!can.customer_marks"
           :connection="connection"
         />
+        <button
+          v-if="canCreateOrder"
+          type="button"
+          class="self-start rounded-md border border-n-weak px-3 py-1 text-xs"
+          data-testid="inclamo-new-order-open"
+          @click="startNewOrder()"
+        >
+          {{ t('NEW_ORDER.OPEN') }}
+        </button>
+        <p v-else-if="newOrderUnavailable" class="text-xs text-n-slate-11" data-testid="inclamo-new-order-unavailable">
+          {{ t('NEW_ORDER.UNAVAILABLE', { reason: newOrderUnavailable }) }}
+        </p>
+        <p v-for="action in unconfirmedOrders" :key="action.action_id" class="p-2 rounded-md bg-n-amber-3 text-xs text-n-amber-11" data-testid="inclamo-new-order-unconfirmed">
+          {{ t('AWAITING.UNCONFIRMED') }}
+        </p>
+        <section v-if="awaitingPayment.length" class="flex flex-col gap-2" data-testid="inclamo-awaiting-payment">
+          <h4 class="text-xs uppercase text-n-slate-10">{{ t('AWAITING.TITLE') }}</h4>
+          <div
+            v-for="draft in awaitingPayment"
+            :key="draft.id"
+            class="flex flex-col gap-1 rounded-lg outline outline-1 outline-n-weak bg-n-solid-1 px-3 py-2"
+            :data-testid="`inclamo-awaiting-${draft.number}`"
+          >
+            <span class="flex items-start justify-between gap-2">
+              <span class="flex flex-col">
+                <span class="font-medium">{{ draft.number }}</span>
+                <span class="text-xs text-n-slate-11">{{ t('AWAITING.CREATED', { date: date(draft.created_at) }) }} · {{ draft.invoice_sent ? t('AWAITING.INVOICE_SENT') : t('AWAITING.NOT_SENT') }}</span>
+              </span>
+              <span class="font-medium" data-testid="inclamo-awaiting-total">{{ money(draft.total.amount, draft.total.currency) }}</span>
+            </span>
+            <ul class="text-xs">
+              <li v-for="(item, index) in draft.items" :key="index">{{ item.title }} <span class="text-n-slate-11">{{ t('ORDER.QUANTITY', { count: item.quantity }) }}</span></li>
+            </ul>
+            <span class="flex flex-wrap items-center gap-3 text-xs">
+              <a :href="draft.invoice_url" target="_blank" rel="noopener noreferrer" class="text-n-blue-text" data-testid="inclamo-awaiting-link">{{ t('AWAITING.PAYMENT_LINK') }}</a>
+              <button type="button" class="text-n-blue-text" data-testid="inclamo-awaiting-insert" @click="insertIntoReply(draft.invoice_url)">{{ t('AWAITING.INSERT') }}</button>
+              <a :href="draft.admin_url" target="_blank" rel="noopener noreferrer" class="text-n-blue-text" data-testid="inclamo-awaiting-admin-link">{{ t('ORDER.OPEN_IN_ADMIN') }}</a>
+            </span>
+          </div>
+        </section>
         <p v-if="!orders.length" class="text-n-slate-11">{{ t('ORDERS.NO_ORDERS') }}</p>
         <OrderCard
           v-for="order in orders"
@@ -227,9 +283,11 @@ watch(
           :marked="order.id === markedId"
           :open-action="openActionFor(order)"
           :can-change-marks="!!can.order_marks"
+          can-order-again
           @changed="load"
           @mark="mark"
           @unmark="unmark"
+          @order-again="startNewOrder"
         />
         <button v-if="panel.page && panel.page.has_more" type="button" class="self-center text-n-blue-text" :disabled="loadingMore" data-testid="inclamo-orders-more" @click="loadMore">
           {{ t('ORDERS.LOAD_MORE') }}
@@ -288,5 +346,13 @@ watch(
     </template>
 
     <ConnectDialog ref="connectDialog" @connected="load" />
+    <NewOrderDialog
+      v-if="state === 'matched' && canCreateOrder"
+      ref="newOrderDialog"
+      :conversation-id="conversationId"
+      :customer="panel.customer"
+      :currency="connection.shop_currency"
+      @done="load"
+    />
   </div>
 </template>

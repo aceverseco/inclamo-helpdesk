@@ -19,8 +19,10 @@ const props = defineProps({
   startOpen: { type: Boolean, default: false },
   // The panel's can.order_marks: this member may change the order's tags and note.
   canChangeMarks: { type: Boolean, default: false },
+  // Whether "order again" is offered: the order is one of the matched customer's.
+  canOrderAgain: { type: Boolean, default: false },
 });
-const emit = defineEmits(['changed', 'mark', 'unmark']);
+const emit = defineEmits(['changed', 'mark', 'unmark', 'order-again']);
 
 const ACTIONS = ['cancel', 'refund', 'address', 'replacement'];
 const expanded = ref(props.startOpen);
@@ -123,6 +125,17 @@ const start = action => dialogs[action].value.open();
           @click="start(action)"
         >
           {{ t(`ORDER.ACTIONS.${action}`) }}
+        </button>
+        <button
+          v-if="canOrderAgain"
+          type="button"
+          class="rounded-md border border-n-weak px-2 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="!!whyNot('new_order')"
+          :title="whyNot('new_order')"
+          data-testid="inclamo-action-order-again"
+          @click="emit('order-again', order)"
+        >
+          {{ t('ORDER.ORDER_AGAIN') }}
         </button>
       </div>
       <div class="flex flex-wrap items-center justify-between gap-2 text-xs">

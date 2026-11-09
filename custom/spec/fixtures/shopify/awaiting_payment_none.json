@@ -1,0 +1,11 @@
+{
+  "variables": {
+    "query": "customer_id:31352101175454 tag:inclamo-helpdesk (status:open OR status:invoice_sent)",
+    "first": 5
+  },
+  "data": {
+    "draftOrders": {
+      "nodes": []
+    }
+  }
+}

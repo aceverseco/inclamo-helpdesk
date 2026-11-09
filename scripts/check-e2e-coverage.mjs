@@ -32,6 +32,8 @@ const FILES = {
   'reply-order-variables': ['reply-order-variables.spec.mjs'],
   'store-data-rules': ['store-data-rules.spec.mjs'],
   'order-tags-and-notes': ['order-tags-and-notes.spec.mjs'],
+  'order-creation': ['order-creation.spec.mjs'],
+  'macro-order-actions': ['macro-order-actions.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each
