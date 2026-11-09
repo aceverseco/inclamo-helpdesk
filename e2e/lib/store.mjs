@@ -60,11 +60,11 @@ export async function openStore(run) {
     domain: shopify.domain,
     shopify,
 
-    async customer(first, { phone = true } = {}) {
+    async customer(first, { phone = true, tags: more = [] } = {}) {
       counter += 1;
       const number = String(Math.floor(Math.random() * 9000) + 1000);
       const data = await shopify('seed_customer', {
-        input: { firstName: first, lastName: 'Example', email: `${first}.example.${run}.${counter}@example.com`.toLowerCase(), phone: phone ? `+1500555${number}` : undefined, tags },
+        input: { firstName: first, lastName: 'Example', email: `${first}.example.${run}.${counter}@example.com`.toLowerCase(), phone: phone ? `+1500555${number}` : undefined, tags: [...tags, ...more] },
       });
       const customer = data.customerCreate.customer;
       return { ...customer, email: `${first}.example.${run}.${counter}@example.com`.toLowerCase(), phone: phone ? `+1500555${number}` : null };
@@ -113,6 +113,26 @@ export async function openStore(run) {
 
     async cancel(order) {
       await shopify('seed_cancel', { orderId: order.id });
+    },
+
+    // Waits until the store's customer search, which lags behind what was just
+    // created, shows the customer the way `accept` wants: { orders, spent,
+    // tags, latest: { name, fulfillment } }.
+    async known(customer, accept, { timeout = 240_000 } = {}) {
+      const deadline = Date.now() + timeout;
+      for (;;) {
+        const node = (await shopify('seeded_customer_facts', { query: `email:"${customer.email}"` })).customers.nodes[0];
+        const latest = node?.orders.nodes[0];
+        const facts = node && {
+          orders: Number(node.numberOfOrders),
+          spent: Number(node.amountSpent.amount),
+          tags: node.tags,
+          latest: latest ? { name: latest.name, fulfillment: latest.displayFulfillmentStatus } : null,
+        };
+        if (facts && accept(facts)) return facts;
+        if (Date.now() > deadline) throw new Error(`the store still does not show ${customer.email} as expected: ${JSON.stringify(facts)}`);
+        await new Promise(resolve => setTimeout(resolve, 4_000));
+      }
     },
 
     // The order as the store holds it now.

@@ -41,6 +41,14 @@ if overlay_routes.exist?
   end
 end
 
+# Store facts are written, and the order a customer names is tied, before
+# Chatwoot evaluates the automation rules of a new conversation. The listener
+# has no extension hook of its own, so the overlay prepends to it here, again
+# after every reload of the code.
+Rails.application.config.to_prepare do
+  AutomationRuleListener.prepend(Inclamo::StoreFactsBeforeRules)
+end
+
 # Credentials of a store connection never reach the request log.
 Rails.application.config.filter_parameters |= [:client_secret, :access_token]
 

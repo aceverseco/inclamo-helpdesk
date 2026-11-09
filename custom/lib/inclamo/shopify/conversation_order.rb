@@ -58,24 +58,26 @@ module Inclamo
 
       # Marks the order (as the Admin API returned it) and writes its attributes.
       # Also used to refresh them: nothing is written when nothing changed.
-      def mark!(node)
-        ours = self.class.attributes_for(node, shop_domain: @record.shop_domain)
-        write { |current| current.except(ID_KEY, *DEFINITIONS.keys).merge(ours) }
+      # See ConversationAttributes for what a quiet write is.
+      def mark!(node, quiet: false)
+        attributes = self.class.attributes_for(node, shop_domain: @record.shop_domain)
+        ConversationAttributes.replace!(@conversation, [ID_KEY, *DEFINITIONS.keys], attributes, quiet: quiet)
       end
 
       def clear!
-        write { |current| current.except(ID_KEY, *DEFINITIONS.keys) }
+        ConversationAttributes.replace!(@conversation, [ID_KEY, *DEFINITIONS.keys], {})
       end
 
       # Marks the order named in `text` when it belongs to the customer matched
-      # for this conversation's contact. Returns the order, or nil.
-      def auto_mark!(text)
+      # for this conversation's contact. Returns the order, or nil. `reader`
+      # is an OrderReader or anything that reads like one.
+      def auto_mark!(text, reader: nil, quiet: false)
         return if @record.nil? || !@record.working? || @record.customer_data_limited? || marked_id.present?
 
         candidates = text.to_s.scan(NUMBER_IN_TEXT).flatten.uniq.first(MAX_CANDIDATES)
         return if candidates.empty?
 
-        reader = OrderReader.new(@record)
+        reader ||= OrderReader.new(@record)
         match = CustomerMatcher.new(reader, @conversation.contact, limited: false).call
         return unless match.state == 'matched'
 
@@ -83,30 +85,12 @@ module Inclamo
           node = reader.order_by_number(number)
           next unless node && node.dig('customer', 'id') == match.customer_id
 
-          mark!(node)
+          mark!(node, quiet: quiet)
           return node
         end
         nil
       end
 
-      private
-
-      # Changes our attributes on the conversation as it is in the database
-      # now, not as this request loaded it: the store may take seconds to
-      # answer first, and whatever else was set meanwhile (by an agent, a rule
-      # or another service) is kept.
-      def write
-        Conversation.transaction do
-          fresh = Conversation.lock.find(@conversation.id)
-          current = fresh.custom_attributes.to_h
-          updated = yield(current)
-          fresh.update!(custom_attributes: updated) unless updated == current
-          # This request's copy of the conversation shows what is stored now.
-          @conversation.custom_attributes = updated
-          @conversation.clear_attribute_changes([:custom_attributes])
-          updated
-        end
-      end
     end
   end
 end

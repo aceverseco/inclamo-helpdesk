@@ -90,6 +90,8 @@ module Inclamo
         # A remembered customer may have been deleted or merged at the store.
         return { state: 'none', candidates: [], stale_choice: true } unless customer
 
+        # The facts automation rules use follow what the store says now.
+        CustomerFacts.new(@conversation).write!(CustomerFacts.of(customer))
         orders = customer['orders'] || {}
         {
           state: 'matched', candidates: [],

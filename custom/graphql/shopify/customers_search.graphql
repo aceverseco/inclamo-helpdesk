@@ -9,6 +9,7 @@ query customers_search($query: String!) {
       amountSpent { amount currencyCode }
       defaultEmailAddress { emailAddress }
       defaultPhoneNumber { phoneNumber }
+      ...CustomerFactFields
     }
   }
 }

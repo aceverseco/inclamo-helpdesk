@@ -179,6 +179,20 @@
       "ALLOW": "Can act on orders",
       "LOADING": "Loading the team…",
       "FAILED": "The list could not be loaded. Reload the page to try again."
+    },
+    "RULE_PRESETS": {
+      "MENU": "Preset rules",
+      "TITLE": "Ready-made automation rules",
+      "INTRO": "Rules that use what your store knows about the customer. Switching one on creates an ordinary rule in the automation list, where you can change it like any other. Switching it off deactivates that rule and keeps your changes.",
+      "LOADING": "Loading the rules…",
+      "FAILED": "The rules could not be loaded. Reload the page to try again.",
+      "NOT_CONNECTED": "No store is connected to this account yet. The rules can be switched on, but they act only once a Shopify store is connected.",
+      "AMOUNT": "Spent more than",
+      "SWITCH": "Switch on: {name}",
+      "RULE": "In the automation list it is the rule “{name}”.",
+      "OPEN_LIST": "Open the automation list",
+      "SWITCH_FAILED": "The rule could not be switched. Try again.",
+      "MARKER_NOTE": "A rule belongs to its switch by the last line of its description. If you remove that line, the switch shows as off and switching it on creates a new rule."
     }
   },
   "REPLY_VARIABLES": {
