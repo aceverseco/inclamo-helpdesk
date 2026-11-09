@@ -247,11 +247,12 @@
     "ORDER_ROLES": {
       "MENU": "Order actions",
       "TITLE": "Who can act on orders",
-      "INTRO": "Administrators can always cancel, refund, change addresses and send replacements. Agents can only after you switch it on for them.",
+      "INTRO": "Administrators can always act on orders. Give agents access to cancel, refund, edit items or addresses, create orders and replacements, and change order or customer tags and notes. Discount permissions are managed separately.",
       "ADMIN": "Administrator",
       "ALLOW": "Can act on orders",
       "LOADING": "Loading the team…",
-      "FAILED": "The list could not be loaded. Reload the page to try again."
+      "FAILED": "The list could not be loaded. Reload the page to try again.",
+      "SAVE_FAILED": "The permission change could not be confirmed. Reload the page to check the current permissions."
     },
     "RULE_PRESETS": {
       "MENU": "Preset rules",

@@ -6,13 +6,13 @@ vi.mock('../components/AiAgentPage.vue', () => ({ default: { __name: 'AiAgentPag
 vi.mock('../components/OrderRolesPage.vue', () => ({ default: { __name: 'OrderRolesPage' } }));
 
 describe('settings pages of the overlay', () => {
-  it('give the AI agent page to administrators only', () => {
+  it('give the AI agent page to administrators only', async () => {
     const page = settingsPages.find(entry => entry.path === 'ai-agent');
 
     expect(page.name).toBe('inclamo_ai_agent');
     expect(page.permissions).toEqual(['administrator']);
     expect(page.label()).toBe('AI agent');
-    expect(page.component.__name).toBe('AiAgentPage');
+    expect((await page.component()).default.__name).toBe('AiAgentPage');
   });
 
   it('keep the order actions page for administrators only', () => {

@@ -37,9 +37,10 @@ const find = (wrapper, id) => wrapper.find(`[data-testid="${id}"]`);
 describe('SlaPoliciesPage', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('is a settings page for administrators only', () => {
+  it('is a settings page for administrators only', async () => {
     const page = settingsPages.find(entry => entry.name === SLA_POLICIES_ROUTE);
-    expect(page).toMatchObject({ path: 'sla-policies', permissions: ['administrator'], component: SlaPoliciesPage });
+    expect(page).toMatchObject({ path: 'sla-policies', permissions: ['administrator'] });
+    expect((await page.component()).default).toBe(SlaPoliciesPage);
     expect(page.label()).toBe('SLA');
   });
 

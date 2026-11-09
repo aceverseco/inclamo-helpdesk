@@ -27,6 +27,8 @@ See proposal.md. Shopify edits an order through a session: `orderEditBegin` retu
 
 ## Risks / Trade-offs
 
+- A lost response is resolved by observing the store. Opening a conversation must never commit an edit again or send an invoice; an explicit retry goes through the action permission gate. If the edit is confirmed but invoice delivery cannot be confirmed, the UI reports that uncertainty.
+
 - [The order changed in the store between summary and save] → the commit runs on a fresh calculation; when its totals differ from the summary shown, nothing is committed and the agent sees the new summary.
 - [The store notifies the customer in the merchant's template] → the checkbox says so.
 - [An edit plus a refund are two steps] → the panel leads into the second with the amount; the record of the edit names the amount due.

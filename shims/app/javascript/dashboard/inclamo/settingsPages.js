@@ -1,10 +1,6 @@
 // The pages the overlay adds to the account settings. Chatwoot gives every
-// entry a route and a line in the sidebar's Settings group.
-import OrderRolesPage from './components/OrderRolesPage.vue';
-import AiAgentPage from './components/AiAgentPage.vue';
-import SlaPoliciesPage from './components/SlaPoliciesPage.vue';
-import RulePresetsPage from './components/RulePresetsPage.vue';
-import DiscountSettingsPage from './components/DiscountSettingsPage.vue';
+// entry a route and a line in the sidebar's Settings group. Load the page
+// only when its route opens: the settings frame itself imports the router.
 import { t } from './i18n';
 import { ORDER_ROLES_ROUTE, RULE_PRESETS_ROUTE, DISCOUNT_SETTINGS_ROUTE, SLA_POLICIES_ROUTE, AI_AGENT_ROUTE } from './routes';
 
@@ -14,7 +10,7 @@ export default [
     path: 'order-actions',
     label: () => t('SETTINGS.ORDER_ROLES.MENU'),
     icon: 'i-lucide-shopping-bag',
-    component: OrderRolesPage,
+    component: () => import('./components/OrderRolesPage.vue'),
     permissions: ['administrator'],
   },
   {
@@ -22,7 +18,7 @@ export default [
     path: 'preset-rules',
     label: () => t('SETTINGS.RULE_PRESETS.MENU'),
     icon: 'i-lucide-list-checks',
-    component: RulePresetsPage,
+    component: () => import('./components/RulePresetsPage.vue'),
     permissions: ['administrator'],
   },
   {
@@ -30,7 +26,7 @@ export default [
     path: 'discount-codes',
     label: () => t('SETTINGS.DISCOUNTS.MENU'),
     icon: 'i-lucide-ticket-percent',
-    component: DiscountSettingsPage,
+    component: () => import('./components/DiscountSettingsPage.vue'),
     permissions: ['administrator'],
   },
   {
@@ -39,7 +35,7 @@ export default [
     path: 'sla-policies',
     label: () => t('SETTINGS.SLA.MENU'),
     icon: 'i-lucide-timer',
-    component: SlaPoliciesPage,
+    component: () => import('./components/SlaPoliciesPage.vue'),
     permissions: ['administrator'],
   },
   {
@@ -47,7 +43,7 @@ export default [
     path: 'ai-agent',
     label: () => t('SETTINGS.AI_AGENT.MENU'),
     icon: 'i-lucide-bot',
-    component: AiAgentPage,
+    component: () => import('./components/AiAgentPage.vue'),
     permissions: ['administrator'],
   },
 ];

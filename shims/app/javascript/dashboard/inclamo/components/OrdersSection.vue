@@ -158,7 +158,7 @@ watch(
 <template>
   <div class="px-3 py-2 text-sm text-n-slate-12" data-testid="inclamo-orders-section" :data-state="loading ? 'loading' : failed ? 'failed' : state">
     <div v-if="loading" class="flex items-center justify-center gap-2 p-4" data-testid="inclamo-orders-loading">
-      <Spinner size="24" class="text-n-brand" />
+      <Spinner :size="24" class="text-n-brand" />
       <span class="sr-only">{{ t('ORDERS.LOADING') }}</span>
     </div>
 

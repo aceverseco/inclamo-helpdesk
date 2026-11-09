@@ -243,4 +243,32 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'tags and notes' do
       expect(a_request(:post, shopify_graphql_url).with { |r| r.body.include?('mutation order_note_update') }).to have_been_made.once
     end
   end
+
+  describe 'reading an attempt whose answer was lost' do
+    %w[order_tags customer_tags].each do |action|
+      it "does not repeat #{action} when a conversation is read" do
+        stub_shopify(:order_details, data: { order: open_order.merge('tags' => []) })
+        stub_shopify(:customer_marks, data: { customer: customer.merge('tags' => []) })
+        change = stub_request(:post, shopify_graphql_url).with { |request| request.body.include?('mutation tags_add') }.to_timeout
+        subject = action == 'order_tags' ? { order_id: order_id } : { customer_id: customer_id }
+        attempt = runner.perform(action: action, action_id: "lost-#{action.tr('_', '-')}-0001", **subject, params: { 'operation' => 'add', 'tag' => 'vip' })
+        expect(attempt.outcome).to eq('unknown')
+
+        runner.settle_open!
+
+        expect(attempt.reload.outcome).to eq('unknown')
+        expect(change).to have_been_requested.once
+        expect(private_notes).to be_empty
+
+        stub_shopify(:order_details, data: { order: open_order.merge('tags' => ['VIP']) })
+        stub_shopify(:customer_marks, data: { customer: customer.merge('tags' => ['VIP']) })
+        Inclamo::Shopify::OrderReader.forget!(account.id)
+        runner.settle_open!
+
+        expect(attempt.reload.outcome).to eq('accepted')
+        expect(change).to have_been_requested.once
+        expect(private_notes.count).to eq(1)
+      end
+    end
+  end
 end

@@ -30,6 +30,14 @@ module Inclamo
           :accepted
         end
 
+        # A lost answer must never cause a tag to be added or removed just
+        # because someone opened the conversation. The current state can
+        # confirm the requested result; otherwise leave the attempt unknown.
+        def resolve
+          present = Array(@order['tags']).any? { |tag| tag.casecmp?(params['tag'].to_s) }
+          :accepted if (params['operation'] == 'add' && present) || (params['operation'] == 'remove' && !present)
+        end
+
         private
 
         def subject_id

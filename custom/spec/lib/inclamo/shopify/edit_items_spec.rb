@@ -331,6 +331,19 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'editing items' do
         expect(record.progress).to include('invoice' => 'unknown')
         expect(invoice_requests).to have_been_made.once
       end
+
+      it 'does not send an invoice from a panel read after a worker stopped following the commit' do
+        add_board('invoice' => true)
+        record = Inclamo::OrderAction.sole
+        record.update!(outcome: 'unknown', completed_at: nil, progress: record.progress.except('invoice'))
+
+        runner.settle_open!
+
+        expect(record.reload).to have_attributes(outcome: 'accepted')
+        expect(record.progress).to include('invoice' => 'unknown')
+        expect(invoice_requests).to have_been_made.once
+        expect(commit_requests).to have_been_made.once
+      end
     end
 
     describe 'when the answer to the save was lost' do
@@ -355,11 +368,16 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'editing items' do
         expect(private_notes.count).to eq(1)
       end
 
-      it 'saves again when the order is as it was before' do
+      it 'does not save again on a panel read when the order is as it was before' do
         expect(save(agreed(reduce_mug)).outcome).to eq('unknown')
 
         stub_shopify(:order_edit_commit, data: commit_answer)
         runner.settle_open!
+
+        expect(Inclamo::OrderAction.sole.outcome).to eq('unknown')
+        expect(commit_requests).to have_been_made.once
+
+        save(agreed(reduce_mug))
 
         expect(Inclamo::OrderAction.sole.outcome).to eq('accepted')
         expect(commit_requests).to have_been_made.twice

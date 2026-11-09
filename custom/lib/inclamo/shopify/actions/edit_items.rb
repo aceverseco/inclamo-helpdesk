@@ -37,7 +37,23 @@ module Inclamo
           commit!(staged_session)
         end
 
+        # Reading a conversation may confirm a completed edit, but cannot
+        # commit another edit or send an invoice. Retrying is an explicit POST.
+        def resolve
+          if @record.progress['committed']
+            invoice_unconfirmed!
+            return :accepted
+          end
+          after_lost_answer(read_only: true) if @record.progress['committing']
+        end
+
         private
+
+        def invoice_unconfirmed!
+          return unless invoice_wanted?(@record.progress['difference'])
+
+          remember!(invoice: 'unknown') if [nil, 'sending'].include?(@record.progress['invoice'])
+        end
 
         def commit!(calculated)
           facts = summary(calculated)
@@ -103,7 +119,7 @@ module Inclamo
         # The commit was sent and its answer lost. A fresh session, never
         # committed, shows the order as it is now: the edit is there, the order
         # is as it was before (then it is made again), or it cannot be told.
-        def after_lost_answer
+        def after_lost_answer(read_only: false)
           answer = @store.query(:order_edit_begin, { id: @record.order_id, withVariants: false })['orderEditBegin']
           user_errors!(answer['userErrors'])
           calculated = answer['calculatedOrder'] or raise Refused, 'store_refused'
@@ -112,9 +128,9 @@ module Inclamo
           targets = @record.progress['targets'] || {}
           if total == BigDecimal(@record.progress['total_after'].to_s) && targets.all? { |id, quantity| quantities[id] == quantity }
             remember!(committed: true)
-            invoice!
+            read_only ? invoice_unconfirmed! : invoice!
             :accepted
-          elsif total == BigDecimal(@record.progress['total_before'].to_s) && targets.none? { |id, quantity| quantities[id] == quantity }
+          elsif !read_only && total == BigDecimal(@record.progress['total_before'].to_s) && targets.none? { |id, quantity| quantities[id] == quantity }
             remember!(committing: false)
             commit!(staged_session)
           else

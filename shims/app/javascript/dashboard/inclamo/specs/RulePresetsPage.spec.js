@@ -162,10 +162,10 @@ describe('RulePresetsPage', () => {
     expect(wrapper.find('[data-testid="inclamo-presets-page"]').exists()).toBe(false);
   });
 
-  it('is a page of the account settings for administrators only', () => {
+  it('is a page of the account settings for administrators only', async () => {
     const page = settingsPages.find(entry => entry.path === 'preset-rules');
 
-    expect(page.component).toBe(RulePresetsPage);
+    expect((await page.component()).default).toBe(RulePresetsPage);
     expect(page.permissions).toEqual(['administrator']);
     expect(page.label()).toBe('Preset rules');
   });

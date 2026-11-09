@@ -80,9 +80,9 @@ module Inclamo
       end
       private_class_method :tags
 
-      def initialize(conversation)
+      def initialize(conversation, connection: nil)
         @conversation = conversation
-        @record = ShopifyConnection.find_by(account_id: conversation.account_id)
+        @record = connection || ShopifyConnection.find_by(account_id: conversation.account_id)
       end
 
       # Reads the facts from the store and writes them; returns what was read,

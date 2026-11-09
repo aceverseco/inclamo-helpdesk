@@ -299,6 +299,7 @@ RSpec.describe 'Store facts when the order panel reads the customer', type: :req
   end
 
   def read_panel
+    stub_shopify_fixture(:awaiting_payment, 'awaiting_payment_none')
     get "/api/v1/accounts/#{account.id}/inclamo/shopify/conversations/#{conversation.display_id}/panel", headers: agent.create_new_auth_token
     expect(response.parsed_body['state']).to eq('matched')
   end

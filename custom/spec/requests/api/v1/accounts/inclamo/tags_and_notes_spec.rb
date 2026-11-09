@@ -25,6 +25,7 @@ RSpec.describe 'Inclamo tags and notes API', type: :request do
   end
 
   def panel(user = admin)
+    stub_shopify_fixture(:awaiting_payment, 'awaiting_payment_none')
     stub_shopify_fixture(:customers_search, 'customers_search_one')
     stub_shopify_fixture(:customer_orders, 'customer_orders_marks')
     get "#{base}/panel", headers: user.create_new_auth_token

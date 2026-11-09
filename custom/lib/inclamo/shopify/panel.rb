@@ -115,7 +115,7 @@ module Inclamo
         return { state: 'none', candidates: [], stale_choice: true } unless customer
 
         # The facts automation rules use follow what the store says now.
-        CustomerFacts.new(@conversation).write!(CustomerFacts.of(customer))
+        CustomerFacts.new(@conversation, connection: @record).write!(CustomerFacts.of(customer))
         orders = customer['orders'] || {}
         matched = {
           state: 'matched', candidates: [],
