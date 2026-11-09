@@ -104,6 +104,8 @@ jobs:
         run: node scripts/check-ui-strings.mjs
       - name: Every scenario of the specs has an end-to-end test
         run: node scripts/check-e2e-coverage.mjs
+      - name: The stand-in AI agent refuses what the AI service refuses
+        run: node --test e2e/stand-in-agent/server.test.mjs
 
   frontend:
     name: Dashboard component tests on the pinned Chatwoot

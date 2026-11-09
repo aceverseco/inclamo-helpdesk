@@ -26,6 +26,18 @@ class InclamoAPI extends ApiClient {
     return axios.delete(`${this.url}/shopify/connection`);
   }
 
+  getAiConnection() {
+    return axios.get(`${this.url}/ai/connection`);
+  }
+
+  connectAi(payload) {
+    return axios.post(`${this.url}/ai/connection`, payload);
+  }
+
+  disconnectAi() {
+    return axios.delete(`${this.url}/ai/connection`);
+  }
+
   getRoles() {
     return axios.get(`${this.url}/order_roles`);
   }

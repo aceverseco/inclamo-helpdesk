@@ -16,6 +16,14 @@ export const date = value => {
   return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
+export const dateTime = value => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? ''
+    : parsed.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
 // A new id for one confirmation; a repeated request carries the same one.
 export const newActionId = () => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();

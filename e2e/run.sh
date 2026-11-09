@@ -13,6 +13,9 @@
 # they need, and remove the customers and orders afterwards.
 # Optional: SHOPIFY_LIMITED_DOMAIN, _CLIENT_ID, _CLIENT_SECRET, an app with no
 # distribution method chosen; with it the limited-mode tests meet a real refusal.
+# The AI agent's tests talk to a stand-in for the AI service that runs in the
+# stack; E2E_AI_CODE and E2E_AI_REFUSED_CODE make them use codes the AI service
+# issued instead (docs/ai-connector.md §8).
 # E2E_KEEP=1 leaves the stack running afterwards; E2E_OUTPUT is where reports go.
 set -eu
 
@@ -63,7 +66,7 @@ finish() {
 trap finish EXIT INT TERM
 
 echo "e2e: starting $HELPDESK_IMAGE as project $project"
-compose up -d postgres redis shopify-proxy >/dev/null
+compose up -d postgres redis shopify-proxy stand-in-agent >/dev/null
 compose run --rm -T rails bundle exec rails db:chatwoot_prepare >/dev/null
 # The users' passwords reach the container from the stack's env file.
 account=$(compose run --rm -T rails bundle exec rails runner - < "$root/e2e/setup.rb" | sed -n 's/^E2E_ACCOUNT_ID=//p' | tail -1)
@@ -86,7 +89,8 @@ docker run --rm --ipc=host --network "${project}_default" \
   -e SHOPIFY_BENCH_DOMAIN -e SHOPIFY_BENCH_CLIENT_ID -e SHOPIFY_BENCH_CLIENT_SECRET \
   -e SHOPIFY_SEEDER_DOMAIN -e SHOPIFY_SEEDER_CLIENT_ID -e SHOPIFY_SEEDER_CLIENT_SECRET \
   -e SHOPIFY_LIMITED_DOMAIN -e SHOPIFY_LIMITED_CLIENT_ID -e SHOPIFY_LIMITED_CLIENT_SECRET \
-  -e HELPDESK_URL=http://rails:3000 -e E2E_PROXY_URL=http://shopify-proxy:8080 -e E2E_ACCOUNT_ID="$account" \
+  -e HELPDESK_URL=http://rails:3000 -e E2E_PROXY_URL=http://shopify-proxy:8080 -e E2E_AGENT_URL=http://stand-in-agent:8090 -e E2E_ACCOUNT_ID="$account" \
+  -e E2E_AI_CODE -e E2E_AI_REFUSED_CODE \
   -e E2E_OUTPUT=/out -e E2E_RUN="${E2E_RUN:-r$(date +%m%d%H%M%S)}" -e E2E_OTHER_SHOP_DOMAIN -e CI="${CI:-}" \
   -v "$root":/repo:ro -v "$output":/out -w /work \
   "mcr.microsoft.com/playwright:v$playwright-noble" sh -c '

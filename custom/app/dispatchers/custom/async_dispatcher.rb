@@ -4,6 +4,6 @@
 # extension hook Chatwoot calls at the end of AsyncDispatcher.
 module Custom::AsyncDispatcher
   def listeners
-    super + [Inclamo::OrderMarkListener.instance, Inclamo::SlaListener.instance]
+    super + [Inclamo::OrderMarkListener.instance, Inclamo::SlaListener.instance, Inclamo::AiAgentListener.instance]
   end
 end

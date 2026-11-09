@@ -23,6 +23,13 @@ namespace :api, defaults: { format: 'json' } do
             end
           end
           get 'conversations/:conversation_id/sla', to: '/api/v1/accounts/inclamo/conversation_slas#show'
+          namespace :ai do
+            resource :connection, only: [:show, :create, :destroy], controller: '/api/v1/accounts/inclamo/ai_connections'
+            scope 'conversations/:conversation_id', controller: '/api/v1/accounts/inclamo/ai_conversations' do
+              get 'messages', action: :messages
+              post 'labels', action: :labels
+            end
+          end
           namespace :shopify do
             resource :connection, only: [:show, :create, :destroy], controller: '/api/v1/accounts/inclamo/shopify_connections' do
               post :recheck

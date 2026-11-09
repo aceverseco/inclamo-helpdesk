@@ -59,8 +59,16 @@ Rails.application.config.to_prepare do
   Api::V1::Accounts::MacrosController.prepend(Inclamo::Shopify::MacroSteps::ExecutionGuard)
 end
 
-# Credentials of a store connection never reach the request log.
-Rails.application.config.filter_parameters |= [:client_secret, :access_token]
+# Credentials of a store connection and the AI agent's connection code never
+# reach the request log.
+Rails.application.config.filter_parameters |= [:client_secret, :access_token, :connection_code]
+
+# Deliveries to the AI service are recorded (Inclamo::Ai::DeliveryRecorder).
+# Chatwoot's webhook sender has no extension hook, so it is prepended here,
+# again after every code reload.
+Rails.application.config.to_prepare do
+  Webhooks::Trigger.prepend(Inclamo::Ai::DeliveryRecorder) unless Webhooks::Trigger.ancestors.include?(Inclamo::Ai::DeliveryRecorder)
+end
 
 # Locales of the overlay's backend messages.
 I18n.load_path += Dir[overlay_root.join('config/locales/**/*.yml').to_s]
