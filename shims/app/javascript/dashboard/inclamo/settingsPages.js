@@ -2,9 +2,17 @@
 // entry a route and a line in the sidebar's Settings group. Load the page
 // only when its route opens: the settings frame itself imports the router.
 import { t } from './i18n';
-import { ORDER_ROLES_ROUTE, RULE_PRESETS_ROUTE, DISCOUNT_SETTINGS_ROUTE, SLA_POLICIES_ROUTE, AI_AGENT_ROUTE } from './routes';
+import { ORDER_ROLES_ROUTE, RULE_PRESETS_ROUTE, DISCOUNT_SETTINGS_ROUTE, SLA_POLICIES_ROUTE, AI_AGENT_ROUTE, SETUP_ROUTE } from './routes';
 
 export default [
+  {
+    name: SETUP_ROUTE,
+    path: 'setup',
+    label: () => t('SETUP.TITLE'),
+    icon: 'i-lucide-list-checks',
+    component: () => import('./components/SetupPage.vue'),
+    permissions: ['administrator'],
+  },
   {
     name: ORDER_ROLES_ROUTE,
     path: 'order-actions',

@@ -68,14 +68,14 @@ test('Setup and administrator settings are reviewable in the combined image', as
     await expect(page.getByTestId(view)).toBeVisible();
     await page.screenshot({ path: info.outputPath(`settings-${route}.png`), fullPage: true });
     if (route === 'order-actions') {
-      await page.route('**/inclamo/order_roles', route => route.request().method() === 'POST'
+      await page.route('**/inclamo/order_roles/**', route => ['POST', 'PATCH'].includes(route.request().method())
         ? route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }) : route.continue());
-      const checkbox = page.getByTestId(`inclamo-role-${agent.userId}`).locator('input');
+      const checkbox = page.getByTestId(`inclamo-permission-${agent.userId}-address`);
       await checkbox.click();
       await expect(page.getByTestId('inclamo-role-error')).toContainText('could not be confirmed');
       await expect(checkbox).not.toBeChecked();
       await page.screenshot({ path: info.outputPath('settings-role-error.png'), fullPage: true });
-      await page.unroute('**/inclamo/order_roles');
+      await page.unroute('**/inclamo/order_roles/**');
     }
     if (route === 'discount-codes') {
       await page.route('**/inclamo/discount_grants', route => route.request().method() === 'POST'

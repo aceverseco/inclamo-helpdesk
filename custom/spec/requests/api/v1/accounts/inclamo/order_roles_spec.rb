@@ -71,6 +71,29 @@ RSpec.describe 'Inclamo order roles API', type: :request do
 
     get "/api/v1/accounts/#{account.id}/inclamo/shopify/connection", headers: agent.create_new_auth_token, as: :json
 
-    expect(response.parsed_body['viewer']).to eq('administrator' => false, 'can_act_on_orders' => true)
+    expect(response.parsed_body['viewer']).to include('administrator' => false, 'can_act_on_orders' => true)
+    expect(response.parsed_body.dig('viewer', 'permissions', 'refund')).to be(true)
+  end
+
+  it 'updates one permission while rejecting unknown actions and non-boolean values' do
+    headers = admin.create_new_auth_token
+    patch "#{path}/#{agent.id}", params: { action_name: 'address', enabled: true }, headers: headers, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(members[agent.id]['permissions'].select { |_, allowed| allowed }.keys).to eq(['address'])
+
+    patch "#{path}/#{agent.id}", params: { action_name: 'refund', enabled: 'false' }, headers: headers, as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    patch "#{path}/#{agent.id}", params: { action_name: 'delete_store', enabled: true }, headers: headers, as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(Inclamo::OrderRole.last.permissions).to eq(['address'])
+  end
+
+  it 'forbids granular permission changes by staff or for another account' do
+    patch "#{path}/#{agent.id}", params: { action_name: 'refund', enabled: true }, headers: agent.create_new_auth_token, as: :json
+    expect(response).to have_http_status(:forbidden)
+    outsider = create(:user, account: create(:account), role: :agent)
+    patch "#{path}/#{outsider.id}", params: { action_name: 'refund', enabled: true }, headers: admin.create_new_auth_token, as: :json
+    expect(response).to have_http_status(:not_found)
+    expect(Inclamo::OrderRole.count).to eq(0)
   end
 end

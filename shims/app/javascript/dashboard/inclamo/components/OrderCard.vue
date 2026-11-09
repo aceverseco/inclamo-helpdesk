@@ -7,6 +7,7 @@ import ReplacementDialog from './ReplacementDialog.vue';
 import MarksBlock from './MarksBlock.vue';
 import EditItemsDialog from './EditItemsDialog.vue';
 import { t } from '../i18n';
+import { canPerform } from '../permissions';
 import { money, date } from '../format';
 
 const props = defineProps({
@@ -38,7 +39,7 @@ const currentItems = computed(() => (props.order.items || []).filter(item => qua
 
 // Why an action is unavailable, as a sentence, or '' when it can be performed.
 const whyNot = action => {
-  if (!props.viewer.can_act_on_orders) return t('ORDER.WHY_NOT.no_role');
+  if (!canPerform(props.viewer, action)) return t('ORDER.WHY_NOT.no_role');
   const scope = (props.connection.actions || []).find(entry => entry.name === action);
   if (scope && !scope.available) {
     return t(`ORDER.WHY_NOT.${scope.reason}`, { scopes: (scope.missing_scopes || []).join(', ') });
@@ -60,7 +61,7 @@ const canEdit = computed(
   () => !whyNot('edit_items') && Boolean(editScope.value?.available) && props.order.actions?.edit_items?.allowed === true && !cancelling.value
 );
 const editScopeMissing = computed(() => {
-  if (!props.viewer.can_act_on_orders || props.order.actions?.edit_items?.allowed === false) return '';
+  if (!canPerform(props.viewer, 'edit_items') || props.order.actions?.edit_items?.allowed === false) return '';
   const scope = editScope.value;
   if (!scope || scope.available) return '';
   return t(`ORDER.WHY_NOT.${scope.reason}`, { scopes: (scope.missing_scopes || []).join(', ') });
@@ -78,7 +79,7 @@ const afterEdit = record => {
   const result = record.result || {};
   edited.value = record.outcome === 'accepted' ? { ...result } : null;
   emit('changed', record);
-  if (record.outcome === 'accepted' && result.difference === 'due_back') refundDue();
+  if (record.outcome === 'accepted' && result.difference === 'due_back' && canPerform(props.viewer, 'refund')) refundDue();
 };
 </script>
 
@@ -141,6 +142,8 @@ const afterEdit = record => {
         :tags="order.tags || []"
         :note="order.note || null"
         :editable="canChangeMarks"
+        :tags-editable="canChangeMarks && canPerform(viewer, 'order_tags')"
+        :note-editable="canChangeMarks && canPerform(viewer, 'order_note')"
         :connection="connection"
       />
       <section v-if="order.refunds.length" data-testid="inclamo-order-refunds">
@@ -189,7 +192,7 @@ const afterEdit = record => {
         <p>{{ t('ORDER.EDITED.SAVED') }}</p>
         <p v-if="edited.difference === 'due_back'" class="flex flex-wrap items-center justify-between gap-2" data-testid="inclamo-edited-due-back">
           <span>{{ t('EDIT_ITEMS.DIFFERENCE.due_back', { amount: money(edited.amount, edited.currency) }) }}</span>
-          <button type="button" class="text-n-blue-text" data-testid="inclamo-edited-refund" @click="refundDue">
+          <button v-if="canPerform(viewer, 'refund')" type="button" class="text-n-blue-text" data-testid="inclamo-edited-refund" @click="refundDue">
             {{ t('ORDER.EDITED.REFUND', { amount: money(edited.amount, edited.currency) }) }}
           </button>
         </p>
@@ -205,7 +208,7 @@ const afterEdit = record => {
         <a :href="order.admin_url" target="_blank" rel="noopener noreferrer" class="text-n-blue-text" data-testid="inclamo-order-admin-link">{{ t('ORDER.OPEN_IN_ADMIN') }}</a>
       </div>
     </div>
-    <CancelDialog :ref="element => (dialogs.cancel.value = element)" :conversation-id="conversationId" :order="order" @done="record => emit('changed', record)" />
+    <CancelDialog :can-refund="canPerform(viewer, 'refund')" :ref="element => (dialogs.cancel.value = element)" :conversation-id="conversationId" :order="order" @done="record => emit('changed', record)" />
     <RefundDialog :ref="element => (dialogs.refund.value = element)" :conversation-id="conversationId" :order="order" @done="afterRefund" />
     <AddressDialog :ref="element => (dialogs.address.value = element)" :conversation-id="conversationId" :order="order" @done="record => emit('changed', record)" />
     <ReplacementDialog :ref="element => (dialogs.replacement.value = element)" :conversation-id="conversationId" :order="order" @done="record => emit('changed', record)" />

@@ -13,9 +13,11 @@ vi.mock('../api', () => ({
   default: {
     performAction: vi.fn(),
     refundPreview: vi.fn(),
+    cancelPreview: vi.fn(),
     connect: vi.fn(),
     getRoles: vi.fn(),
     giveRole: vi.fn(),
+    setPermission: vi.fn(),
     takeRole: vi.fn(),
   },
 }));
@@ -34,6 +36,25 @@ const sent = () => InclamoAPI.performAction.mock.calls.at(-1)[1];
 const accepted = { data: { outcome: 'accepted', action: 'x' } };
 
 describe('CancelDialog', () => {
+  beforeEach(() => InclamoAPI.cancelPreview.mockResolvedValue({ data: { amount: '125.00', currency: 'USD' } }));
+
+  it('blocks confirming an unknown amount and recovers on retry', async () => {
+    InclamoAPI.cancelPreview.mockRejectedValueOnce(new Error('offline'));
+    const wrapper = await open(CancelDialog);
+    expect(wrapper.find('[data-testid="dialog-confirm"]').element.disabled).toBe(true);
+    await wrapper.find('[data-testid="inclamo-cancel-preview-error"] button').trigger('click');
+    await flush();
+    expect(wrapper.find('[data-testid="inclamo-cancel-amount"]').text()).toContain('125');
+    expect(wrapper.find('[data-testid="dialog-confirm"]').element.disabled).toBe(false);
+  });
+
+  it('starts without a refund and disables its checkbox when the right is missing', async () => {
+    InclamoAPI.cancelPreview.mockResolvedValue({ data: {} });
+    const wrapper = await open(CancelDialog, { canRefund: false });
+    expect(wrapper.find('[data-testid="inclamo-cancel-refund"]').element.disabled).toBe(true);
+    expect(wrapper.find('[data-testid="inclamo-cancel-refund"]').element.checked).toBe(false);
+    expect(wrapper.find('[data-testid="inclamo-cancel-amount"]').text()).toContain('No money');
+  });
   it('says that cancelling cannot be undone and sends the choices with one action id', async () => {
     InclamoAPI.performAction.mockResolvedValue(accepted);
     const wrapper = await open(CancelDialog);
@@ -361,13 +382,13 @@ describe('OrderRolesPage', () => {
   };
 
   const members = [
-    { user_id: 1, name: 'Ada Admin', email: 'ada@example.com', role: 'administrator', can_act: true, switchable: false },
-    { user_id: 2, name: 'Ben Agent', email: 'ben@example.com', role: 'agent', can_act: false, switchable: true },
+    { user_id: 1, name: 'Ada Admin', email: 'ada@example.com', role: 'administrator', can_act: true, switchable: false, permissions: { address: true } },
+    { user_id: 2, name: 'Ben Agent', email: 'ben@example.com', role: 'agent', can_act: false, switchable: true, permissions: { address: false } },
   ];
 
   it('lists who can act; administrators cannot be switched, agents can', async () => {
     InclamoAPI.getRoles.mockResolvedValue({ data: { members } });
-    InclamoAPI.giveRole.mockResolvedValue({ data: { members: [members[0], { ...members[1], can_act: true }] } });
+    InclamoAPI.setPermission.mockResolvedValue({ data: { members: [members[0], { ...members[1], permissions: { address: true } }] } });
     const wrapper = await show();
 
     const adminSwitch = wrapper.find('[data-testid="inclamo-role-1"] input');
@@ -379,19 +400,19 @@ describe('OrderRolesPage', () => {
     await agentSwitch.trigger('change');
     await flush();
 
-    expect(InclamoAPI.giveRole).toHaveBeenCalledWith(2);
+    expect(InclamoAPI.setPermission).toHaveBeenCalledWith(2, 'address', true);
     expect(wrapper.find('[data-testid="inclamo-role-2"] input').element.checked).toBe(true);
   });
 
   it('takes the role away from an agent who has it', async () => {
-    InclamoAPI.getRoles.mockResolvedValue({ data: { members: [members[0], { ...members[1], can_act: true }] } });
-    InclamoAPI.takeRole.mockResolvedValue({ data: { members } });
+    InclamoAPI.getRoles.mockResolvedValue({ data: { members: [members[0], { ...members[1], can_act: true, permissions: { address: true } }] } });
+    InclamoAPI.setPermission.mockResolvedValue({ data: { members } });
     const wrapper = await show();
 
     await wrapper.find('[data-testid="inclamo-role-2"] input').trigger('change');
     await flush();
 
-    expect(InclamoAPI.takeRole).toHaveBeenCalledWith(2);
+    expect(InclamoAPI.setPermission).toHaveBeenCalledWith(2, 'address', false);
   });
 
   it('says so when the list cannot be loaded', async () => {
@@ -399,6 +420,6 @@ describe('OrderRolesPage', () => {
     const wrapper = await show();
 
     expect(wrapper.find('[data-testid="inclamo-roles-failed"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="inclamo-roles-page"]').exists()).toBe(false);
+    expect(wrapper.findAll('input')).toHaveLength(0);
   });
 });

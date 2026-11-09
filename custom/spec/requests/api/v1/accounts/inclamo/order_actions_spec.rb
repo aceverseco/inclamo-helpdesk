@@ -24,6 +24,16 @@ RSpec.describe 'Inclamo order actions API', type: :request do
     stub_shopify(:order_details_limited, data: { order: open_order.merge('cancelledAt' => '2026-11-05T12:00:00Z') })
   end
 
+  it 'previews cancellation refund amounts with current compound permissions' do
+    stub_refund_suggestion(open_order, amount: '125.00')
+    post "#{base}/actions/cancel_preview", params: { order_id: open_order['id'], params: { refund: true } }, headers: admin.create_new_auth_token, as: :json
+    expect(response.parsed_body).to include('amount' => '125.0', 'currency' => open_order['currencyCode'])
+    Inclamo::OrderRole.create!(account_user: AccountUser.find_by(account: account, user: agent), permissions: ['cancel'])
+    post "#{base}/actions/cancel_preview", params: { order_id: open_order['id'], params: { refund: true } }, headers: agent.create_new_auth_token, as: :json
+    expect(response.parsed_body['refusal']).to eq('not_allowed')
+    expect(Inclamo::OrderAction.count).to eq(0)
+  end
+
   it 'performs the action for an administrator and returns its record' do
     post "#{base}/actions", params: request_body, headers: admin.create_new_auth_token, as: :json
 
@@ -36,6 +46,37 @@ RSpec.describe 'Inclamo order actions API', type: :request do
 
     expect(response).to have_http_status(:forbidden)
     expect(response.parsed_body).to include('outcome' => 'refused', 'refusal' => 'not_allowed')
+    expect(WebMock).not_to have_requested(:any, /myshopify/)
+  end
+
+  it 'cannot refund through cancellation when only cancellation is granted' do
+    Inclamo::OrderRole.create!(account_user: AccountUser.find_by(account: account, user: agent), permissions: ['cancel'])
+    post "#{base}/actions", params: request_body, headers: agent.create_new_auth_token, as: :json
+    expect(response).to have_http_status(:forbidden)
+    expect(WebMock).not_to have_requested(:any, /myshopify/)
+  end
+
+  it 'can cancel without refund using only cancellation permission' do
+    Inclamo::OrderRole.create!(account_user: AccountUser.find_by(account: account, user: agent), permissions: ['cancel'])
+    post "#{base}/actions", params: request_body.merge(params: { reason: 'customer', refund: false, restock: true }), headers: agent.create_new_auth_token, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body['outcome']).to eq('accepted')
+  end
+
+  it 'refuses a discounted new-order preview without discount authority' do
+    Inclamo::OrderRole.create!(account_user: AccountUser.find_by(account: account, user: agent), permissions: ['new_order'])
+    post "#{base}/actions/new_order_preview", params: { params: { discount: { type: 'percentage', value: '10' } } }, headers: agent.create_new_auth_token, as: :json
+    expect(response).to have_http_status(:forbidden)
+    expect(WebMock).not_to have_requested(:any, /myshopify/)
+  end
+
+  it 'checks revocation again when an unsettled request is retried' do
+    role = Inclamo::OrderRole.create!(account_user: AccountUser.find_by(account: account, user: agent), permissions: %w[cancel refund])
+    Inclamo::OrderAction.create!(account: account, conversation: conversation, user: agent, action_id: request_body[:action_id],
+                                action: 'cancel', order_id: open_order['id'], outcome: 'unknown', params: request_body[:params])
+    role.update!(permissions: ['cancel'])
+    post "#{base}/actions", params: request_body, headers: agent.create_new_auth_token, as: :json
+    expect(response.parsed_body['outcome']).to eq('unknown')
     expect(WebMock).not_to have_requested(:any, /myshopify/)
   end
 

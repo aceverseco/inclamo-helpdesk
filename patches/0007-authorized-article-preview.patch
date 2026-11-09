@@ -1,0 +1,56 @@
+--- a/app/javascript/dashboard/routes/dashboard/helpcenter/pages/PortalsArticlesEditPage.vue
++++ b/app/javascript/dashboard/routes/dashboard/helpcenter/pages/PortalsArticlesEditPage.vue
+@@ -5,11 +5,12 @@
+ import { useAlert, useTrack } from 'dashboard/composables';
+ import { PORTALS_EVENTS } from 'dashboard/helper/AnalyticsHelper/events';
+ import {
+-  buildPortalArticleURL,
+   ARTICLE_STATUSES,
+ } from 'dashboard/helper/portalHelper';
+ import { useStore, useMapGetter } from 'dashboard/composables/store';
+ import { rendersIdentically } from 'dashboard/helper/articleDiffHelper';
++import InclamoAPI from 'dashboard/inclamo/api';
++import { t as inclamoText } from 'dashboard/inclamo/i18n';
+ 
+ import ArticleEditor from 'dashboard/components-next/HelpCenter/Pages/ArticleEditorPage/ArticleEditor.vue';
+ 
+@@ -30,19 +31,6 @@
+ 
+ const isUpdating = ref(false);
+ const isSaved = ref(false);
+-
+-const articleLink = computed(() => {
+-  const { slug: categorySlug, locale: categoryLocale } = article.value.category;
+-  const { slug: articleSlugValue } = article.value;
+-  const portalCustomDomain = portal.value?.custom_domain;
+-  return buildPortalArticleURL(
+-    portalSlug,
+-    categorySlug,
+-    categoryLocale,
+-    articleSlugValue,
+-    portalCustomDomain
+-  );
+-});
+ 
+ // On a published article, title/content edits stage into draft_* columns (kept
+ // off the live site). Anywhere else they save straight to the live record — and
+@@ -142,8 +130,17 @@
+   });
+ };
+ 
+-const previewArticle = () => {
+-  window.open(articleLink.value, '_blank');
++const previewArticle = async () => {
++  const tab = window.open('about:blank', '_blank');
++  if (tab) tab.opener = null;
++  try {
++    const { data } = await InclamoAPI.articlePreview(article.value.id);
++    if (tab) tab.location.replace(data.url);
++  } catch {
++    if (tab) tab.close();
++    useAlert(inclamoText('DIALOG.FAILED_PLAIN'));
++    return;
++  }
+   useTrack(PORTALS_EVENTS.PREVIEW_ARTICLE, {
+     status: article.value?.status,
+   });

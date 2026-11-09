@@ -26,6 +26,22 @@ class InclamoAPI extends ApiClient {
     return axios.delete(`${this.url}/shopify/connection`);
   }
 
+  getAiPolicies() {
+    return axios.get(`${this.url}/ai_policies`);
+  }
+
+  setAiPolicy(action, payload) {
+    return axios.patch(`${this.url}/ai_policies/${action}`, payload);
+  }
+
+  getAiProposals(conversationId) {
+    return axios.get(`${this.url}/conversations/${conversationId}/ai_proposals`);
+  }
+
+  reviewAiProposal(conversationId, id, action, payload) {
+    return axios.post(`${this.url}/conversations/${conversationId}/ai_proposals/${id}/${action}`, payload);
+  }
+
   getAiConnection() {
     return axios.get(`${this.url}/ai/connection`);
   }
@@ -38,8 +54,32 @@ class InclamoAPI extends ApiClient {
     return axios.delete(`${this.url}/ai/connection`);
   }
 
+  articlePreview(id) {
+    return axios.post(`${this.url}/article_previews/${id}`);
+  }
+
+  cancelPreview(conversationId, orderId, params) {
+    return axios.post(`${this.conversation(conversationId)}/actions/cancel_preview`, { order_id: orderId, params });
+  }
+
+  getSetup() {
+    return axios.get(`${this.url}/setup`);
+  }
+
+  reviewSetup(step, digest) {
+    return axios.patch(`${this.url}/setup`, { step, digest });
+  }
+
+  completeSetup() {
+    return axios.post(`${this.url}/setup/complete`);
+  }
+
   getRoles() {
     return axios.get(`${this.url}/order_roles`);
+  }
+
+  setPermission(userId, action, enabled) {
+    return axios.patch(`${this.url}/order_roles/${userId}`, { action_name: action, enabled });
   }
 
   giveRole(userId) {

@@ -30,7 +30,8 @@ RSpec.describe 'Inclamo conversation order panel API', type: :request do
 
   it 'says the store is not connected' do
     expect(panel).to include('state' => 'not_connected', 'viewer' => { 'administrator' => false, 'can_act_on_orders' => false,
-                                                                       'can_give_discounts' => false, 'discount_presets' => [] })
+                                                                       'can_give_discounts' => false, 'discount_presets' => [],
+                                                                       'permissions' => Inclamo::ActionPermissions::ACTIONS.index_with { false } })
   end
 
   it 'shows the matched customer with their orders, newest first' do

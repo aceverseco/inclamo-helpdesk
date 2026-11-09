@@ -53,6 +53,8 @@ export async function openStore(run) {
   const variants = variantsOf(catalog);
   if (variants.length < 3) throw new Error('the store needs at least three active products, and creating them did not help');
   let counter = 0;
+  const createdOrderIds = new Set();
+  const createdCustomerIds = new Set();
 
   const store = {
     run,
@@ -68,6 +70,7 @@ export async function openStore(run) {
         input: { firstName: first, lastName: 'Example', email: address, phone: phone ? `+1500555${number}` : undefined, tags: [...tags, ...extra], note },
       });
       const customer = data.customerCreate.customer;
+      createdCustomerIds.add(customer.id);
       return { ...customer, email: address || null, phone: phone ? `+1500555${number}` : null };
     },
 
@@ -89,6 +92,7 @@ export async function openStore(run) {
         options: { inventoryBehaviour: 'BYPASS', sendReceipt: false, sendFulfillmentReceipt: false },
       }));
       const order = data.orderCreate.order;
+      createdOrderIds.add(order.id);
       return { ...order, number: order.name, total: Number(order.totalPriceSet.shopMoney.amount) };
     },
 
@@ -127,6 +131,7 @@ export async function openStore(run) {
       });
       const data = await paced(() => shopify('seed_draft_complete', { id: draft.draftOrderCreate.draftOrder.id }));
       const order = data.draftOrderComplete.draftOrder.order;
+      createdOrderIds.add(order.id);
       return { ...order, number: order.name, total: Number(order.totalPriceSet.shopMoney.amount) };
     },
 
@@ -243,6 +248,13 @@ export async function openStore(run) {
       const removed = { orders: 0, customers: 0, kept: [] };
       const replacements = (await shopify('seeded_orders', { query: `tag:'replacement'`, after: null })).orders.nodes;
       const own = (await shopify('seeded_orders', { query: `tag:'e2e-${run}'`, after: null })).orders.nodes.filter(order => order.tags.includes(`e2e-${run}`));
+      // Read our newly created ids directly: Shopify search can lag cleanup.
+      // Verify the exact run tag before adding any direct result to deletion.
+      for (const id of createdOrderIds) {
+        if (own.some(node => node.id === id)) continue;
+        const node = (await shopify('seeded_order', { id })).order;
+        if (node?.tags.includes(`e2e-${run}`)) own.push(node);
+      }
       // A replacement the helpdesk created carries only its own tag: it is
       // known by its note, which names the order of this run it replaces.
       const replaces = order => own.some(known => (order.note || '').endsWith(` ${known.name}`));
@@ -258,6 +270,11 @@ export async function openStore(run) {
         }
       }
       const customers = (await shopify('seeded_customers', { query: `tag:'e2e-${run}'` })).customers.nodes.filter(customer => customer.tags.includes(`e2e-${run}`));
+      for (const id of createdCustomerIds) {
+        if (customers.some(node => node.id === id)) continue;
+        const node = (await shopify('seeded_customer', { id })).customer;
+        if (node?.tags.includes(`e2e-${run}`)) customers.push(node);
+      }
       // Drafts the helpdesk made for the run's customers carry its own tag, not the run's;
       // the drafts the seed completed into orders are theirs too.
       removed.drafts = 0;

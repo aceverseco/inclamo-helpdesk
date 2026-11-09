@@ -277,7 +277,7 @@ test.describe('A failed order step stops the macro', () => {
     await admin.takeRole(agent.userId);
     const conversation = await conversationFor('no role', orders.noRole);
     const confirmation = await runFromSidebar(page, users.agent, conversation, macros.refund);
-    await expect(confirmation.getByTestId('inclamo-macro-step-inclamo_refund_full')).toContainText('administrator has not allowed you to act on orders');
+    await expect(confirmation.getByTestId('inclamo-macro-step-inclamo_refund_full')).toContainText('administrator has not allowed you to perform this action');
     await runButton(page).click();
 
     const note = await eventually(async () => (await notes(conversation)).find(item => item.content.includes('stopped at the step')), Boolean);

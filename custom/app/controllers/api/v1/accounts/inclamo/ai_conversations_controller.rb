@@ -16,6 +16,26 @@ class Api::V1::Accounts::Inclamo::AiConversationsController < Api::V1::Accounts:
   skip_before_action :validate_bot_access_token!
   before_action :require_connected_bot
   before_action :require_connected_conversation
+  rescue_from ::Inclamo::Ai::OrderAuthority::Refused, with: :authority_refused
+  rescue_from ::Inclamo::Shopify::Error, with: :authority_store_failed
+  rescue_from ActiveRecord::RecordInvalid, with: :authority_invalid
+
+  def orders
+    render json: authority.context
+  end
+
+  def propose
+    record = authority.propose(params.permit(:action_name, :request_id, :order_id, :customer_id, :note, address: {}, params: {}).to_h)
+    render json: record.present, status: :created
+  end
+
+  def proposal
+    render json: find_proposal.present
+  end
+
+  def execute
+    render json: authority.execute(find_proposal, autonomous: true).present
+  end
 
   def messages
     render json: ::Inclamo::Ai::History.new(@conversation, @connection, limit: params[:limit])
@@ -34,6 +54,26 @@ class Api::V1::Accounts::Inclamo::AiConversationsController < Api::V1::Accounts:
   end
 
   private
+
+  def authority
+    ::Inclamo::Ai::OrderAuthority.new(account: Current.account, conversation: @conversation, bot: @resource)
+  end
+
+  def find_proposal
+    ::Inclamo::AiProposal.find_by!(id: params[:id], account_id: Current.account.id, conversation_id: @conversation.id, agent_bot_id: @resource.id)
+  end
+
+  def authority_refused(error)
+    render json: { error: error.message }, status: :conflict
+  end
+
+  def authority_store_failed(_error)
+    render json: { error: 'store_unavailable' }, status: :bad_gateway
+  end
+
+  def authority_invalid(_error)
+    render json: { error: 'invalid_request' }, status: :unprocessable_entity
+  end
 
   def require_connected_bot
     bot = @resource if authenticate_by_access_token? && @resource.is_a?(AgentBot)

@@ -334,7 +334,7 @@ describe('Changing tags and notes', () => {
 
     it.each([
       ['tag_has_comma', 'A tag cannot contain a comma.'],
-      ['not_allowed', 'An administrator has not allowed you to act on orders.'],
+      ['not_allowed', 'An administrator has not allowed you to perform this action.'],
       ['store_unreachable', 'Shopify did not answer. Nothing was changed.'],
       ['connection_broken', 'The action could not be performed.'],
     ])('explains the refusal %s in words', async (refusal, words) => {

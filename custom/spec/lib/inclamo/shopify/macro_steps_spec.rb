@@ -200,6 +200,19 @@ RSpec.describe Inclamo::Shopify::MacroSteps do
       expect(sent).to eq(['Sorry, we refunded you.'])
     end
 
+    it 'rechecks compound rights during execution and stops the following reply when refund permission was revoked' do
+      grant = Inclamo::OrderRole.create!(account_user: AccountUser.find_by(account: account, user: agent), permissions: %w[cancel refund])
+      macro = macro_with('inclamo_cancel_order', 'send_message', 'resolve_conversation')
+      grant.update!(permissions: ['cancel'])
+
+      run(macro, agent)
+
+      expect(WebMock).not_to have_requested(:any, /myshopify/)
+      expect(Inclamo::OrderAction.last).to have_attributes(action: 'cancel', outcome: 'refused', refusal: 'not_allowed')
+      expect(sent).to be_empty
+      expect(conversation.reload.status).to eq('open')
+    end
+
     it 'stops when the app of the store lacks a scope, naming it' do
       record.update!(scopes: %w[read_customers read_orders])
 

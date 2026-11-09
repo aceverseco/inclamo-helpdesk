@@ -60,3 +60,17 @@ The real anonymous-browser check successfully opened a published article, then r
 ## Migration Plan
 
 No production migration or pilot deployment in this change. Preserve integration commits and review artifacts. Clean tagged Shopify test resources and the isolated temporary stack after testing. A later deployment selects the reviewed image explicitly.
+
+## Follow-up after the baseline (2026-11-09)
+
+The founder accepted separate staff action rights and per-action AI modes in ADR 0072. The historical gaps above describe the earlier acceptance image, not an unanswered decision. Implementation now lives in `staff-action-permissions`, `ai-order-authority`, `helpdesk-onboarding` and `acceptance-ux-corrections`. Their acceptance records supersede the baseline for those behaviors. Draft privacy and authorized editor preview passed the subsequent real-browser check. External mailbox delivery, real-model quality and the separately planned release capabilities remain outside that evidence.
+
+### Accepted-model verification
+
+The follow-up evidence is in the company workspace at `reports/helpdesk-authority-2026-11-09/index.html`, with sanitized scenario results, inspected screenshots, independent Shopify comparisons, image/source hashes and a source Git bundle. The source working copy is `/Users/user/Documents/inclamo-helpdesk-acceptance`, branch `feat/helpdesk-acceptance`.
+
+The complete browser run passed 214 of 215 cases. Its failed cancellation-preview case stopped during fixture customer lookup because Shopify search had not indexed the new customer; explicitly selecting that scenario's customer fixed the setup, and its error/retry/refund assertions then passed. A 21-case review run and a final 13-case AI run both passed. The latest results cover 218 distinct browser cases, all passed; this is an aggregate with repeats, not one clean full run.
+
+Backend verification includes a complete 785-example overlay pass after the identity-binding fix and a subsequent 22-example AI pass containing one new refund-summary case (786 distinct overlay examples), plus 120 upstream examples. Frontend verification includes a complete 276-case overlay pass, the affected 55-case copy/permission repeat and a seven-case AI pass containing one new refund card case (277 distinct overlay cases), plus 381 upstream cases.
+
+A separate read-only Shopify audit found zero remaining run-tagged orders, customers, products, drafts or discounts for `auth1109`, `authfinal1109`, `authreview1109` and `authrefund1109`. The common dev instance was not replaced. Real-model response quality, mailbox receipt, authenticated Shopify Admin browser checks and the competitor gaps recorded above remain outside this evidence.

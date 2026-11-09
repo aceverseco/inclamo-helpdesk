@@ -37,6 +37,11 @@ class Api::V1::Accounts::Inclamo::OrderActionsController < Api::V1::Accounts::Co
     answer_from_store { runner.refund_preview(order_id: params[:order_id], params: action_params) }
   end
 
+  def cancel_preview
+    ::Inclamo::Shopify::OrderReader.forget!(Current.account.id)
+    render json: runner.step_preview(action: 'cancel', order_id: params[:order_id], params: action_params)
+  end
+
   # POST .../actions/edit_items_preview  { order_id, params: { lines, additions } }
   # The order as the store calculates it after the edit; nothing is changed.
   def edit_items_preview

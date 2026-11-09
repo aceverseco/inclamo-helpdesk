@@ -8,11 +8,19 @@ class Inclamo::OrderRole < ApplicationRecord
   belongs_to :granted_by, class_name: 'User', optional: true
 
   validates :account_user_id, uniqueness: true
+  validate :known_permissions
 
   # May this member of the account perform order actions?
-  def self.allows?(account_user)
-    return false if account_user.nil?
+  def self.allows?(account_user, action = nil)
+    grants = Inclamo::ActionPermissions.for(account_user)
+    action ? grants[action.to_s] == true : Inclamo::ActionPermissions::ORDER_ACTIONS.any? { |name| grants[name] }
+  end
 
-    account_user.administrator? || exists?(account_user_id: account_user.id)
+  private
+
+  def known_permissions
+    return if permissions.is_a?(Array) && (permissions - Inclamo::ActionPermissions::ORDER_ACTIONS).empty? && permissions.uniq == permissions
+
+    errors.add(:permissions, 'must contain unique known order actions')
   end
 end

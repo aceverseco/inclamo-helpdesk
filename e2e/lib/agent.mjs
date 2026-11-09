@@ -39,6 +39,7 @@ export const standIn = {
   clear: () => control('DELETE', 'log'),
   failWith: status => control('POST', 'fail', { status }),
   connection: () => control('GET', 'connection'),
+  orderTool: (conversationId, tool, payload, proposalId) => control('POST', 'order-tool', { conversation_id: Number(conversationId), tool, payload, proposal_id: proposalId }),
   // What the agent reads of a conversation, through the helpdesk's endpoint.
   read: (conversationId, limit) => control('POST', 'read', { conversation_id: conversationId, limit }),
   // A reply with the credentials the stand-in holds, even after a disconnection.

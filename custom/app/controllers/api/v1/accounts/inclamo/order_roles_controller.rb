@@ -14,8 +14,11 @@ class Api::V1::Accounts::Inclamo::OrderRolesController < Api::V1::Accounts::Base
     member = find_member(params[:user_id])
     return head :not_found unless member
 
-    unless member.administrator?
-      ::Inclamo::OrderRole.find_or_create_by!(account_user_id: member.id) { |role| role.granted_by = Current.user }
+    member.with_lock do
+      unless member.administrator?
+        role = ::Inclamo::OrderRole.find_or_initialize_by(account_user_id: member.id)
+        role.update!(permissions: ::Inclamo::ActionPermissions::ORDER_ACTIONS, granted_by: Current.user)
+      end
     end
     render json: { members: members }
   end
@@ -25,8 +28,18 @@ class Api::V1::Accounts::Inclamo::OrderRolesController < Api::V1::Accounts::Base
     member = find_member(params[:id])
     return head :not_found unless member
 
-    ::Inclamo::OrderRole.where(account_user_id: member.id).destroy_all
+    member.with_lock { ::Inclamo::OrderRole.where(account_user_id: member.id).destroy_all }
     render json: { members: members }
+  end
+
+  def update
+    member = find_member(params[:id])
+    return head :not_found unless member
+
+    ::Inclamo::ActionPermissions.set!(member, params[:action_name], params[:enabled], by: Current.user)
+    render json: { members: members }
+  rescue ArgumentError
+    render json: { error: 'invalid_permission' }, status: :unprocessable_entity
   end
 
   private
@@ -41,7 +54,8 @@ class Api::V1::Accounts::Inclamo::OrderRolesController < Api::V1::Accounts::Base
       role = roles[member.id]
       {
         user_id: member.user_id, name: member.user.name, email: member.user.email, role: member.role,
-        can_act: member.administrator? || role.present?,
+        can_act: member.administrator? || Array(role&.permissions).any?,
+        permissions: ::Inclamo::ActionPermissions.for(member),
         # Administrators act by their role; the switch does not apply to them.
         switchable: !member.administrator?,
         granted_at: role&.created_at

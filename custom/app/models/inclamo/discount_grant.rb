@@ -11,8 +11,6 @@ class Inclamo::DiscountGrant < ApplicationRecord
 
   # May this member of the account give discounts?
   def self.allows?(account_user)
-    return false if account_user.nil?
-
-    account_user.administrator? || exists?(account_user_id: account_user.id)
+    Inclamo::ActionPermissions.allows?(account_user, 'discount')
   end
 end

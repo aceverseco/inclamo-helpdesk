@@ -9,6 +9,7 @@ import SettingsLayout from 'dashboard/routes/dashboard/settings/SettingsLayout.v
 import BaseSettingsHeader from 'dashboard/routes/dashboard/settings/components/BaseSettingsHeader.vue';
 import Dialog from 'dashboard/components-next/dialog/Dialog.vue';
 import InclamoAPI from '../api';
+import AiPolicyEditor from './AiPolicyEditor.vue';
 import { t, has } from '../i18n';
 import { dateTime } from '../format';
 
@@ -190,6 +191,7 @@ onMounted(load);
       >
         <p class="text-sm text-n-slate-12" data-testid="inclamo-ai-confirm">{{ t('SETTINGS.AI_AGENT.CONFIRM.BODY') }}</p>
       </Dialog>
+      <AiPolicyEditor />
     </template>
   </SettingsLayout>
 </template>

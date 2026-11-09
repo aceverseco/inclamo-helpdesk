@@ -87,6 +87,7 @@ async function newApi(request, user, accountId) {
     get: path => call('get', path),
     post: (path, data) => call('post', path, data),
     put: (path, data) => call('put', path, data),
+    patch: (path, data) => call('patch', path, data),
     delete: path => call('delete', path),
 
     connection: async () => (await api.get('/inclamo/shopify/connection')).body,

@@ -50,7 +50,7 @@ const explain = record => {
 };
 
 const submit = async () => {
-  if (busy.value || settled.value) return;
+  if (busy.value || settled.value || !props.canConfirm) return;
   busy.value = true;
   message.value = '';
   sent.value = sent.value || { ...props.build(), action_id: actionId.value };

@@ -60,7 +60,7 @@ class Inclamo::OrderAction < ApplicationRecord
     {
       action_id: action_id, action: action, order_id: order_id, customer_id: customer_id, order_number: order_number, outcome: outcome,
       refusal: refusal, store_message: store_message, result: result,
-      macro_id: macro_id, created_at: created_at, completed_at: completed_at
+      macro_id: macro_id, ai_proposal_id: ai_proposal_id, created_at: created_at, completed_at: completed_at
     }
   end
 end

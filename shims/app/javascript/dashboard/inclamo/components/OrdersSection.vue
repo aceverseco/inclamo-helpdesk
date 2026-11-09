@@ -4,9 +4,11 @@ import { ref, computed, watch } from 'vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import InclamoAPI from '../api';
 import OrderCard from './OrderCard.vue';
+import AiProposalReview from './AiProposalReview.vue';
 import ConnectDialog from './ConnectDialog.vue';
 import MarksBlock from './MarksBlock.vue';
 import NewOrderDialog from './NewOrderDialog.vue';
+import { canPerform } from '../permissions';
 import ReplyInserts from './ReplyInserts.vue';
 import { insertIntoReply } from '../reply';
 import { ORDER_ROLES_ROUTE } from '../routes';
@@ -42,10 +44,10 @@ const openActionFor = order => (panel.value?.open_actions || []).find(action => 
 // A new order is offered to whoever may act on orders; when the connected app
 // lacks a scope for it, a line names the scope instead.
 const newOrderScope = computed(() => (connection.value.actions || []).find(entry => entry.name === 'new_order'));
-const canCreateOrder = computed(() => viewer.value.can_act_on_orders && Boolean(newOrderScope.value?.available));
+const canCreateOrder = computed(() => canPerform(viewer.value, 'new_order') && Boolean(newOrderScope.value?.available));
 const newOrderUnavailable = computed(() => {
   const scope = newOrderScope.value;
-  if (!viewer.value.can_act_on_orders || !scope || scope.available) return '';
+  if (!canPerform(viewer.value, 'new_order') || !scope || scope.available) return '';
   return t(`ORDER.WHY_NOT.${scope.reason}`, { scopes: (scope.missing_scopes || []).join(', ') });
 });
 const awaitingPayment = computed(() => panel.value?.awaiting_payment || []);
@@ -204,6 +206,7 @@ watch(
     </div>
 
     <template v-else>
+      <AiProposalReview v-if="panel?.ai_proposals_enabled" :conversation-id="conversationId" :administrator="viewer.administrator" @changed="load" />
       <ReplyInserts :conversation-id="conversationId" :viewer="viewer" :connection="connection" :customer-matched="state === 'matched'" @changed="load" />
       <div v-if="state === 'limited'" class="mb-2 p-2 rounded-md bg-n-amber-3 text-n-amber-11" data-testid="inclamo-orders-limited">
         <p>{{ t('ORDERS.LIMITED.TEXT') }}</p>
@@ -243,6 +246,8 @@ watch(
           :tags="panel.customer.tags || []"
           :note="panel.customer.note || null"
           :editable="!!can.customer_marks"
+          :tags-editable="!!can.customer_marks && canPerform(viewer, 'customer_tags')"
+          :note-editable="!!can.customer_marks && canPerform(viewer, 'customer_note')"
           :connection="connection"
         />
         <button
@@ -364,6 +369,7 @@ watch(
       ref="newOrderDialog"
       :conversation-id="conversationId"
       :customer="panel.customer"
+      :can-discount="canPerform(viewer, 'discount')"
       :currency="connection.shop_currency"
       @done="load"
     />

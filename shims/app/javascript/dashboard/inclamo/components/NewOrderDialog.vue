@@ -17,6 +17,7 @@ const props = defineProps({
   customer: { type: Object, required: true },
   // The store's currency, for the discount amount and the shipping charge.
   currency: { type: String, default: '' },
+  canDiscount: { type: Boolean, default: true },
 });
 const emit = defineEmits(['done']);
 
@@ -43,7 +44,7 @@ const linesOk = computed(() => lines.value.length > 0 && lines.value.every(line 
 
 const params = () => ({
   lines: lines.value.map(line => ({ variant_id: line.variant.id, quantity: Number(line.quantity) })),
-  discount: discount.type === 'none' || !String(discount.value).trim() ? null : { type: discount.type, value: String(discount.value).trim() },
+  discount: !props.canDiscount || discount.type === 'none' || !String(discount.value).trim() ? null : { type: discount.type, value: String(discount.value).trim() },
   shipping: String(shipping.value).trim() || null,
 });
 // A summary holds for the order it was calculated for; a change asks for a new one.
@@ -184,14 +185,14 @@ defineExpose({ open });
     <div class="flex flex-wrap items-center gap-2">
       <label class="flex items-center gap-2">
         <span>{{ t('NEW_ORDER.DISCOUNT') }}</span>
-        <select v-model="discount.type" class="rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1" data-testid="inclamo-new-order-discount-type">
+        <select v-model="discount.type" :disabled="!canDiscount" class="rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1" data-testid="inclamo-new-order-discount-type">
           <option value="none">{{ t('NEW_ORDER.DISCOUNT_NONE') }}</option>
           <option value="percentage">{{ t('NEW_ORDER.DISCOUNT_PERCENTAGE') }}</option>
           <option value="amount">{{ t('NEW_ORDER.DISCOUNT_AMOUNT', { currency }) }}</option>
         </select>
       </label>
       <input
-        v-if="discount.type !== 'none'"
+        v-if="canDiscount && discount.type !== 'none'"
         v-model="discount.value"
         type="text"
         inputmode="decimal"

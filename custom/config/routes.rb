@@ -10,7 +10,22 @@ namespace :api, defaults: { format: 'json' } do
       scope module: :accounts do
         namespace :inclamo do
           resource :status, only: [:show], controller: 'status'
-          resources :order_roles, only: [:index, :create, :destroy]
+          resource :setup, only: [:show, :update], controller: 'setup' do
+            post :complete
+          end
+          resources :order_roles, only: [:index, :create, :update, :destroy]
+          resources :ai_policies, only: [:index, :update]
+          post 'article_previews/:id', to: 'article_previews#create'
+          scope 'conversations/:conversation_id' do
+            resources :ai_proposals, only: [:index], controller: '/api/v1/accounts/inclamo/ai_proposals' do
+              member do
+                post :approve
+                post :reject
+                post :refresh
+                post :verify_identity
+              end
+            end
+          end
           resources :rule_presets, only: [:index, :update]
           resources :macro_previews, only: [:create]
           resources :macro_confirmations, only: [:create]
@@ -28,6 +43,10 @@ namespace :api, defaults: { format: 'json' } do
             scope 'conversations/:conversation_id', controller: '/api/v1/accounts/inclamo/ai_conversations' do
               get 'messages', action: :messages
               post 'labels', action: :labels
+              get 'orders', action: :orders
+              post 'proposals', action: :propose
+              get 'proposals/:id', action: :proposal
+              post 'proposals/:id/execute', action: :execute
             end
           end
           namespace :shopify do
@@ -45,6 +64,7 @@ namespace :api, defaults: { format: 'json' } do
             end
             scope 'conversations/:conversation_id' do
               post 'actions/refund_preview', to: '/api/v1/accounts/inclamo/order_actions#refund_preview'
+              post 'actions/cancel_preview', to: '/api/v1/accounts/inclamo/order_actions#cancel_preview'
               post 'actions/new_order_preview', to: '/api/v1/accounts/inclamo/order_actions#new_order_preview'
               get 'actions/new_order_prefill', to: '/api/v1/accounts/inclamo/order_actions#new_order_prefill'
               get 'products', to: '/api/v1/accounts/inclamo/products#index'

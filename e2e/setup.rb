@@ -14,6 +14,11 @@ account = Account.find_or_create_by!(name: 'E2E')
   AccountUser.find_or_create_by!(account: account, user: user) { |member| member.role = role }
 end
 
+# An empty account for onboarding; no customer channel or conversation exists.
+setup_account = Account.find_or_create_by!(name: 'E2E Setup')
+admin = User.find_by!(email: ENV.fetch('STAND_ADMIN_EMAIL'))
+AccountUser.find_or_create_by!(account: setup_account, user: admin) { |member| member.role = :administrator }
+
 # Until this flag is gone, Chatwoot serves a page on which anyone who reaches
 # the instance can create its super administrator.
 Redis::Alfred.delete(Redis::Alfred::CHATWOOT_INSTALLATION_ONBOARDING)

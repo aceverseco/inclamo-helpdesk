@@ -32,6 +32,7 @@ test.beforeAll(async ({ playwright }) => {
   await admin.disconnect();
   await admin.connect(bench());
   await admin.giveRole(agent.userId);
+  await admin.post('/inclamo/discount_grants', { user_id: agent.userId });
 
   store = await openStore(runTag('new'));
   // Two products the store can sell, each with one variant, priced so that a
@@ -280,4 +281,14 @@ test.describe('Orders awaiting payment are visible and recorded', () => {
     expect(note.sender).toMatchObject({ id: agent.userId });
     expect(note.content).not.toContain(maya.email);
   });
+});
+
+// Granular new-order authority must not also grant financial concessions.
+test('New-order permission does not grant discounts', async () => {
+  await admin.delete(`/inclamo/discount_grants/${agent.userId}`);
+  const answer = await agent.post(`/inclamo/shopify/conversations/${conversation.id}/actions/new_order_preview`, {
+    params: { lines: [{ variant_id: products[0].variant, quantity: 1 }], discount: { type: 'percentage', value: '10' } },
+  });
+  expect(answer.status).toBe(403);
+  expect(answer.body.refusal || answer.body.error).toBe('not_allowed');
 });

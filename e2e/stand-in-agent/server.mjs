@@ -229,6 +229,17 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
       const result = await helpdesk(connection, 'GET', `/inclamo/ai/conversations/${data.conversation_id}/messages${data.limit ? `?limit=${data.limit}` : ''}`);
       return send(response, 200, result);
     }
+    // Deterministic order-tool calls use the registered bot token internally.
+    // Only the private test stack exposes this control API; secrets never leave it.
+    if (request.method === 'POST' && path === '/__e2e/order-tool') {
+      const connection = latest();
+      if (!connection) return send(response, 404, {});
+      if (!Number.isInteger(data.conversation_id) || !['context', 'propose', 'execute'].includes(data.tool)) return send(response, 400, { error: 'invalid_tool' });
+      const root = `/inclamo/ai/conversations/${data.conversation_id}`;
+      if (data.tool === 'execute' && !Number.isInteger(data.proposal_id)) return send(response, 400, { error: 'invalid_proposal' });
+      const route = data.tool === 'context' ? `${root}/orders` : data.tool === 'propose' ? `${root}/proposals` : `${root}/proposals/${data.proposal_id}/execute`;
+      return send(response, 200, await helpdesk(connection, data.tool === 'context' ? 'GET' : 'POST', route, data.payload));
+    }
     // A reply with the latest connection's token, even after it was removed.
     if (request.method === 'POST' && path === '/__e2e/reply') {
       const connection = latest();

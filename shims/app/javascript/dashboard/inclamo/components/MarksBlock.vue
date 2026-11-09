@@ -19,8 +19,13 @@ const props = defineProps({
   note: { type: String, default: null },
   // The panel's `can` decision for this subject: the role and the app's scope.
   editable: { type: Boolean, default: false },
+  tagsEditable: { type: Boolean, default: undefined },
+  noteEditable: { type: Boolean, default: undefined },
   connection: { type: Object, default: null },
 });
+
+const mayEditTags = computed(() => props.tagsEditable ?? props.editable);
+const mayEditNote = computed(() => props.noteEditable ?? props.editable);
 
 const current = reactive({ tags: [...props.tags], note: props.note });
 const busy = ref(false);
@@ -144,7 +149,7 @@ const stopEditing = () => {
         <li v-for="tag in current.tags" :key="tag" class="inline-flex items-center gap-1 rounded-md bg-n-alpha-2 px-1.5 py-0.5 text-xs text-n-slate-12">
           <span :data-testid="`inclamo-${subject}-tag`">{{ tag }}</span>
           <button
-            v-if="editable"
+            v-if="mayEditTags"
             type="button"
             class="text-n-slate-11 hover:text-n-ruby-11 disabled:opacity-50"
             :aria-label="t('MARKS.REMOVE_TAG', { tag })"
@@ -158,7 +163,7 @@ const stopEditing = () => {
         </li>
       </ul>
       <p v-else class="text-xs text-n-slate-11" :data-testid="`inclamo-${subject}-no-tags`">{{ t('MARKS.NO_TAGS') }}</p>
-      <form v-if="editable" class="flex gap-1" :data-testid="`inclamo-${subject}-tag-form`" @submit.prevent="addTag">
+      <form v-if="mayEditTags" class="flex gap-1" :data-testid="`inclamo-${subject}-tag-form`" @submit.prevent="addTag">
         <input
           v-model="newTag"
           type="text"
@@ -175,7 +180,7 @@ const stopEditing = () => {
     <div class="flex flex-col gap-1">
       <div class="flex items-center justify-between gap-2">
         <h4 class="text-xs uppercase text-n-slate-10">{{ t('MARKS.NOTE') }}</h4>
-        <button v-if="editable && !editing" type="button" class="text-xs text-n-blue-text disabled:opacity-50" :disabled="reading || busy" :data-testid="`inclamo-${subject}-note-edit`" @click="startEditing">
+        <button v-if="mayEditNote && !editing" type="button" class="text-xs text-n-blue-text disabled:opacity-50" :disabled="reading || busy" :data-testid="`inclamo-${subject}-note-edit`" @click="startEditing">
           {{ t('MARKS.EDIT_NOTE') }}
         </button>
       </div>

@@ -47,6 +47,7 @@ end
 # after every reload of the code.
 Rails.application.config.to_prepare do
   AutomationRuleListener.prepend(Inclamo::StoreFactsBeforeRules)
+  Public::Api::V1::Portals::ArticlesController.prepend(Inclamo::ArticlePreview::PublicGuard)
 end
 
 # Order steps in macros (see Inclamo::Shopify::MacroSteps). Chatwoot's hook
@@ -61,7 +62,7 @@ end
 
 # Credentials of a store connection and the AI agent's connection code never
 # reach the request log.
-Rails.application.config.filter_parameters |= [:client_secret, :access_token, :connection_code]
+Rails.application.config.filter_parameters |= [:client_secret, :access_token, :connection_code, :address, :note]
 
 # Deliveries to the AI service are recorded (Inclamo::Ai::DeliveryRecorder).
 # Chatwoot's webhook sender has no extension hook, so it is prepended here,

@@ -75,7 +75,7 @@ test.describe('Order actions need a role given by an administrator', () => {
     await expect(card.getByTestId('inclamo-order-item')).toHaveCount(3);
     for (const action of ['cancel', 'refund', 'address', 'replacement']) {
       await expect(card.getByTestId(`inclamo-action-${action}`)).toBeDisabled();
-      await expect(card.getByTestId(`inclamo-action-${action}`)).toHaveAttribute('title', /administrator has not allowed you to act on orders/);
+      await expect(card.getByTestId(`inclamo-action-${action}`)).toHaveAttribute('title', /administrator has not allowed you to perform this action/);
     }
     await proxy.reset();
     const direct = await act(agent, 'refund', orders.view, { mode: 'amount', amount: '5' });
@@ -91,7 +91,10 @@ test.describe('Order actions need a role given by an administrator', () => {
     await section.getByTestId('inclamo-manage-roles').click();
     await expect(page).toHaveURL(/\/settings\/order-actions$/);
     await expect(page.getByRole('link', { name: 'Order actions' })).toBeVisible();
-    await page.getByTestId(`inclamo-role-${agent.userId}`).locator('input').check();
+    for (const action of ['cancel', 'refund', 'address', 'replacement']) {
+      await page.getByTestId(`inclamo-permission-${agent.userId}-${action}`).check();
+      await expect.poll(async () => (await admin.get('/inclamo/order_roles')).body.members.find(member => member.user_id === agent.userId).permissions[action]).toBe(true);
+    }
     await expect.poll(async () => (await admin.get('/inclamo/order_roles')).body.members.find(member => member.user_id === agent.userId).can_act).toBe(true);
 
     const forAgent = await open(page, users.agent, orders.view.number);

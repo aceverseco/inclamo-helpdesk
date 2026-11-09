@@ -38,6 +38,10 @@ const FILES = {
   'reply-inserts': ['reply-inserts.spec.mjs'],
   'sla-timers': ['sla-timers.spec.mjs'],
   'ai-agent-connection': ['ai-agent-connection.spec.mjs'],
+  'ai-order-authority': ['ai-order-authority.spec.mjs'],
+  'staff-action-permissions': ['staff-action-permissions.spec.mjs'],
+  'helpdesk-onboarding': ['helpdesk-onboarding.spec.mjs'],
+  'acceptance-ux-corrections': ['acceptance-ux-corrections.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each

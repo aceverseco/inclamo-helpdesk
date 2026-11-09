@@ -36,11 +36,14 @@ module Inclamo
       EDIT_INVOICE_NOTES = { 'sent' => 'invoice_emailed', 'refused' => 'invoice_refused', 'unknown' => 'invoice_unknown' }.freeze
 
       # `connection` is the account's store connection when the caller has it already.
-      def initialize(account:, account_user:, conversation:, connection: nil)
+      def initialize(account:, account_user:, conversation:, connection: nil, authorizer: nil, ai_proposal: nil, matched_customer_id: nil)
         @account = account
         @account_user = account_user
         @conversation = conversation
         @connection = connection || ShopifyConnection.find_by(account_id: account.id)
+        @authorizer = authorizer
+        @ai_proposal = ai_proposal
+        @matched_customer_id = matched_customer_id
       end
 
       # `extra` holds the address and note that must not be recorded.
@@ -52,8 +55,8 @@ module Inclamo
 
         record = OrderAction.new(account: @account, conversation: @conversation, user: @account_user&.user, action_id: action_id.to_s,
                                  action: action, order_id: order_id.to_s.presence, customer_id: customer_id.to_s.presence,
-                                 params: recordable(action, params), macro_id: macro_id)
-        refusal = gate(action)
+                                 params: recordable(action, params), macro_id: macro_id, ai_proposal_id: @ai_proposal&.id)
+        refusal = gate(action, record.params)
         return refuse!(record, refusal) if refusal
         return perform_order_less(record, extra) if record.order_less?
 
@@ -85,7 +88,7 @@ module Inclamo
       # back, the units a replacement sends. Nothing is changed and nothing is
       # recorded. When the action would be refused, says why instead.
       def step_preview(action:, order_id:, params:)
-        order = allowed_order!(action, order_id)
+        order = allowed_order!(action, order_id, params)
         case action.to_s
         when 'refund' then refund_plan(order, params).slice(:amount, :currency)
         when 'cancel' then cancellation_refund(order, params)
@@ -114,7 +117,7 @@ module Inclamo
       # summary: nothing is created and nothing is recorded. Raises
       # Actions::Refused like refund_preview.
       def new_order_preview(params:)
-        refusal = gate('new_order')
+        refusal = gate('new_order', params)
         raise Actions::Refused, refusal if refusal
 
         draft = OrderAction.new(action: 'new_order', action_id: 'preview', params: recordable('new_order', params))
@@ -193,6 +196,8 @@ module Inclamo
       # The store's customer matched to the conversation's contact, with their
       # email and phone, or nil when there is no single match.
       def matched_customer
+        return reader.customer_with_orders(@matched_customer_id) if @matched_customer_id
+
         contact = @conversation&.contact
         return unless contact
 
@@ -202,8 +207,8 @@ module Inclamo
 
       # The order, when this agent may perform this action on it. Raises
       # Actions::Refused with the reason otherwise.
-      def allowed_order!(action, order_id)
-        refusal = gate(action.to_s)
+      def allowed_order!(action, order_id, params = {})
+        refusal = gate(action.to_s, params)
         raise Actions::Refused, refusal if refusal
 
         order = reader.order(order_id.to_s) or raise Actions::Refused, 'unknown_order'
@@ -239,10 +244,10 @@ module Inclamo
 
       # Why this agent cannot perform this action with this connection, or nil.
       # Decided without calling the store.
-      def gate(action)
+      def gate(action, params = {})
         return 'unknown_action' unless HANDLERS.key?(action)
         # Giving discounts is its own right, apart from the order-actions role.
-        allowed = action == 'discount' ? DiscountGrant.allows?(@account_user) : OrderRole.allows?(@account_user)
+        allowed = @authorizer ? @authorizer.call(action, params) : ActionPermissions.allows?(@account_user, action, params)
         return 'not_allowed' unless allowed
         return 'not_connected' unless @connection
         return 'connection_broken' if @connection.broken?
@@ -274,7 +279,7 @@ module Inclamo
         # An address is not recorded, so an open address change cannot be repeated from the record.
         return record if record.action == 'address' && extra.blank?
         return record if NOTE_ACTIONS.include?(record.action) && note_from(extra).nil?
-        return record if gate(record.action)
+        return record if gate(record.action, record.params)
 
         handler = handler_for_open(record, extra)
         return record unless handler
@@ -366,10 +371,16 @@ module Inclamo
       # A private note in the conversation of the action, written as the agent who acted.
       def note!(record)
         conversation = record.conversation
-        return if record.note_message_id || conversation.nil? || record.user.nil?
+        proposal = Inclamo::AiProposal.find_by(id: record.ai_proposal_id) if record.ai_proposal_id
+        sender = record.user || proposal&.agent_bot
+        return if record.note_message_id || conversation.nil? || sender.nil?
 
         content = I18n.t("inclamo.order_actions.notes.#{note_key(record)}", **note_facts(record)).squish
-        message = Messages::MessageBuilder.new(record.user, conversation, { content: content, private: true }).perform
+        if proposal
+          approver = proposal.approved_by
+          content = "AI: #{proposal.agent_bot.name}. #{approver ? "Approved by #{approver.name}." : 'Autonomous action.'} #{content}"
+        end
+        message = Messages::MessageBuilder.new(sender, conversation, { content: content, private: true }).perform
         record.update_columns(note_message_id: message.id) # rubocop:disable Rails/SkipsModelValidations
       end
 

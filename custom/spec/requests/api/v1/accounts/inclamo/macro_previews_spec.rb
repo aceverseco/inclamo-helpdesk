@@ -148,6 +148,14 @@ RSpec.describe 'Inclamo macro previews API', type: :request do
     expect(response.parsed_body['steps'][0]).to include('refusal' => 'missing_scope', 'missing_scopes' => %w[write_draft_orders read_products])
   end
 
+  it 'requires refund permission as well as cancellation permission in a macro preview' do
+    Inclamo::OrderRole.create!(account_user: AccountUser.find_by(account: account, user: agent), permissions: ['cancel'])
+    preview(macro_with('inclamo_cancel_order'), agent)
+
+    expect(response.parsed_body['steps'].first).to include('refusal' => 'not_allowed')
+    expect(WebMock).not_to have_requested(:any, /myshopify/)
+  end
+
   it 'reports an order with nothing left to refund' do
     stub_shopify(:order_details, data: { order: order.merge('totalRefundedSet' => order['totalReceivedSet'], 'refundable' => false) })
 

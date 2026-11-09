@@ -404,7 +404,7 @@ describe('The confirmation', () => {
 
     expect(wrapper.find('[data-testid="inclamo-macro-step-inclamo_refund_shipping"]').text()).toContain('Refunds the shipping cost');
     const cancel = wrapper.find('[data-testid="inclamo-macro-step-inclamo_cancel_order"]').text();
-    expect(cancel).toContain('Will not be done: An administrator has not allowed you to act on orders.');
+    expect(cancel).toContain('Will not be done: An administrator has not allowed you to perform this action.');
     expect(cancel).toContain('The macro stops at this step');
   });
 

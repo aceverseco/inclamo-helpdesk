@@ -93,7 +93,8 @@ class Api::V1::Accounts::Inclamo::ShopifyConnectionsController < Api::V1::Accoun
   # What the signed-in member may do; the dashboard shows or hides by it, the
   # server checks again on every request.
   def viewer
-    { administrator: Current.account_user&.administrator? || false, can_act_on_orders: ::Inclamo::OrderRole.allows?(Current.account_user) }
+    { administrator: Current.account_user&.administrator? || false, can_act_on_orders: ::Inclamo::OrderRole.allows?(Current.account_user),
+      permissions: ::Inclamo::ActionPermissions.for(Current.account_user) }
   end
 
   def refuse_for(error)

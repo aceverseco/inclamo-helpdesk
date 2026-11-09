@@ -14,9 +14,7 @@ class Api::V1::Accounts::Inclamo::DiscountGrantsController < Api::V1::Accounts::
     member = find_member(params[:user_id])
     return head :not_found unless member
 
-    unless member.administrator?
-      ::Inclamo::DiscountGrant.find_or_create_by!(account_user_id: member.id) { |grant| grant.granted_by = Current.user }
-    end
+    ::Inclamo::ActionPermissions.set!(member, 'discount', true, by: Current.user)
     render json: { members: members }
   end
 
@@ -25,7 +23,7 @@ class Api::V1::Accounts::Inclamo::DiscountGrantsController < Api::V1::Accounts::
     member = find_member(params[:id])
     return head :not_found unless member
 
-    ::Inclamo::DiscountGrant.where(account_user_id: member.id).destroy_all
+    ::Inclamo::ActionPermissions.set!(member, 'discount', false, by: Current.user)
     render json: { members: members }
   end
 

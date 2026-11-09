@@ -17,7 +17,8 @@ module Inclamo
       # With `after`, a further page of orders: what the first read settled
       # and refreshed is not read again.
       def as_json(after: nil)
-        base = { viewer: viewer, connection: connection, can: can }
+        base = { viewer: viewer, connection: connection, can: can,
+                 ai_proposals_enabled: AiConnection.active.exists?(account_id: @account.id) || AiProposal.exists?(account_id: @account.id, conversation_id: @conversation.id) }
         return base.merge(state: 'not_connected') unless @record
         return base.merge(state: 'broken') if @record.broken?
         return base.merge(body(after)) if after
@@ -36,19 +37,21 @@ module Inclamo
       end
 
       def viewer
-        can_give = DiscountGrant.allows?(@account_user)
-        { administrator: @account_user&.administrator? || false, can_act_on_orders: OrderRole.allows?(@account_user),
+        permissions = ActionPermissions.for(@account_user)
+        can_give = permissions['discount']
+        { administrator: @account_user&.administrator? || false, can_act_on_orders: ActionPermissions::ORDER_ACTIONS.any? { |action| permissions[action] },
+          permissions: permissions,
           can_give_discounts: can_give, discount_presets: can_give ? DiscountPreset.where(account_id: @account.id).ordered.map(&:as_json) : [] }
       end
 
       # What this member may change from the panel, decided by the role and the
       # scopes of the app. The server checks again on every request.
       def can
-        allowed = @record.present? && @record.working? && OrderRole.allows?(@account_user)
-        {
-          order_marks: allowed && @record.unavailable_reason('order_tags').nil?,
-          customer_marks: allowed && @record.unavailable_reason('customer_tags').nil?
-        }
+        permissions = ActionPermissions.for(@account_user)
+        marks = %w[order_tags order_note customer_tags customer_note].index_with do |action|
+          @record.present? && @record.working? && permissions[action] && @record.unavailable_reason(action).nil?
+        end
+        marks.symbolize_keys.merge(order_marks: marks['order_tags'] || marks['order_note'], customer_marks: marks['customer_tags'] || marks['customer_note'])
       end
 
       def connection

@@ -61,7 +61,7 @@ RSpec.describe 'Inclamo tags and notes API', type: :request do
     it 'lets an administrator change order and customer marks when the app holds both scopes' do
       connect!
 
-      expect(panel['can']).to eq('order_marks' => true, 'customer_marks' => true)
+      expect(panel['can']).to eq('order_marks' => true, 'customer_marks' => true, 'order_tags' => true, 'order_note' => true, 'customer_tags' => true, 'customer_note' => true)
     end
 
     it 'gives an agent without the role nothing to change, and shows the marks' do
@@ -69,20 +69,20 @@ RSpec.describe 'Inclamo tags and notes API', type: :request do
 
       body = panel(agent)
 
-      expect(body['can']).to eq('order_marks' => false, 'customer_marks' => false)
+      expect(body['can']).to eq('order_marks' => false, 'customer_marks' => false, 'order_tags' => false, 'order_note' => false, 'customer_tags' => false, 'customer_note' => false)
       expect(body['customer']['tags']).to include('wholesale')
     end
 
     it 'keeps customer marks unchangeable without write_customers' do
       connect!(scopes: all_scopes - ['write_customers'])
 
-      expect(panel['can']).to eq('order_marks' => true, 'customer_marks' => false)
+      expect(panel['can']).to eq('order_marks' => true, 'customer_marks' => false, 'order_tags' => true, 'order_note' => true, 'customer_tags' => false, 'customer_note' => false)
     end
 
     it 'is all false when no store is connected' do
       get "#{base}/panel", headers: admin.create_new_auth_token
 
-      expect(response.parsed_body['can']).to eq('order_marks' => false, 'customer_marks' => false)
+      expect(response.parsed_body['can']).to eq('order_marks' => false, 'customer_marks' => false, 'order_tags' => false, 'order_note' => false, 'customer_tags' => false, 'customer_note' => false)
     end
   end
 

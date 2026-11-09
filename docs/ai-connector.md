@@ -407,3 +407,24 @@ and an activity message in the conversation (Chatwoot's
 `conversations.activity.agent_bot.error_moved_to_open`). Unlike a handover,
 **the AI assignee stays**: the conversation is Open, assigned to the bot, and
 Chatwoot's auto-assignment does not give it to a person.
+
+## Governed Shopify actions (contract extension)
+
+ADR 0072 introduces staff rights per operation and independent AI policy. Existing connection registration and bot-token authentication remain unchanged. A connected AI service can now use these endpoints under `/api/v1/accounts/:account_id/inclamo/ai/conversations/:display_id`:
+
+- `GET /orders`: unambiguously matched customer, recent orders and current policies. The bot is limited to its connected account/inboxes. The helpdesk ignores widget-supplied remembered-customer attributes when matching AI targets.
+- `POST /proposals`: `{ request_id, action_name, order_id | customer_id, params, address?, note? }`. Use a unique 8–64 character alphanumeric/hyphen request id and reuse it for delivery retries. Reusing it with different input is refused. Order-less operations omit target ids. Addresses are allowed only for `address`; notes only for note/new-order operations. Parameters follow the existing staff action contract. For item edits omit `expected`: the server calculates it.
+- `GET /proposals/:id`: current proposal and underlying action outcome.
+- `POST /proposals/:id/execute`: request autonomous execution. This never substitutes for staff approval when any required policy is `propose`.
+
+All operations default to `propose`. Staff review, refresh, approve or reject proposals in the conversation. The exact request and server-calculated summary are bound to a review digest; proposals expire after 15 minutes. Addresses and notes in proposal storage are encrypted. A changed customer, order or connection requires refreshed review. A bot cannot supply a staff identity or grant itself permissions.
+
+Autonomy requires explicit per-operation policy, current connected service/bot/inbox, a pending conversation without a human assignee and verified customer identity. A signed widget identifier must equal the matched Shopify customer GID or that customer's email read from Shopify; a signed contact email cannot authenticate another customer found by phone. Alternatively an administrator can explicitly verify the customer's identity from a proposal. That verification is bound to the channel, matched customer and contact identifiers; changes invalidate it. Merely approving one proposal does not establish ongoing identity trust.
+
+For order operations, allowed fulfillment states and the maximum current order total are required. Refund amounts, calculated edited totals and calculated new-order totals must also fit their applicable limit. Amounts use the connected shop currency. Discount policies set maximum fixed amount and maximum percentage. These limits apply per operation, not cumulatively across a day. Cancellation with a refund requires both cancellation and refund authority; a discounted new order requires both new-order and discount authority. A policy set to `forbidden` also prevents human approval of an AI proposal; staff can still perform independently authorized manual actions.
+
+`accepted` means Shopify accepted the operation; `pending`, `running` and `unknown` must never be described to the customer as completed. An unknown result keeps its original action identifier. The AI endpoint does not reissue its write; common read-only reconciliation can resolve it. An accepted action's private audit note names the AI initiator and the approving person, or labels autonomous execution. Returning an invoice link/code does not itself deliver a customer reply; the AI service must send the appropriate public reply only after checking the result.
+
+Errors such as `approval_required`, `identity_unverified`, `human_takeover`, `amount_limit`, `state_limit`, `policy_forbidden`, `review_changed` and `expired` require a human review or changed verified conditions. `busy` means another proposal request holds the account execution lock; retry the same request id. Service failure/disconnection disables autonomy. Subscription enforcement remains the existing registration/delivery contract: the service must refuse delivery or disconnect when access is lost; the helpdesk cannot independently infer external billing status.
+
+The acceptance simulator exercises these endpoints using the registered bot token inside the isolated test stack. Those results verify this integration contract and Shopify state, not real-model intent recognition or model quality.
