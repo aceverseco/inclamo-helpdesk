@@ -16,6 +16,7 @@ const days = ref(7);
 const loading = ref(true);
 const failed = ref(false);
 const busy = ref(false);
+const actionError = ref(false);
 const editing = ref(null); // null, 'new' or a policy id
 const deleting = ref(null);
 const errors = ref([]);
@@ -120,9 +121,12 @@ const move = async (index, step) => {
   const [moved] = ids.splice(index, 1);
   ids.splice(index + step, 0, moved);
   busy.value = true;
+  actionError.value = false;
   try {
     const { data } = await InclamoAPI.reorderSlaPolicies(ids);
     policies.value = data.policies;
+  } catch (error) {
+    actionError.value = true;
   } finally {
     busy.value = false;
   }
@@ -130,10 +134,13 @@ const move = async (index, step) => {
 
 const remove = async policy => {
   busy.value = true;
+  actionError.value = false;
   try {
     await InclamoAPI.deleteSlaPolicy(policy.id);
     deleting.value = null;
     await load();
+  } catch (error) {
+    actionError.value = true;
   } finally {
     busy.value = false;
   }
@@ -169,6 +176,7 @@ onMounted(load);
     <template #body>
       <p v-if="failed" class="text-sm text-n-ruby-11" data-testid="inclamo-sla-failed">{{ t('SETTINGS.SLA.FAILED') }}</p>
       <div v-else class="flex flex-col gap-4 text-sm text-n-slate-12" data-testid="inclamo-sla-page">
+        <p v-if="actionError" role="alert" class="text-sm text-n-ruby-11" data-testid="inclamo-sla-action-error">{{ t('SETTINGS.SLA.ACTION_FAILED') }}</p>
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2">
             <span class="text-n-slate-11">{{ t('SETTINGS.SLA.SUMMARY.PERIOD') }}</span>

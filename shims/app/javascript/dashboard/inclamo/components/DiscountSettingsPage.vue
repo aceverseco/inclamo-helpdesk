@@ -15,6 +15,7 @@ const currency = ref('');
 const loading = ref(true);
 const failed = ref(false);
 const busy = ref(false);
+const actionError = ref(false);
 // null: no form; {}: a new preset; { id }: the preset being changed.
 const editing = ref(null);
 const errors = ref({});
@@ -80,20 +81,27 @@ const save = async () => {
 
 const remove = async preset => {
   busy.value = true;
+  actionError.value = false;
   try {
     const { data } = await InclamoAPI.deleteDiscountPreset(preset.id);
     presets.value = data.presets;
     removing.value = null;
+  } catch (error) {
+    actionError.value = true;
   } finally {
     busy.value = false;
   }
 };
 
-const toggle = async member => {
+const toggle = async (member, event) => {
   busy.value = true;
+  actionError.value = false;
   try {
     const { data } = member.can_give ? await InclamoAPI.takeDiscountGrant(member.user_id) : await InclamoAPI.giveDiscountGrant(member.user_id);
     members.value = data.members;
+  } catch (error) {
+    actionError.value = true;
+    if (event?.target) event.target.checked = member.can_give;
   } finally {
     busy.value = false;
   }
@@ -110,6 +118,7 @@ onMounted(load);
     <template #body>
       <p v-if="failed" class="text-sm text-n-ruby-11" data-testid="inclamo-discounts-failed">{{ t('SETTINGS.DISCOUNTS.FAILED') }}</p>
       <div v-else class="flex flex-col gap-6 text-sm text-n-slate-12" data-testid="inclamo-discounts-page">
+        <p v-if="actionError" role="alert" class="text-sm text-n-ruby-11" data-testid="inclamo-discounts-action-error">{{ t('SETTINGS.DISCOUNTS.ACTION_FAILED') }}</p>
         <section class="flex flex-col gap-2">
           <h3 class="text-base font-medium">{{ t('SETTINGS.DISCOUNTS.PRESETS') }}</h3>
           <p v-if="!presets.length" class="text-n-slate-11" data-testid="inclamo-presets-none">{{ t('SETTINGS.DISCOUNTS.NO_PRESETS') }}</p>
@@ -184,7 +193,7 @@ onMounted(load);
                 <span>{{ member.name }}</span>
                 <span class="text-xs text-n-slate-11">{{ member.switchable ? member.email : t('SETTINGS.ORDER_ROLES.ADMIN') }}</span>
               </span>
-              <input type="checkbox" :checked="member.can_give" :disabled="!member.switchable || busy" :aria-label="t('SETTINGS.DISCOUNTS.ALLOW')" @change="toggle(member)" />
+              <input type="checkbox" :checked="member.can_give" :disabled="!member.switchable || busy" :aria-label="t('SETTINGS.DISCOUNTS.ALLOW')" @change="toggle(member, $event)" />
             </label>
           </div>
         </section>

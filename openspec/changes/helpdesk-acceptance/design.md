@@ -41,6 +41,7 @@ For each live order scenario, keep the input, actor/role, expected state, helpde
 - At 1024 px, four columns left the reply editor approximately 164 px wide. Use upstream expanded conversation/back navigation below 1280 px without persisting a different user preference; verify a usable composer and return to the list in the browser.
 - The connection dialog omitted the scopes for item edits and discount codes, and mentioned draft orders only for replacements. Correct the instruction to match the installed actions.
 - A failed role save left the checkbox optimistic and showed no failure. Restore the last confirmed value and show an inline error; a real browser test injects a 503 to verify it.
+- Discount grants and preset removal, and SLA reorder/removal, also lacked failure feedback. Preserve the confirmed values, show an alert and allow retry; five regression cases failed before the fix and passed after it.
 - Shopper screenshots taken before the content assertions showed loading placeholders. Capture only after the actual address/cancellation/items and totals are visible.
 - The direct cancellation dialog explains irreversibility and refund/restock/notification choices, but does not show the refund amount in that confirmation. Record this as a UX follow-up; do not confuse the order card's amount with a fresh cancellation preview.
 

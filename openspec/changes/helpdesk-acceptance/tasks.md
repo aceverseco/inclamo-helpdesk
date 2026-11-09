@@ -2,7 +2,7 @@
 
 - [x] 1.1 Combine implemented feature branches in an isolated clone; verify original worktrees are untouched and all six patches assemble, including the laptop layout correction.
 - [x] 1.2 Check Shopify documents, fixture schemas and UI strings; verify 77 GraphQL documents and 54 fixtures pass.
-- [x] 1.3 Fix the settings import cycle and permission-save feedback; verify 259 overlay and 381 upstream frontend cases across the baseline and targeted reruns.
+- [x] 1.3 Fix the settings import cycle and permission-save feedback; verify 264 overlay and 381 upstream frontend cases across the baseline and targeted reruns.
 - [x] 1.4 Resolve backend integration defects and verify the complete backend run plus any necessary targeted rerun pass (737 overlay examples: two new test identifiers corrected; affected group rerun 22/22; upstream regressions 120/120).
 - [x] 1.5 Build the combined image; verify image creation and startup of its own database and app.
 

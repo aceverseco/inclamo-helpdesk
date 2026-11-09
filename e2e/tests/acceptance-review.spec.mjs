@@ -63,6 +63,16 @@ test('Setup and administrator settings are reviewable in the combined image', as
       await page.screenshot({ path: info.outputPath('settings-role-error.png'), fullPage: true });
       await page.unroute('**/inclamo/order_roles');
     }
+    if (route === 'discount-codes') {
+      await page.route('**/inclamo/discount_grants', route => route.request().method() === 'POST'
+        ? route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }) : route.continue());
+      const checkbox = page.getByTestId(`inclamo-grant-${agent.userId}`).locator('input');
+      await checkbox.click();
+      await expect(page.getByTestId('inclamo-discounts-action-error')).toContainText('could not be confirmed');
+      await expect(checkbox).not.toBeChecked();
+      await page.screenshot({ path: info.outputPath('settings-discount-error.png'), fullPage: true });
+      await page.unroute('**/inclamo/discount_grants');
+    }
   }
   section = await openOrders(page, account, conversation.id);
   const card = await orderCard(section, addressOrder.number);

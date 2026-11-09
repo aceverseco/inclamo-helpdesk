@@ -138,3 +138,46 @@ describe('Discount codes settings page', () => {
     expect(find(wrapper, 'inclamo-presets-none').exists()).toBe(true);
   });
 });
+
+
+describe('settings failures', () => {
+  it('restores a failed grant and permits a successful retry', async () => {
+    InclamoAPI.giveDiscountGrant.mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce({ data: { members: [members[0], { ...members[1], can_give: true }] } });
+    const wrapper = await show();
+    const input = find(wrapper, 'inclamo-grant-2').find('input');
+    await input.setValue(true);
+    await flush();
+    expect(input.element.checked).toBe(false);
+    expect(input.element.disabled).toBe(false);
+    expect(find(wrapper, 'inclamo-discounts-action-error').attributes('role')).toBe('alert');
+    await input.setValue(true);
+    await flush();
+    expect(input.element.checked).toBe(true);
+    expect(find(wrapper, 'inclamo-discounts-action-error').exists()).toBe(false);
+  });
+
+  it('keeps a permission checked when revoking it fails', async () => {
+    InclamoAPI.giveDiscountGrant.mockResolvedValue({ data: { members: [members[0], { ...members[1], can_give: true }] } });
+    InclamoAPI.takeDiscountGrant.mockRejectedValue(new Error('network'));
+    const wrapper = await show();
+    const input = find(wrapper, 'inclamo-grant-2').find('input');
+    await input.setValue(true);
+    await flush();
+    await input.setValue(false);
+    await flush();
+    expect(input.element.checked).toBe(true);
+    expect(find(wrapper, 'inclamo-discounts-action-error').text()).toContain('could not be confirmed');
+  });
+
+  it('keeps the preset and its confirmation when deletion fails', async () => {
+    InclamoAPI.deleteDiscountPreset.mockRejectedValue(new Error('network'));
+    const wrapper = await show();
+    await findAll(wrapper, 'inclamo-preset-remove')[0].trigger('click');
+    await find(wrapper, 'inclamo-preset-remove-confirm').trigger('click');
+    await flush();
+    expect(findAll(wrapper, 'inclamo-preset')).toHaveLength(2);
+    expect(find(wrapper, 'inclamo-preset-remove-confirm').element.disabled).toBe(false);
+    expect(find(wrapper, 'inclamo-discounts-action-error').text()).toContain('could not be confirmed');
+  });
+});

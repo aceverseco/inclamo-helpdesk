@@ -244,3 +244,31 @@ describe('SlaPoliciesPage', () => {
     expect(find(wrapper, 'inclamo-sla-failed').exists()).toBe(true);
   });
 });
+
+
+describe('SLA list failures', () => {
+  it('keeps the confirmed order and shows an error until retry succeeds', async () => {
+    InclamoAPI.reorderSlaPolicies.mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce({ data: { policies: [vip, standard] } });
+    const wrapper = await show();
+    await find(wrapper, 'inclamo-sla-up-2').trigger('click');
+    await flush();
+    expect(wrapper.findAll('[data-testid="inclamo-sla-policy-name"]').map(node => node.text())).toEqual(['Standard', 'VIP']);
+    expect(find(wrapper, 'inclamo-sla-action-error').attributes('role')).toBe('alert');
+    await find(wrapper, 'inclamo-sla-up-2').trigger('click');
+    await flush();
+    expect(wrapper.findAll('[data-testid="inclamo-sla-policy-name"]').map(node => node.text())).toEqual(['VIP', 'Standard']);
+    expect(find(wrapper, 'inclamo-sla-action-error').exists()).toBe(false);
+  });
+
+  it('keeps a policy and the confirmation when deletion fails', async () => {
+    InclamoAPI.deleteSlaPolicy.mockRejectedValue(new Error('network'));
+    const wrapper = await show();
+    await find(wrapper, 'inclamo-sla-delete-1').trigger('click');
+    await find(wrapper, 'inclamo-sla-delete-confirm-1').trigger('click');
+    await flush();
+    expect(find(wrapper, 'inclamo-sla-policy-1').exists()).toBe(true);
+    expect(find(wrapper, 'inclamo-sla-delete-confirm-1').element.disabled).toBe(false);
+    expect(find(wrapper, 'inclamo-sla-action-error').text()).toContain('could not be confirmed');
+  });
+});

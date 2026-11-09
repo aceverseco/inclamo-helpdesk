@@ -271,6 +271,7 @@
     "DISCOUNTS": {
       "MENU": "Discount codes",
       "TITLE": "Discount codes",
+      "ACTION_FAILED": "The change could not be confirmed. Reload the page to check the current discount settings.",
       "INTRO": "The discounts agents may give from a conversation. An agent picks one and changes nothing. A code keeps its conditions when its preset changes later.",
       "LOADING": "Loading the discount presets…",
       "FAILED": "The page could not be loaded. Reload the page to try again.",
@@ -331,6 +332,7 @@
     "SLA": {
       "MENU": "SLA",
       "TITLE": "SLA policies",
+      "ACTION_FAILED": "The change could not be confirmed. Reload the page to check the current policies.",
       "INTRO": "How fast conversations must get a first reply from a person and be resolved. A new conversation gets the first policy in this list that covers its inbox; the targets it gets do not change when the policy is edited later.",
       "LOADING": "Loading the policies…",
       "FAILED": "The policies could not be loaded. Reload the page to try again.",
