@@ -8,6 +8,7 @@ query customer_orders($id: ID!, $first: Int!, $after: String) {
     defaultEmailAddress { emailAddress }
     defaultPhoneNumber { phoneNumber }
     ...CustomerFactFields
+    note
     orders(first: $first, after: $after, sortKey: CREATED_AT, reverse: true) {
       pageInfo { hasNextPage endCursor }
       nodes {

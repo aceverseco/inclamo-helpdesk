@@ -1,0 +1,16 @@
+{
+  "variables": {
+    "id": "gid://shopify/Customer/31352101470366",
+    "tags": [
+      "wholesale"
+    ]
+  },
+  "data": {
+    "tagsRemove": {
+      "node": {
+        "id": "gid://shopify/Customer/31352101470366"
+      },
+      "userErrors": []
+    }
+  }
+}

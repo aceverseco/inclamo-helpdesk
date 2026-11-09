@@ -43,9 +43,9 @@ RSpec.describe Inclamo::ShopifyConnection do
 
   describe 'actions' do
     it 'are all available with the write scopes' do
-      report = build(:inclamo_shopify_connection).actions_report
+      report = build(:inclamo_shopify_connection, scopes: %w[read_customers read_orders read_products write_customers write_draft_orders write_orders]).actions_report
 
-      expect(report.pluck(:name)).to eq(%w[cancel refund address replacement])
+      expect(report.pluck(:name)).to eq(%w[cancel refund address replacement order_tags order_note customer_tags customer_note])
       expect(report).to all(include(available: true, reason: nil, missing_scopes: []))
     end
 
@@ -61,6 +61,17 @@ RSpec.describe Inclamo::ShopifyConnection do
 
       expect(record.unavailable_reason('address')).to eq('customer_data_hidden')
       expect(record.unavailable_reason('refund')).to be_nil
+      expect(record.unavailable_reason('order_tags')).to be_nil
+    end
+
+    it "exclude the customer's tags and note without write_customers and when the store hides customer data" do
+      record = build(:inclamo_shopify_connection, scopes: %w[read_customers read_orders write_customers write_orders])
+
+      expect(build(:inclamo_shopify_connection).missing_scopes_for('customer_tags')).to eq(%w[write_customers])
+      expect(record.unavailable_reason('customer_note')).to be_nil
+      record.customer_data_mode = 'limited'
+      expect(record.unavailable_reason('customer_tags')).to eq('customer_data_hidden')
+      expect(record.unavailable_reason('customer_note')).to eq('customer_data_hidden')
     end
   end
 end

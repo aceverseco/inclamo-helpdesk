@@ -55,6 +55,19 @@ RSpec.describe Inclamo::Shopify::OrderPresenter do
     expect(order[:actions]['address'][:reason]).to eq('already_cancelled')
   end
 
+  it "shows the order's tags and note" do
+    order = present('customer_orders_marks', ['customer', 'orders', 'nodes', 0])
+
+    expect(order[:tags]).to include('gift', 'priority')
+    expect(order[:note]).to eq('Leave at the door')
+  end
+
+  it 'shows an order without tags and note as having none' do
+    order = described_class.new(shopify_fixture('order_details_open')['order'].merge('tags' => [], 'note' => ''), shop_domain: 'example-store.myshopify.com').as_json
+
+    expect(order).to include(tags: [], note: nil)
+  end
+
   it 'shows no customer and no address when the store hides them' do
     order = present('order_details_limited_open')
 

@@ -5,6 +5,7 @@ import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 import InclamoAPI from '../api';
 import OrderCard from './OrderCard.vue';
 import ConnectDialog from './ConnectDialog.vue';
+import MarksBlock from './MarksBlock.vue';
 import { ORDER_ROLES_ROUTE } from '../routes';
 import { notePanel } from '../orderState';
 import { t } from '../i18n';
@@ -30,6 +31,7 @@ const state = computed(() => panel.value?.state);
 const viewer = computed(() => panel.value?.viewer || { administrator: false, can_act_on_orders: false });
 const connection = computed(() => panel.value?.connection || { connected: false });
 const markedId = computed(() => panel.value?.marked_order?.id);
+const can = computed(() => panel.value?.can || {});
 const lookupStates = ['none', 'no_identifier', 'limited'];
 const openActionFor = order => (panel.value?.open_actions || []).find(action => action.order_id === order.id) || null;
 
@@ -205,6 +207,15 @@ watch(
           </span>
           <button type="button" class="text-xs text-n-slate-11" data-testid="inclamo-customer-forget" @click="forget">{{ t('ORDERS.FORGET_CUSTOMER') }}</button>
         </div>
+        <MarksBlock
+          subject="customer"
+          :subject-id="panel.customer.id"
+          :conversation-id="conversationId"
+          :tags="panel.customer.tags || []"
+          :note="panel.customer.note || null"
+          :editable="!!can.customer_marks"
+          :connection="connection"
+        />
         <p v-if="!orders.length" class="text-n-slate-11">{{ t('ORDERS.NO_ORDERS') }}</p>
         <OrderCard
           v-for="order in orders"
@@ -215,6 +226,7 @@ watch(
           :viewer="viewer"
           :marked="order.id === markedId"
           :open-action="openActionFor(order)"
+          :can-change-marks="!!can.order_marks"
           @changed="load"
           @mark="mark"
           @unmark="unmark"
@@ -241,6 +253,7 @@ watch(
             :viewer="viewer"
             :marked="lookupResult.order.id === markedId"
             :open-action="openActionFor(lookupResult.order)"
+            :can-change-marks="!!can.order_marks"
             start-open
             @changed="findOrder"
             @mark="mark"

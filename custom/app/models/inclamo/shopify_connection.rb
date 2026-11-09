@@ -12,7 +12,11 @@ class Inclamo::ShopifyConnection < ApplicationRecord
     'address' => %w[write_orders],
     # read_products: the items a replacement keeps are named to the store by
     # their variants, and a variant can only be read with that scope.
-    'replacement' => %w[write_orders write_draft_orders read_products]
+    'replacement' => %w[write_orders write_draft_orders read_products],
+    'order_tags' => %w[write_orders],
+    'order_note' => %w[write_orders],
+    'customer_tags' => %w[write_customers],
+    'customer_note' => %w[write_customers]
   }.freeze
 
   belongs_to :account
@@ -40,7 +44,7 @@ class Inclamo::ShopifyConnection < ApplicationRecord
   # Why an action cannot be performed with this connection, or nil.
   def unavailable_reason(action)
     return 'missing_scope' if missing_scopes_for(action).any?
-    return 'customer_data_hidden' if action.to_s == 'address' && customer_data_limited?
+    return 'customer_data_hidden' if (action.to_s == 'address' || Inclamo::OrderAction.customer_action?(action)) && customer_data_limited?
 
     nil
   end

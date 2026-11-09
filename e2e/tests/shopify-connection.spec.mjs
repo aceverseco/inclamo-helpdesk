@@ -5,6 +5,8 @@ import { signIn, openOrders, apiAs, proxy, bench, limited, users } from '../lib/
 import { accessToken, credentials } from '../lib/shopify.mjs';
 
 const account = process.env.E2E_ACCOUNT_ID || '1';
+// Every action the connection reports, in its order; the test app holds the scopes of all of them.
+const ACTIONS = ['cancel', 'refund', 'address', 'replacement', 'order_tags', 'order_note', 'customer_tags', 'customer_note'];
 // A store that exists and on which the test app is not installed.
 const otherShop = process.env.E2E_OTHER_SHOP_DOMAIN;
 let admin;
@@ -68,7 +70,7 @@ test('Valid client ID and secret', async ({ page }) => {
   const saved = await admin.connection();
   expect(saved).toMatchObject({ connected: true, status: 'working', shop_domain: bench().shop_domain, auth_kind: 'client_credentials' });
   expect(saved.shop_name).toBeTruthy();
-  expect(saved.actions.map(action => action.name)).toEqual(['cancel', 'refund', 'address', 'replacement']);
+  expect(saved.actions.map(action => action.name)).toEqual(ACTIONS);
   await expect(section.getByTestId('inclamo-manage')).toContainText(saved.shop_name);
 });
 
@@ -250,7 +252,7 @@ test('Scopes change at the store', async ({ page }) => {
 
   await section.getByTestId('inclamo-manage-recheck').click();
 
-  await expect.poll(async () => (await admin.connection()).actions.filter(action => action.available).map(action => action.name)).toEqual(['cancel', 'refund', 'address', 'replacement']);
+  await expect.poll(async () => (await admin.connection()).actions.filter(action => action.available).map(action => action.name)).toEqual(ACTIONS);
 });
 
 test('Token revoked at the store', async ({ page }) => {

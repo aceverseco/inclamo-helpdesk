@@ -23,6 +23,7 @@ module Inclamo
           refundable: { amount: refundable_amount.to_s('F'), currency: @node['currencyCode'] },
           items: items, shipments: shipments, refunds: refunds,
           customer: customer, shipping_address: shipping_address,
+          tags: Array(@node['tags']), note: @node['note'].presence,
           actions: actions
         }
       end
@@ -58,7 +59,8 @@ module Inclamo
       private
 
       def actions
-        ShopifyConnection::ACTION_SCOPES.keys.index_with { |action| { allowed: refusal(action).nil?, reason: refusal(action) } }
+        ShopifyConnection::ACTION_SCOPES.keys.reject { |action| OrderAction.customer_action?(action) }
+                                        .index_with { |action| { allowed: refusal(action).nil?, reason: refusal(action) } }
       end
 
       def admin_url

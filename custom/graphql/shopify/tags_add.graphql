@@ -1,0 +1,13 @@
+# Adds tags to an order or a customer. The tags it already has stay, including
+# any added in the store since the panel read it.
+mutation tags_add($id: ID!, $tags: [String!]!) {
+  tagsAdd(id: $id, tags: $tags) {
+    node {
+      id
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

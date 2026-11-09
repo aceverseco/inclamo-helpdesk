@@ -1,0 +1,9 @@
+# The tags and note of one customer as the store holds them now, read past the
+# cache when the note editor opens and before the customer is changed.
+query customer_marks($id: ID!) {
+  customer(id: $id) {
+    id
+    tags
+    note
+  }
+}

@@ -9,7 +9,8 @@ module Inclamo
     #      and no other request is working on it; refused when it belongs to
     #      another conversation, order or action
     #   2. the agent may not act, or the app lacks a scope -> refused, the store is not called
-    #   3. the order is read; it does not allow the action  -> refused
+    #   3. the order (or, for a customer's tags and note, the customer) is read;
+    #      it does not allow the action                    -> refused
     #   4. the record is written, then the store is asked
     # An accepted action leaves a private note in the conversation.
     #
@@ -17,8 +18,12 @@ module Inclamo
     # and later one that claims it (`claim!`). An attempt still pending after
     # LEASE belongs to a request that ended without finishing it.
     class OrderActionRunner
-      HANDLERS = { 'cancel' => Actions::Cancel, 'address' => Actions::Address, 'refund' => Actions::Refund, 'replacement' => Actions::Replacement }.freeze
+      HANDLERS = {
+        'cancel' => Actions::Cancel, 'address' => Actions::Address, 'refund' => Actions::Refund, 'replacement' => Actions::Replacement,
+        'order_tags' => Actions::Tags, 'customer_tags' => Actions::Tags, 'order_note' => Actions::Note, 'customer_note' => Actions::Note
+      }.freeze
       LEASE = 5.minutes
+      NOTE_ACTIONS = %w[order_note customer_note].freeze
 
       # `connection` is the account's store connection when the caller has it already.
       def initialize(account:, account_user:, conversation:, connection: nil)
@@ -28,27 +33,31 @@ module Inclamo
         @connection = connection || ShopifyConnection.find_by(account_id: account.id)
       end
 
-      # `extra` is what must not be recorded (the new address).
-      def perform(action:, action_id:, order_id:, params: {}, extra: {})
+      # `extra` is what must not be recorded (the new address, the text of a note).
+      # A customer's tags and note are changed with `customer_id` instead of `order_id`.
+      def perform(action:, action_id:, order_id: nil, customer_id: nil, params: {}, extra: {})
         action = action.to_s
         existing = OrderAction.find_by(account_id: @account.id, action_id: action_id.to_s)
-        return taken(action, action_id, order_id) if existing && !same_attempt?(existing, action, order_id)
+        return taken(action, action_id, order_id) if existing && !same_attempt?(existing, action, order_id, customer_id)
         return settle(existing, extra) if existing
 
         record = OrderAction.new(account: @account, conversation: @conversation, user: @account_user&.user, action_id: action_id.to_s,
-                                 action: action, order_id: order_id.to_s, params: recordable(action, params))
+                                 action: action, order_id: order_id.to_s.presence, customer_id: customer_id.to_s.presence,
+                                 params: recordable(action, params))
         refusal = gate(action)
         return refuse!(record, refusal) if refusal
 
-        order = reader.order(order_id.to_s)
-        return refuse!(record, 'unknown_order') unless order
+        subject = read(record)
+        return refuse!(record, record.customer_action? ? 'unknown_customer' : 'unknown_order') unless subject
 
-        record.order_number = order['name']
-        refusal = OrderPresenter.new(order, shop_domain: @connection.shop_domain).refusal(action)
-        return refuse!(record, refusal) if refusal
+        unless record.customer_action?
+          record.order_number = subject['name']
+          refusal = OrderPresenter.new(subject, shop_domain: @connection.shop_domain).refusal(action)
+          return refuse!(record, refusal) if refusal
+        end
 
         record.save! # before the store is asked to change anything
-        run(record, order, extra)
+        run(record, subject, extra)
       rescue Error => e
         # The store could not be read: nothing was attempted.
         refuse!(record, 'store_unreachable', e.class.name.demodulize.underscore)
@@ -82,6 +91,12 @@ module Inclamo
         @reader ||= OrderReader.new(@connection)
       end
 
+      # What the action is about, read from the store: the order (through the
+      # minute's cache), or the customer as the store holds it now.
+      def read(record)
+        record.customer_action? ? reader.customer_marks(record.customer_id) : reader.order(record.order_id)
+      end
+
       def recordable(action, params)
         handler = HANDLERS[action]
         handler ? handler.recordable(params.to_h.stringify_keys) : {}
@@ -107,8 +122,8 @@ module Inclamo
       # The id belongs to an attempt in another conversation, or for another
       # order or action. Answered as a refusal that is not recorded: the id is
       # that attempt's, and nothing of it is shown here.
-      def same_attempt?(existing, action, order_id)
-        existing.conversation_id == @conversation&.id && existing.action == action && existing.order_id.to_s == order_id.to_s
+      def same_attempt?(existing, action, order_id, customer_id)
+        existing.conversation_id == @conversation&.id && existing.action == action && existing.order_id.to_s == order_id.to_s && existing.customer_id.to_s == customer_id.to_s
       end
 
       def taken(action, action_id, order_id)
@@ -121,13 +136,14 @@ module Inclamo
         return record if record.settled?
         # An address is not recorded, so an open address change cannot be repeated from the record.
         return record if record.action == 'address' && extra.blank?
+        return record if NOTE_ACTIONS.include?(record.action) && note_from(extra).nil?
         return record if gate(record.action)
 
-        order = reader.order(record.order_id)
-        return record unless order
+        subject = read(record)
+        return record unless subject
         return record unless claim!(record)
 
-        run(record, order, extra)
+        run(record, subject, extra)
       rescue Error
         record
       end
@@ -153,8 +169,8 @@ module Inclamo
         was = record.outcome
         return unless claim!(record)
 
-        order = reader.order(record.order_id)
-        state = order && handler_for_reading(record, order).resolve
+        subject = read(record)
+        state = subject && handler_for_reading(record, subject).resolve
         case state
         when :accepted then accept!(record)
         when :running then record.update!(outcome: 'running')
@@ -172,6 +188,7 @@ module Inclamo
       def handler_for_reading(record, order)
         arguments = { store: StoreConnection.new(@connection), record: record, order: order }
         arguments[:address] = nil if record.action == 'address'
+        arguments[:note] = nil if NOTE_ACTIONS.include?(record.action)
         arguments[:shop_domain] = @connection.shop_domain if record.action == 'replacement'
         HANDLERS.fetch(record.action).new(**arguments)
       end
@@ -180,6 +197,7 @@ module Inclamo
         handler = HANDLERS.fetch(record.action)
         arguments = { store: StoreConnection.new(@connection), record: record, order: order }
         arguments[:address] = extra[:address] || extra['address'] if record.action == 'address'
+        arguments[:note] = note_from(extra) if NOTE_ACTIONS.include?(record.action)
         arguments[:shop_domain] = @connection.shop_domain if record.action == 'replacement'
         state = handler.new(**arguments).call
         state == :running ? record.update!(outcome: 'running') : accept!(record)
@@ -213,9 +231,18 @@ module Inclamo
         conversation = record.conversation
         return if record.note_message_id || conversation.nil? || record.user.nil?
 
-        content = I18n.t("inclamo.order_actions.notes.#{record.action}", **note_facts(record))
+        content = I18n.t("inclamo.order_actions.notes.#{note_key(record)}", **note_facts(record))
         message = Messages::MessageBuilder.new(record.user, conversation, { content: content, private: true }).perform
         record.update_columns(note_message_id: message.id) # rubocop:disable Rails/SkipsModelValidations
+      end
+
+      def note_from(extra)
+        extra[:note].nil? ? extra['note'] : extra[:note]
+      end
+
+      # A tag's note says whether it was added or removed.
+      def note_key(record)
+        %w[order_tags customer_tags].include?(record.action) ? "#{record.action}_#{record.params['operation']}" : record.action
       end
 
       def note_facts(record)
@@ -225,7 +252,7 @@ module Inclamo
         details << I18n.t('inclamo.order_actions.notes.details.refunded') if params['refund'] == true
         details << I18n.t('inclamo.order_actions.notes.details.restocked') if params['restock'] == true
         details << I18n.t('inclamo.order_actions.notes.details.notified') if params['notify'] == true
-        { number: record.order_number, details: details.join(' ') }.merge(record.progress.slice('new_order_number', 'refunded').symbolize_keys)
+        { number: record.order_number, tag: params['tag'], details: details.join(' ') }.merge(record.progress.slice('new_order_number', 'refunded').symbolize_keys)
       end
     end
   end

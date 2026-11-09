@@ -21,7 +21,7 @@ in the store's admin.
 5. **Scopes**: paste this list.
 
    ```
-   read_customers,read_orders,write_orders,write_draft_orders,read_products,read_locations,read_merchant_managed_fulfillment_orders
+   read_customers,read_orders,write_orders,write_draft_orders,read_products,read_locations,read_merchant_managed_fulfillment_orders,write_customers,write_order_edits,write_discounts
    ```
 
 6. **Create app**, then **Release**.
@@ -37,14 +37,19 @@ What each scope is for:
 | `read_products` | sending a free replacement | the replacement is unavailable |
 | `read_locations` | putting refunded items back in stock | a refund still works; the items stay out of stock |
 | `read_merchant_managed_fulfillment_orders` | putting refunded items back in stock | a refund still works; the items stay out of stock |
+| `write_customers` | changing a customer's tags and note | the customer's tags and note are shown but cannot be changed |
 
 When you approve `read_locations`, Shopify describes it as access to your
 locations and to the store owner's phone number and physical address. The
 helpdesk reads only which location a refunded item goes back to.
 
-You can leave out the last five and add them later: the panel shows orders
-with the first two alone, and names the missing scope next to each action it
-cannot offer.
+`write_customers` lets an app change everything about your customers. The
+helpdesk uses it for one thing only: adding and removing a customer's tags and
+replacing the customer's note.
+
+Only the first two scopes are required. You can leave out the others and add
+them later: the panel shows orders with the first two alone, and names the
+missing scope next to each action it cannot offer.
 
 ## 2. Choose custom distribution
 
