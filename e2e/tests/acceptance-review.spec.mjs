@@ -169,6 +169,9 @@ test('A payment link opens the ordered items and amount for the shopper', async 
       for (const line of prefill.body.lines) {
         await expect(shopper.getByText(line.product.title, { exact: false }).first()).toBeVisible();
       }
+      // Wait until checkout finishes preparing payment and shipping; its first
+      // paint may still show the draft subtotal before rates arrive.
+      await expect(shopper.getByRole('button', { name: 'Pay now', exact: true })).toBeEnabled({ timeout: 45_000 });
       const totalLabel = shopper.getByText('Total', { exact: true }).last();
       await expect(totalLabel).toBeVisible();
       // Read the amount beside Total. Looking anywhere in the page can match
