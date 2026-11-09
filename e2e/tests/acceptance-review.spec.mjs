@@ -101,7 +101,7 @@ test('Setup and administrator settings are reviewable in the combined image', as
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(composer).toHaveCount(0);
   // The saved list filter is Mine; this synthetic conversation is unassigned.
-  await page.getByText('All', { exact: true }).click();
+  await page.locator('main li a').filter({ hasText: /^All\s*\d+$/ }).click();
   await expect(page.getByText('Acceptance Shopper', { exact: true }).first()).toBeVisible();
 });
 
@@ -169,9 +169,18 @@ test('A payment link opens the ordered items and amount for the shopper', async 
       for (const line of prefill.body.lines) {
         await expect(shopper.getByText(line.product.title, { exact: false }).first()).toBeVisible();
       }
-      // Wait until checkout finishes preparing payment and shipping; its first
-      // paint may still show the draft subtotal before rates arrive.
-      await expect(shopper.getByRole('button', { name: 'Pay now', exact: true })).toBeEnabled({ timeout: 45_000 });
+      // The checkout payment control can differ by payment method. Wait for
+      // the shipping summary itself before checking its effect on the total.
+      await shopper.screenshot({ path: info.outputPath(shipping ? 'checkout-paid-loaded.png' : 'checkout-free-loaded.png'), fullPage: true });
+      const shippingLabel = shopper.getByText('Shipping', { exact: true }).last();
+      const shippingSummary = () => shippingLabel.evaluate(label => {
+        for (let row = label.parentElement; row; row = row.parentElement) {
+          const text = row.innerText.replace(/[,\s]/g, '');
+          if (/Free|\d+\.\d{2}/i.test(text)) return text;
+        }
+        return '';
+      });
+      await expect.poll(shippingSummary).toMatch(shipping ? /5\.00/ : /Free/i);
       const totalLabel = shopper.getByText('Total', { exact: true }).last();
       await expect(totalLabel).toBeVisible();
       // Read the amount beside Total. Looking anywhere in the page can match

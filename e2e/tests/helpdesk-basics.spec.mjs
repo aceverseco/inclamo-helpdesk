@@ -136,6 +136,10 @@ test('A published help article is readable by a shopper while a draft is private
 });
 
 test('Conversation reports count the exchange and open in the administrator dashboard', async ({ page }, info) => {
+  // This check also runs on its own after another acceptance case fails.
+  expect((await agent.post(`/conversations/${conversation.id}/messages`, {
+    content: 'Acceptance reply for the report', private: false,
+  })).status).toBe(200);
   const until = Math.floor(Date.now() / 1000) + 60;
   const url = new URL(`/api/v2/accounts/${account}/reports/summary?type=account&since=${until - 86400}&until=${until}`, process.env.HELPDESK_URL).href;
   const report = await admin.get(url);
