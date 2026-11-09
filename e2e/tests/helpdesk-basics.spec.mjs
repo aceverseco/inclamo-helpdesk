@@ -149,6 +149,7 @@ test('Conversation reports count the exchange and open in the administrator dash
   expect(Number(report.body.outgoing_messages_count)).toBeGreaterThan(0);
   await signIn(page, users.admin);
   await page.goto(`/app/accounts/${account}/reports/overview`);
-  await expect(page.getByRole('heading', { name: /Overview/i }).first()).toBeVisible();
+  await expect(page.locator('main').getByText('Overview', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Open Conversations', exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath('administrator-reports.png'), fullPage: true });
 });
