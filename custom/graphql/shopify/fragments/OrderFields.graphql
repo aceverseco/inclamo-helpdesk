@@ -16,6 +16,8 @@ fragment OrderFields on Order {
   tags
   statusPageUrl
   totalPriceSet { shopMoney { amount currencyCode } }
+  # After edits and refunds: what the order comes to now.
+  currentTotalPriceSet { shopMoney { amount currencyCode } }
   totalReceivedSet { shopMoney { amount currencyCode } }
   totalRefundedSet { shopMoney { amount currencyCode } }
   totalShippingPriceSet { shopMoney { amount currencyCode } }

@@ -1,0 +1,12 @@
+# Emails the customer the store's invoice for what the order still owes.
+# Refused by the store when nothing is owed.
+mutation order_invoice_send($id: ID!) {
+  orderInvoiceSend(id: $id) {
+    order { id }
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}

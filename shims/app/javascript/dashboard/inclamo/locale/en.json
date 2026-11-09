@@ -76,7 +76,8 @@
       "cancel": "Cancel order",
       "refund": "Refund",
       "address": "Change address",
-      "replacement": "Send replacement"
+      "replacement": "Send replacement",
+      "edit_items": "Edit items"
     },
     "WHY_NOT": {
       "no_role": "An administrator has not allowed you to act on orders.",
@@ -96,9 +97,24 @@
       "invalid_shipping": "The shipping charge must be an amount, like 5.00.",
       "invalid_delivery": "Choose how the customer gets the payment link.",
       "no_email": "The customer has no email: put the link into the reply instead.",
-      "not_created": "The store did not create the order. Nothing was charged; you can try again."
+      "not_created": "The store did not create the order. Nothing was charged; you can try again.",
+      "item_shipped": "This item has shipped and cannot be changed.",
+      "unknown_item": "An item is no longer on the order. Close the dialog and open it again.",
+      "unknown_variant": "A product is not in the store's catalogue.",
+      "no_changes": "Change a quantity or add a product first.",
+      "no_summary": "Calculate the new total before saving.",
+      "summary_changed": "The order changed in the store meanwhile. The new total is shown: check it and save again.",
+      "store_refused": "Shopify refused the change."
     },
-    "ORDER_AGAIN": "Order again"
+    "ORDER_AGAIN": "Order again",
+    "EDIT_UNAVAILABLE": "Editing items is unavailable. {reason}",
+    "EDITED": {
+      "SAVED": "The items were saved.",
+      "REFUND": "Refund {amount}",
+      "INVOICE_SENT": "The store emailed the customer an invoice for the balance.",
+      "INVOICE_REFUSED": "The store did not send the invoice: {message}",
+      "INVOICE_UNKNOWN": "The store did not confirm the invoice: check the order in Shopify before sending it again."
+    }
   },
   "MARKS": {
     "TAGS": "Tags",
@@ -184,7 +200,8 @@
       "LEFT_OUT": "The items stay out of stock: the connected app lacks {scopes}.",
       "UNPLACED": "{count} items stay out of stock: Shopify names no location for them.",
       "CALCULATE": "Calculate",
-      "CONFIRM": "Refund {amount}"
+      "CONFIRM": "Refund {amount}",
+      "AFTER_EDIT": "After the items edit, {amount} is due back to the customer."
     },
     "ADDRESS": {
       "TITLE": "Change the shipping address of {number}",
@@ -367,5 +384,32 @@
       "other": "It cannot be done."
     },
     "ONE_AT_A_TIME": "A macro that acts on orders runs in one conversation at a time, after a confirmation."
+  },
+  "EDIT_ITEMS": {
+    "TITLE": "Edit items of order {number}",
+    "SHIPPED": "Shipped: cannot be changed",
+    "PARTLY_SHIPPED": "{count} shipped: they stay on the order",
+    "QUANTITY": "Quantity",
+    "TAKE_OFF": "Take off",
+    "INVALID_QUANTITY": "A quantity must be a whole number, not below what has shipped and at most 999.",
+    "ADD": "Add a product",
+    "CALCULATE": "Calculate the new total",
+    "CHANGE": "{item}: {from} → {to}",
+    "REMOVED": "{item}: taken off",
+    "ADDED": "{item}: {count} added",
+    "TOTAL_BEFORE": "Total now",
+    "TOTAL_AFTER": "New total",
+    "DIFFERENCE": {
+      "owed": "The customer owes {amount}.",
+      "due_back": "{amount} is due back to the customer. Saving does not refund it: the refund opens next.",
+      "none": "The total does not change."
+    },
+    "STALE": "The items changed since this total: calculate it again.",
+    "NOTIFY": "Have the store email the customer about the change",
+    "NOTIFY_HINT": "The store's own email template is used.",
+    "INVOICE": "Email the customer an invoice for {amount}",
+    "INVOICE_INCLUDED": "The store's email about the change carries the invoice, so no second one is sent.",
+    "NO_EMAIL": "The order has no email address, so no invoice can be emailed.",
+    "CONFIRM": "Save changes"
   }
 }

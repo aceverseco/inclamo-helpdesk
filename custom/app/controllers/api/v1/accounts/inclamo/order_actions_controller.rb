@@ -37,6 +37,12 @@ class Api::V1::Accounts::Inclamo::OrderActionsController < Api::V1::Accounts::Co
     answer_from_store { runner.refund_preview(order_id: params[:order_id], params: action_params) }
   end
 
+  # POST .../actions/edit_items_preview  { order_id, params: { lines, additions } }
+  # The order as the store calculates it after the edit; nothing is changed.
+  def edit_items_preview
+    answer_from_store { runner.edit_items_preview(order_id: params[:order_id], params: action_params) }
+  end
+
   # POST .../actions/new_order_preview  { params: { lines, discount, shipping } }
   def new_order_preview
     answer_from_store { runner.new_order_preview(params: action_params) }

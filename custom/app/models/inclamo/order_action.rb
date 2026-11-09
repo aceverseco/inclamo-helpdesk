@@ -4,7 +4,7 @@
 # what, in which macro if any, and how it ended. See
 # Inclamo::Shopify::OrderActionRunner.
 class Inclamo::OrderAction < ApplicationRecord
-  ACTIONS = %w[cancel refund address replacement order_tags order_note customer_tags customer_note new_order].freeze
+  ACTIONS = %w[cancel refund address replacement order_tags order_note customer_tags customer_note new_order edit_items].freeze
   CUSTOMER_ACTIONS = %w[customer_tags customer_note].freeze
   ORDER_LESS = %w[new_order].freeze
   OUTCOMES = %w[pending running accepted refused unknown].freeze
@@ -45,10 +45,19 @@ class Inclamo::OrderAction < ApplicationRecord
     %w[accepted refused].include?(outcome)
   end
 
+  # What the panel needs of the outcome. An items edit names what it means
+  # for the money (owed, due back, none) and, when the order changed since
+  # the agent's summary, the new summary.
+  def result
+    keys = %w[new_order_number new_order_id refunded] + NEW_ORDER_RESULT
+    keys += %w[difference amount currency summary invoice invoice_message] if action == 'edit_items'
+    progress.slice(*keys)
+  end
+
   def as_json(*)
     {
       action_id: action_id, action: action, order_id: order_id, customer_id: customer_id, order_number: order_number, outcome: outcome,
-      refusal: refusal, store_message: store_message, result: progress.slice('new_order_number', 'new_order_id', 'refunded', *NEW_ORDER_RESULT),
+      refusal: refusal, store_message: store_message, result: result,
       macro_id: macro_id, created_at: created_at, completed_at: completed_at
     }
   end

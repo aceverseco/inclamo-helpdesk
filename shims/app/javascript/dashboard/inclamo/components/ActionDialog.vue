@@ -16,7 +16,7 @@ const props = defineProps({
   build: { type: Function, required: true },
 });
 
-const emit = defineEmits(['done', 'opened']);
+const emit = defineEmits(['done', 'opened', 'refused']);
 
 const dialog = ref(null);
 const actionId = ref('');
@@ -66,6 +66,7 @@ const submit = async () => {
     if (data.outcome === 'refused') {
       actionId.value = newActionId();
       sent.value = null;
+      emit('refused', data);
     } else emit('done', data);
   } catch (error) {
     // No answer at all: the same request is kept, so trying again cannot act twice.

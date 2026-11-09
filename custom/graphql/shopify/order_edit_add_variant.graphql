@@ -1,0 +1,16 @@
+# Stages a product variant as a new line of an edit session, at its current
+# price. A variant that already has a line with units left to ship is raised
+# on that line instead, so a new line is wanted here even for a variant the
+# order holds on a shipped line.
+mutation order_edit_add_variant($id: ID!, $variantId: ID!, $quantity: Int!) {
+  orderEditAddVariant(id: $id, variantId: $variantId, quantity: $quantity, allowDuplicates: true) {
+    calculatedLineItem { id }
+    calculatedOrder {
+      ...CalculatedOrderFields
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

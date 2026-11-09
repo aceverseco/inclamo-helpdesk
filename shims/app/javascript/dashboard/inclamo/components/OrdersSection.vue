@@ -62,18 +62,29 @@ const latest = async request => {
 };
 
 // The spinner shows on the first read only; a refresh after an action keeps
-// what is on screen, so an expanded order stays expanded.
+// what is on screen, so an expanded order stays expanded. It reads as many
+// orders as were shown and replaces them at once: an order further down the
+// list, and a dialog its card opened after the action, stay where they were.
 const load = async () => {
   const ticket = (asked += 1);
   loading.value = panel.value === null;
   failed.value = false;
   lookupResult.value = null;
+  const shown = orders.value.length;
   try {
     const { data } = await InclamoAPI.getPanel(props.conversationId);
     if (ticket !== asked) return;
-    panel.value = data;
-    orders.value = data.orders || [];
-    notePanel(props.conversationId, data);
+    let list = data.orders || [];
+    let page = data.page;
+    while (list.length < shown && page?.has_more) {
+      const next = (await InclamoAPI.getPanel(props.conversationId, page.cursor)).data;
+      if (ticket !== asked) return;
+      list = [...list, ...(next.orders || [])];
+      page = next.page;
+    }
+    panel.value = { ...data, page };
+    orders.value = list;
+    notePanel(props.conversationId, panel.value);
   } catch (error) {
     if (ticket === asked) failed.value = true;
   } finally {

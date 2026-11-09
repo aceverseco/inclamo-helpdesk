@@ -1,0 +1,18 @@
+# Applies the staged changes of an edit session to the order. With notify,
+# the store emails the customer its update, and when the customer owes after
+# the edit that email carries the invoice for the balance.
+mutation order_edit_commit($id: ID!, $notify: Boolean!, $staffNote: String) {
+  orderEditCommit(id: $id, notifyCustomer: $notify, staffNote: $staffNote) {
+    order {
+      id
+      name
+      currentTotalPriceSet { shopMoney { amount currencyCode } }
+      totalOutstandingSet { shopMoney { amount currencyCode } }
+    }
+    successMessages
+    userErrors {
+      field
+      message
+    }
+  }
+}

@@ -6,7 +6,7 @@ import { accessToken, credentials } from '../lib/shopify.mjs';
 
 const account = process.env.E2E_ACCOUNT_ID || '1';
 // Every action the connection reports, in its order; the test app holds the scopes of all of them.
-const ACTIONS = ['cancel', 'refund', 'address', 'replacement', 'order_tags', 'order_note', 'customer_tags', 'customer_note', 'new_order'];
+const ACTIONS = ['cancel', 'refund', 'address', 'replacement', 'order_tags', 'order_note', 'customer_tags', 'customer_note', 'new_order', 'edit_items'];
 // A store that exists and on which the test app is not installed.
 const otherShop = process.env.E2E_OTHER_SHOP_DOMAIN;
 let admin;

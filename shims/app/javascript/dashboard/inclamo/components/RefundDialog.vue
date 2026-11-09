@@ -16,6 +16,8 @@ const form = reactive({ mode: 'full', amount: '', shipping: false, restock: fals
 const preview = ref(null);
 const previewError = ref('');
 const calculating = ref(false);
+// The amount an items edit left due back, when the dialog was opened for it.
+const dueBack = ref(null);
 
 const maximum = computed(() => Number(props.order.refundable?.amount || 0));
 const refundableItems = computed(() => (props.order.items || []).filter(item => item.refundable_quantity > 0));
@@ -43,6 +45,7 @@ const reset = () => {
   Object.assign(form, { mode: 'full', amount: '', shipping: false, restock: false, notify: false, quantities: {} });
   preview.value = null;
   previewError.value = '';
+  dueBack.value = null;
 };
 
 // What exactly will be refunded and where the money goes, asked from the store.
@@ -65,7 +68,16 @@ const confirmLabel = computed(() =>
   t('DIALOG.REFUND.CONFIRM', { amount: preview.value ? money(preview.value.amount, preview.value.currency) : '' }).trim()
 );
 
-defineExpose({ open: () => frame.value.open() });
+// `due` ({ amount, currency }) opens it for an amount, e.g. what an items edit left due back.
+const open = (due = null) => {
+  frame.value.open();
+  if (!due) return;
+  form.mode = 'amount';
+  form.amount = String(due.amount);
+  dueBack.value = due;
+};
+
+defineExpose({ open });
 </script>
 
 <template>
@@ -79,6 +91,9 @@ defineExpose({ open: () => frame.value.open() });
     @opened="reset"
     @done="record => emit('done', record)"
   >
+    <p v-if="dueBack" class="rounded-md bg-n-alpha-1 p-2" data-testid="inclamo-refund-due-back">
+      {{ t('DIALOG.REFUND.AFTER_EDIT', { amount: money(dueBack.amount, dueBack.currency) }) }}
+    </p>
     <div class="flex flex-col gap-1">
       <label v-for="mode in ['full', 'items', 'amount']" :key="mode" class="flex items-center gap-2">
         <input v-model="form.mode" type="radio" :value="mode" :data-testid="`inclamo-refund-mode-${mode}`" @change="preview = null" />

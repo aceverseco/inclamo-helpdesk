@@ -96,6 +96,12 @@ class InclamoAPI extends ApiClient {
     return axios.post(`${this.conversation(conversationId)}/actions/refund_preview`, { order_id: orderId, params });
   }
 
+  // What an order becomes after an edit of its items, as the store calculates
+  // it; nothing is changed.
+  editItemsPreview(conversationId, orderId, params) {
+    return axios.post(`${this.conversation(conversationId)}/actions/edit_items_preview`, { order_id: orderId, params });
+  }
+
   // The store's catalogue by title or SKU; `after` asks for the next page.
   searchProducts(conversationId, { query, after } = {}) {
     return axios.get(`${this.conversation(conversationId)}/products`, { params: after ? { query, after } : { query } });

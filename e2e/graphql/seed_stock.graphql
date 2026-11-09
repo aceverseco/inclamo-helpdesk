@@ -1,0 +1,9 @@
+query seed_stock($id: ID!, $location: ID!) {
+  productVariant(id: $id) {
+    inventoryItem {
+      inventoryLevel(locationId: $location) {
+        quantities(names: ["available"]) { name quantity }
+      }
+    }
+  }
+}

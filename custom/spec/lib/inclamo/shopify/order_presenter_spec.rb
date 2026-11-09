@@ -47,6 +47,19 @@ RSpec.describe Inclamo::Shopify::OrderPresenter do
     expect(order[:actions].values).to all(eq(allowed: true, reason: nil))
   end
 
+  it 'shows what the order holds and comes to now, after an edit' do
+    node = shopify_fixture('order_details_partly_shipped')['order'].deep_dup
+    node['currentTotalPriceSet']['shopMoney']['amount'] = '1665.9'
+    mug = node.dig('lineItems', 'nodes').find { |line| line['title'].start_with?('E2E Tracked Mug') }
+    mug.merge!('currentQuantity' => 1, 'unfulfilledQuantity' => 1)
+
+    order = described_class.new(node, shop_domain: 'example-store.myshopify.com').as_json
+
+    expect(order[:total]).to eq(amount: '1745.9', currency: 'UAH')
+    expect(order[:current_total]).to eq(amount: '1665.9', currency: 'UAH')
+    expect(order[:items].find { |item| item[:id] == mug['id'] }).to include(quantity: 2, current_quantity: 1)
+  end
+
   it 'offers neither cancellation nor an address change for a cancelled order' do
     order = present('orders_by_number_cancelled', ['orders', 'nodes', 0])
 

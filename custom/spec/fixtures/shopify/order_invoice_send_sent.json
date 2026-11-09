@@ -1,0 +1,13 @@
+{
+  "variables": {
+    "id": "gid://shopify/Order/18987070357662"
+  },
+  "data": {
+    "orderInvoiceSend": {
+      "order": {
+        "id": "gid://shopify/Order/18987070357662"
+      },
+      "userErrors": []
+    }
+  }
+}

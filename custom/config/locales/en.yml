@@ -47,6 +47,15 @@ en:
         customer_tags_remove: "Removed the tag \"%{tag}\" from the customer."
         customer_note: "Changed the customer's note."
         new_order: "Created order %{draft_name} for %{total}, awaiting payment. %{delivery}"
+        edit_items: "Edited the items of order %{number}: %{changes}. %{money} %{details}"
+        edit:
+          quantity: "%{title} from %{from} to %{to}"
+          removed: "%{title} removed (%{from})"
+          added: "%{title} added (%{quantity})"
+          money:
+            owed: "The customer owes %{amount}."
+            due_back: "%{amount} is due back to the customer."
+            none: "The total did not change."
         details:
           reason: "Reason: %{reason}."
           refunded: Payment refunded.
@@ -54,6 +63,8 @@ en:
           notified: Customer notified.
           invoice_emailed: The store emailed its invoice to the customer.
           link_in_reply: The payment link was put into the reply.
+          invoice_refused: The store did not send the invoice.
+          invoice_unknown: It is not known whether the invoice was sent.
           link_not_sent: "The payment link was not sent yet: it is under Awaiting payment in the conversation's Orders section."
     macro_steps:
       stopped: "Macro \"%{macro}\" stopped at the step \"%{step}\": %{reason} The steps after it did not run."

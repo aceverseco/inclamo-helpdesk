@@ -32,6 +32,7 @@ namespace :api, defaults: { format: 'json' } do
               post 'actions/new_order_preview', to: '/api/v1/accounts/inclamo/order_actions#new_order_preview'
               get 'actions/new_order_prefill', to: '/api/v1/accounts/inclamo/order_actions#new_order_prefill'
               get 'products', to: '/api/v1/accounts/inclamo/products#index'
+              post 'actions/edit_items_preview', to: '/api/v1/accounts/inclamo/order_actions#edit_items_preview'
               resources :actions, only: [:index, :create, :show], controller: '/api/v1/accounts/inclamo/order_actions'
             end
           end
