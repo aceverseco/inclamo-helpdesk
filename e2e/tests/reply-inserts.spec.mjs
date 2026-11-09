@@ -372,7 +372,12 @@ test.describe('A created code leaves a record and failures are shown', () => {
   test('Store refuses the code', async ({ page }) => {
     const sorry = await preset('Sorry', SORRY);
     const notesBefore = (await admin.notes(conversation.id)).length;
-    const codesBefore = (await store.discounts()).length;
+    // Search is eventually consistent: wait for every earlier accepted code
+    // before taking the baseline, or a preceding code can look like a new one.
+    const earlier = (await Promise.all([conversation, stranger].map(chat => admin.actions(chat.id))))
+      .flat().filter(record => record.action === 'discount' && record.outcome === 'accepted').map(record => record.result.code);
+    const indexed = await eventually(() => store.discounts(), nodes => earlier.every(code => nodes.some(node => node.codeDiscount.codes.nodes.some(entry => entry.code === code))));
+    const codesBefore = indexed.map(node => node.id).sort();
     await proxy.rule({
       match: { operation: 'discount_code_create' },
       effect: 'refuse',
@@ -387,6 +392,6 @@ test.describe('A created code leaves a record and failures are shown', () => {
     await expect(discountDialog(page).getByTestId('inclamo-action-message')).toContainText('Code must be unique. Please try a different code.');
     await expect(editor(page)).not.toContainText('THANKS-');
     expect(await admin.notes(conversation.id)).toHaveLength(notesBefore);
-    expect(await store.discounts()).toHaveLength(codesBefore);
+    expect((await store.discounts()).map(node => node.id).sort()).toEqual(codesBefore);
   });
 });

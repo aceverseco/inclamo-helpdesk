@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { writeFileSync } from 'node:fs';
 import { signIn, openOrders, orderCard, apiAs, proxy, bench, runTag, users } from '../lib/helpdesk.mjs';
 import { openStore } from '../lib/store.mjs';
 
@@ -10,6 +11,15 @@ let conversation;
 let addressOrder;
 let cancelOrder;
 let editOrder;
+
+// Keep the independently observed result, without Shopify status-page tokens
+// or payment URLs. These are synthetic acceptance customers and orders.
+const keepOrder = (info, action, order) => writeFileSync(info.outputPath('shopify-verification.json'), JSON.stringify({
+  action, actor: 'administrator', shopper_view_verified: true,
+  order: { id: order.id, number: order.name, cancelled_at: order.cancelledAt,
+    total: order.currentTotalPriceSet?.shopMoney, outstanding: order.totalOutstandingSet?.shopMoney,
+    address: order.shippingAddress, items: order.lineItems?.nodes },
+}, null, 2));
 
 test.beforeAll(async ({ playwright }) => {
   test.setTimeout(300_000);
@@ -32,7 +42,11 @@ test.beforeAll(async ({ playwright }) => {
 test.afterAll(async () => {
   await proxy.reset();
   if (admin) await admin.recheck();
-  if (store) await store.clean();
+  if (store) {
+    const removed = await store.clean();
+    console.log(`acceptance cleanup: ${JSON.stringify(removed)}`);
+    expect(removed.kept).toEqual([]);
+  }
 });
 
 test('Setup and administrator settings are reviewable in the combined image', async ({ page }, info) => {
@@ -107,6 +121,7 @@ test('An address change is visible in Shopify and in the shopper order view', as
     await shopper.goto(order.statusPageUrl, { waitUntil: 'domcontentloaded' });
     await expect(shopper.getByText('2 Example Avenue', { exact: false }).first()).toBeVisible();
     await shopper.screenshot({ path: info.outputPath('05-shopper-address.png'), fullPage: true });
+    keepOrder(info, 'address', order);
   } finally {
     await context.close();
   }
@@ -130,6 +145,7 @@ test('A cancellation is visible in Shopify and in the shopper order view', async
     await shopper.goto(order.statusPageUrl, { waitUntil: 'domcontentloaded' });
     await expect(shopper.getByText(/order.*cancel(l)?ed|cancel(l)?ed.*order/i).first()).toBeVisible();
     await shopper.screenshot({ path: info.outputPath('07-shopper-cancelled.png'), fullPage: true });
+    keepOrder(info, 'cancel', order);
   } finally {
     await context.close();
   }
@@ -185,6 +201,7 @@ test('Edited items and total reach Shopify and the shopper order view', async ({
       .toContain(Number(order.currentTotalPriceSet.shopMoney.amount).toFixed(2));
     await page.screenshot({ path: info.outputPath('10-agent-after-edit.png'), fullPage: true });
     await shopper.screenshot({ path: info.outputPath('11-shopper-edited-order.png'), fullPage: true });
+    keepOrder(info, 'edit_items', order);
   } finally {
     await context.close();
   }
