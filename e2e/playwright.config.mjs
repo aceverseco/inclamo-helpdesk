@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import { join } from 'node:path';
 
 // The tests drive a running helpdesk (HELPDESK_URL) connected to a development
 // store. They change real data in that store, so they run one at a time.
@@ -9,7 +10,7 @@ export default defineConfig({
   retries: 0,
   timeout: 90_000,
   expect: { timeout: 20_000 },
-  reporter: [['list']],
+  reporter: [['list'], ['json', { outputFile: join(process.env.E2E_OUTPUT || './output', 'results.json') }]],
   outputDir: process.env.E2E_OUTPUT || './output',
   use: {
     baseURL: process.env.HELPDESK_URL || 'http://localhost:3000',

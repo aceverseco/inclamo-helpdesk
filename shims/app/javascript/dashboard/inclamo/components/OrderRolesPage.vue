@@ -25,14 +25,14 @@ const load = async () => {
 };
 
 const toggle = async (member, event) => {
-  // Keep the last confirmed value visible until the server saves the change.
-  event.target.checked = member.can_act;
   busy.value = true;
   saveFailed.value = false;
   try {
     const { data } = member.can_act ? await InclamoAPI.takeRole(member.user_id) : await InclamoAPI.giveRole(member.user_id);
     members.value = data.members;
   } catch (error) {
+    // A failed response must not leave the requested permission looking saved.
+    event.target.checked = member.can_act;
     saveFailed.value = true;
   } finally {
     busy.value = false;
