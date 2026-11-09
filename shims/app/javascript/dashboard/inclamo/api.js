@@ -75,6 +75,34 @@ class InclamoAPI extends ApiClient {
     return axios.delete(`${this.url}/discount_grants/${userId}`);
   }
 
+  getSlaPolicies() {
+    return axios.get(`${this.url}/sla_policies`);
+  }
+
+  createSlaPolicy(payload) {
+    return axios.post(`${this.url}/sla_policies`, payload);
+  }
+
+  updateSlaPolicy(id, payload) {
+    return axios.patch(`${this.url}/sla_policies/${id}`, payload);
+  }
+
+  deleteSlaPolicy(id) {
+    return axios.delete(`${this.url}/sla_policies/${id}`);
+  }
+
+  reorderSlaPolicies(ids) {
+    return axios.post(`${this.url}/sla_policies/reorder`, { ids });
+  }
+
+  getSlaSummary(days) {
+    return axios.get(`${this.url}/sla_policies/summary`, { params: { days } });
+  }
+
+  getConversationSla(conversationId) {
+    return axios.get(`${this.url}/conversations/${conversationId}/sla`);
+  }
+
   getPanel(conversationId, after) {
     return axios.get(`${this.conversation(conversationId)}/panel`, { params: after ? { after } : {} });
   }

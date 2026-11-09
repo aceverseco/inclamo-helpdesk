@@ -15,17 +15,19 @@ index 35edbbd..a7ccec6 100644
    { name: 'conversation_info' },
 diff --git a/app/javascript/dashboard/extensions/conversationSidebarSections.js b/app/javascript/dashboard/extensions/conversationSidebarSections.js
 new file mode 100644
-index 0000000..fa525fc
+index 0000000..adbf2e9
 --- /dev/null
 +++ b/app/javascript/dashboard/extensions/conversationSidebarSections.js
-@@ -0,0 +1,5 @@
+@@ -0,0 +1,7 @@
 +// Sections that an extension adds to the conversation sidebar. Each entry is
-+// { name, openKey, title: () => string, component }: ContactPanel renders it
-+// like one of its own sections, with the conversation and contact ids as props.
++// { name, openKey, title: () => string, component, visible? }: ContactPanel
++// renders it like one of its own sections, with the conversation and contact
++// ids as props. `visible(conversationId)`, when given, hides the section for
++// a conversation while it returns false; it may read reactive state.
 +// Empty in Chatwoot itself.
 +export default [];
 diff --git a/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue b/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
-index 6d50e9d..bc99c4b 100644
+index 6d50e9d..b5e562d 100644
 --- a/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
 +++ b/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
 @@ -25,6 +25,7 @@ import SidebarActionsHeader from 'dashboard/components-next/SidebarActionsHeader
@@ -36,21 +38,26 @@ index 6d50e9d..bc99c4b 100644
  
  const props = defineProps({
    conversationId: {
-@@ -46,6 +47,8 @@ const {
+@@ -46,6 +47,12 @@ const {
  } = useUISettings();
  
  const dragging = ref(false);
 +const extensionSection = name =>
 +  extensionSections.find(section => section.name === name);
++const isExtensionSectionShown = name => {
++  const { visible } = extensionSection(name);
++  return !visible || visible(props.conversationId);
++};
  const conversationSidebarItems = ref([]);
  
  const shopifyIntegration = useFunctionGetter(
-@@ -346,6 +349,28 @@ onMounted(() => {
+@@ -346,6 +353,29 @@ onMounted(() => {
                <SharedFiles />
              </AccordionItem>
            </div>
 +          <div v-else-if="extensionSection(element.name)">
 +            <AccordionItem
++              v-if="isExtensionSectionShown(element.name)"
 +              :title="extensionSection(element.name).title()"
 +              :is-open="
 +                isContactSidebarItemOpen(extensionSection(element.name).openKey)

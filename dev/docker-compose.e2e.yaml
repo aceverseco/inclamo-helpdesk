@@ -12,6 +12,8 @@ x-e2e: &e2e
     - INCLAMO_SHOPIFY_BASE_URL=http://shopify-proxy:8080
     # The tests sign in and call the API far more often than a person would.
     - ENABLE_RACK_ATTACK=false
+    # Missed SLA targets are looked for every few seconds, not every minute.
+    - INCLAMO_SLA_CHECK_SECONDS=5
 
 services:
   rails:

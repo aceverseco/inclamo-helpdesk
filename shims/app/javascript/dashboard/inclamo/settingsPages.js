@@ -1,10 +1,11 @@
 // The pages the overlay adds to the account settings. Chatwoot gives every
 // entry a route and a line in the sidebar's Settings group.
 import OrderRolesPage from './components/OrderRolesPage.vue';
+import SlaPoliciesPage from './components/SlaPoliciesPage.vue';
 import RulePresetsPage from './components/RulePresetsPage.vue';
 import DiscountSettingsPage from './components/DiscountSettingsPage.vue';
 import { t } from './i18n';
-import { ORDER_ROLES_ROUTE, RULE_PRESETS_ROUTE, DISCOUNT_SETTINGS_ROUTE } from './routes';
+import { ORDER_ROLES_ROUTE, RULE_PRESETS_ROUTE, DISCOUNT_SETTINGS_ROUTE, SLA_POLICIES_ROUTE } from './routes';
 
 export default [
   {
@@ -29,6 +30,15 @@ export default [
     label: () => t('SETTINGS.DISCOUNTS.MENU'),
     icon: 'i-lucide-ticket-percent',
     component: DiscountSettingsPage,
+    permissions: ['administrator'],
+  },
+  {
+    name: SLA_POLICIES_ROUTE,
+    // Not settings/sla: Chatwoot's own (paid) SLA page owns that address.
+    path: 'sla-policies',
+    label: () => t('SETTINGS.SLA.MENU'),
+    icon: 'i-lucide-timer',
+    component: SlaPoliciesPage,
     permissions: ['administrator'],
   },
 ];

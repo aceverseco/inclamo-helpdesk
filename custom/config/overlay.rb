@@ -69,6 +69,22 @@ I18n.load_path += Dir[overlay_root.join('config/locales/**/*.yml').to_s]
 # Inclamo::Overlay::Migrations), so they stay out of Chatwoot's schema dump.
 ActiveRecord::SchemaDumper.ignore_tables |= [/\Ainclamo_/]
 
+# The periodic check for missed SLA targets (design D4 of sla-timers), next to
+# Chatwoot's own schedule. sidekiq-cron looks for due jobs every 30 seconds, so
+# a shorter interval (the end-to-end stack uses a few seconds) shortens that too.
+if defined?(Sidekiq::Cron::Job)
+  Rails.application.reloader.to_prepare do
+    next unless Sidekiq.server?
+
+    seconds = Inclamo::Sla.check_seconds
+    Sidekiq::Cron.configure do |config|
+      config.cron_poll_interval = seconds if seconds < config.cron_poll_interval.to_i
+    end
+    Sidekiq::Cron::Job.create(name: 'inclamo_sla_check_job', cron: Inclamo::Sla.check_cron(seconds),
+                              class: 'Inclamo::SlaCheckJob', queue: 'scheduled_jobs')
+  end
+end
+
 # Factories of the overlay's specs.
 if Rails.env.test? && defined?(FactoryBot)
   factories = overlay_root.join('spec/factories')

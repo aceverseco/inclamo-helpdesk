@@ -126,3 +126,32 @@ en:
         forbidden: Only an administrator can manage the preset rules.
         value_required: Enter an amount, zero or more, before switching this rule on.
         rule_invalid: Chatwoot does not accept this rule as it is now. Open it in the automation list, correct it and try again.
+    sla:
+      label_description: A target of an SLA policy was missed in this conversation.
+      notes:
+        first_response: "SLA \"%{policy}\": the first-response target of %{target} was missed."
+        resolution: "SLA \"%{policy}\": the resolution target of %{target} was missed."
+      units:
+        day:
+          one: "%{count} day"
+          other: "%{count} days"
+        hour:
+          one: "%{count} hour"
+          other: "%{count} hours"
+        minute:
+          one: "%{count} minute"
+          other: "%{count} minutes"
+        second:
+          one: "%{count} second"
+          other: "%{count} seconds"
+      errors:
+        forbidden: Only an administrator can manage SLA policies.
+        name_needed: Give the policy a name.
+        name_too_long: A name can be at most 120 characters long.
+        target_needed: Set a first-response target, a resolution target or both.
+        first_response_range: The first-response target must be more than zero and at most 365 days.
+        resolution_range: The resolution target must be more than zero and at most 365 days.
+        business_hours_needed: Say whether the policy counts business hours only.
+        all_inboxes_needed: Say whether the policy covers all inboxes or chosen ones.
+        inboxes_needed: Choose at least one inbox, or let the policy cover all inboxes.
+        unknown_inbox: One of the chosen inboxes is not in this account.
