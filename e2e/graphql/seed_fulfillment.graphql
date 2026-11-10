@@ -1,0 +1,6 @@
+mutation seed_fulfillment($fulfillment: FulfillmentInput!) {
+  fulfillmentCreate(fulfillment: $fulfillment) {
+    fulfillment { id status trackingInfo(first: 2) { company number url } }
+    userErrors { field message }
+  }
+}

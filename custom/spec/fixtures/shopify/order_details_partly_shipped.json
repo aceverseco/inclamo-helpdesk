@@ -1,0 +1,164 @@
+{
+  "variables": {
+    "id": "gid://shopify/Order/18987070357662"
+  },
+  "data": {
+    "order": {
+      "id": "gid://shopify/Order/18987070357662",
+      "legacyResourceId": "18987070357662",
+      "name": "#1421",
+      "createdAt": "2026-11-06T11:35:43Z",
+      "cancelledAt": null,
+      "cancelReason": null,
+      "closed": false,
+      "displayFinancialStatus": "PAID",
+      "displayFulfillmentStatus": "PARTIALLY_FULFILLED",
+      "returnStatus": "NO_RETURN",
+      "currencyCode": "UAH",
+      "presentmentCurrencyCode": "UAH",
+      "refundable": true,
+      "note": "e2e recmw4wen1n",
+      "tags": [
+        "e2e",
+        "e2e-recmw4wen1n"
+      ],
+      "totalPriceSet": {
+        "shopMoney": {
+          "amount": "1745.9",
+          "currencyCode": "UAH"
+        }
+      },
+      "currentTotalPriceSet": {
+        "shopMoney": {
+          "amount": "1745.9",
+          "currencyCode": "UAH"
+        }
+      },
+      "totalReceivedSet": {
+        "shopMoney": {
+          "amount": "1745.9",
+          "currencyCode": "UAH"
+        }
+      },
+      "totalRefundedSet": {
+        "shopMoney": {
+          "amount": "0.0",
+          "currencyCode": "UAH"
+        }
+      },
+      "totalShippingPriceSet": {
+        "shopMoney": {
+          "amount": "0.0",
+          "currencyCode": "UAH"
+        }
+      },
+      "totalRefundedShippingSet": {
+        "shopMoney": {
+          "amount": "0.0",
+          "currencyCode": "UAH"
+        }
+      },
+      "lineItems": {
+        "nodes": [
+          {
+            "id": "gid://shopify/LineItem/50883907911838",
+            "title": "The Minimal Snowboard",
+            "variantTitle": null,
+            "sku": null,
+            "quantity": 1,
+            "currentQuantity": 1,
+            "refundableQuantity": 1,
+            "unfulfilledQuantity": 0,
+            "originalUnitPriceSet": {
+              "shopMoney": {
+                "amount": "885.95",
+                "currencyCode": "UAH"
+              }
+            },
+            "discountedUnitPriceSet": {
+              "shopMoney": {
+                "amount": "885.95",
+                "currencyCode": "UAH"
+              }
+            },
+            "image": null
+          },
+          {
+            "id": "gid://shopify/LineItem/50883907944606",
+            "title": "The Complete Snowboard",
+            "variantTitle": "Ice",
+            "sku": null,
+            "quantity": 1,
+            "currentQuantity": 1,
+            "refundableQuantity": 1,
+            "unfulfilledQuantity": 1,
+            "originalUnitPriceSet": {
+              "shopMoney": {
+                "amount": "699.95",
+                "currencyCode": "UAH"
+              }
+            },
+            "discountedUnitPriceSet": {
+              "shopMoney": {
+                "amount": "699.95",
+                "currencyCode": "UAH"
+              }
+            },
+            "image": {
+              "url": "https://cdn.shopify.com/s/files/1/0804/7090/0894/files/Main_589fc064-24a2-4236-9eaf-13b2bd35d21d.jpg?v=1793794123"
+            }
+          },
+          {
+            "id": "gid://shopify/LineItem/50883907977374",
+            "title": "E2E Tracked Mug recmw4wen1n",
+            "variantTitle": null,
+            "sku": null,
+            "quantity": 2,
+            "currentQuantity": 2,
+            "refundableQuantity": 2,
+            "unfulfilledQuantity": 2,
+            "originalUnitPriceSet": {
+              "shopMoney": {
+                "amount": "80.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "discountedUnitPriceSet": {
+              "shopMoney": {
+                "amount": "80.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "image": null
+          }
+        ]
+      },
+      "fulfillments": [
+        {
+          "id": "gid://shopify/Fulfillment/7328889503902",
+          "status": "SUCCESS",
+          "displayStatus": "FULFILLED",
+          "createdAt": "2026-11-06T11:35:44Z",
+          "trackingInfo": []
+        }
+      ],
+      "refunds": [],
+      "customer": {
+        "id": "gid://shopify/Customer/31352109727902",
+        "displayName": "Iris Example"
+      },
+      "shippingAddress": {
+        "name": "Iris Example",
+        "address1": "1 Example Street",
+        "address2": null,
+        "city": "Kyiv",
+        "province": null,
+        "provinceCode": null,
+        "zip": "01001",
+        "country": "Ukraine",
+        "countryCodeV2": "UA",
+        "phone": null
+      }
+    }
+  }
+}

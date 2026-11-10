@@ -1,0 +1,48 @@
+import { mount, flushPromises } from '@vue/test-utils';
+import { reactive } from 'vue';
+import SetupPage from '../components/SetupPage.vue';
+import InclamoAPI from '../api';
+const { route } = vi.hoisted(() => ({ route: { params: { accountId: 1 }, query: { step: 'verify' } } }));
+vi.mock('vue-router', () => ({ useRoute: () => route, useRouter: () => ({ replace: vi.fn() }) }));
+vi.mock('../api', () => ({ default: { getSetup: vi.fn(), completeSetup: vi.fn(), reviewSetup: vi.fn(), recheck: vi.fn() } }));
+vi.mock('dashboard/routes/dashboard/settings/SettingsLayout.vue', () => ({ default: { template: '<div><slot name="body" /></div>' } }));
+vi.mock('dashboard/routes/dashboard/settings/components/BaseSettingsHeader.vue', () => ({ default: { template: '<div />' } }));
+const data = { checks: { store: true, channels: true, staff: true, ai: true }, ready: true, complete: false, ai_connected: false, channels: [{ id: 1, name: 'Store chat' }], review_digests: { staff: 'staff-v1', ai: 'ai-v1' }, order_actions: [] };
+const mountPage = () => mount(SetupPage, { global: { stubs: { ConnectDialog: true, StaffPermissionsEditor: true, AiPolicyEditor: true, RouterLink: { template: '<a><slot /></a>' } } } });
+beforeEach(() => { vi.clearAllMocks(); route.query.step = 'verify'; InclamoAPI.getSetup.mockResolvedValue({ data: structuredClone(data) }); });
+it('allows human-only completion without claiming a verified order or mail delivery', async () => {
+  const wrapper = mountPage();
+  await flushPromises();
+  expect(wrapper.text()).toContain('AI is not connected');
+  expect(wrapper.find('[data-testid="setup-no-actions"]').exists()).toBe(true);
+  expect(wrapper.text()).toContain('does not verify the customer page, email delivery or real AI behavior');
+  InclamoAPI.completeSetup.mockResolvedValue({ data: { ...data, complete: true } });
+  InclamoAPI.getSetup.mockResolvedValue({ data: { ...data, complete: true } });
+  await wrapper.find('[data-testid="setup-finish"]').trigger('click');
+  await flushPromises();
+  expect(wrapper.find('[data-testid="setup-complete"]').exists()).toBe(true);
+});
+it('prevents completing missing prerequisites and shows a recoverable load error', async () => {
+  InclamoAPI.getSetup.mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ data: { ...data, ready: false, checks: { ...data.checks, channels: false } } });
+  const wrapper = mountPage();
+  await flushPromises();
+  expect(wrapper.text()).toContain('Setup could not be loaded');
+  await wrapper.find('button').trigger('click');
+  await flushPromises();
+  expect(wrapper.find('[data-testid="setup-finish"]').element.disabled).toBe(true);
+  expect(wrapper.text()).toContain('Needs attention');
+});
+it('waits for shared editor data and reviews only its saved version', async () => {
+  route.query.step = 'staff';
+  const wrapper = mountPage();
+  await flushPromises();
+  const button = wrapper.find('[data-testid="setup-review-staff"]');
+  expect(button.element.disabled).toBe(true);
+  wrapper.findComponent({ name: 'StaffPermissionsEditor' }).vm.$emit('loaded');
+  await flushPromises();
+  InclamoAPI.reviewSetup.mockRejectedValue({ response: { data: { error: 'review_changed' } } });
+  await button.trigger('click');
+  await flushPromises();
+  expect(InclamoAPI.reviewSetup).toHaveBeenCalledWith('staff', 'staff-v1');
+  expect(wrapper.text()).toContain('Settings changed since you opened');
+});

@@ -1,0 +1,16 @@
+{
+  "variables": {
+    "input": {
+      "id": "gid://shopify/Order/18987063804062",
+      "note": "Customer asked for delivery after 6 pm"
+    }
+  },
+  "data": {
+    "orderUpdate": {
+      "order": {
+        "id": "gid://shopify/Order/18987063804062"
+      },
+      "userErrors": []
+    }
+  }
+}

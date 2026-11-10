@@ -1,0 +1,17 @@
+{
+  "variables": {
+    "id": "gid://shopify/Order/18987070357662"
+  },
+  "data": {
+    "orderInvoiceSend": {
+      "order": null,
+      "userErrors": [
+        {
+          "field": null,
+          "message": "No outstanding balance exist",
+          "code": "ORDER_INVOICE_SEND_UNSUCCESSFUL"
+        }
+      ]
+    }
+  }
+}

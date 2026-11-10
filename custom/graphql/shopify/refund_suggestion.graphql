@@ -1,0 +1,30 @@
+# What the store would refund for the given items and shipping, and through
+# which payments. Asked before a refund, and shown in the confirmation.
+query refund_suggestion($id: ID!, $refundLineItems: [RefundLineItemInput!], $refundShipping: Boolean, $suggestFullRefund: Boolean) {
+  order(id: $id) {
+    id
+    name
+    currencyCode
+    suggestedRefund(refundLineItems: $refundLineItems, refundShipping: $refundShipping, suggestFullRefund: $suggestFullRefund) {
+      amountSet { shopMoney { amount currencyCode } }
+      maximumRefundableSet { shopMoney { amount currencyCode } }
+      shipping {
+        amountSet { shopMoney { amount currencyCode } }
+        maximumRefundableSet { shopMoney { amount currencyCode } }
+      }
+      refundLineItems {
+        lineItem { id }
+        quantity
+        restockType
+      }
+      suggestedTransactions {
+        gateway
+        formattedGateway
+        kind
+        amountSet { shopMoney { amount currencyCode } }
+        maximumRefundableSet { shopMoney { amount currencyCode } }
+        parentTransaction { id }
+      }
+    }
+  }
+}

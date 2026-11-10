@@ -1,0 +1,53 @@
+fragment OrderFields on Order {
+  id
+  legacyResourceId
+  name
+  createdAt
+  cancelledAt
+  cancelReason
+  closed
+  displayFinancialStatus
+  displayFulfillmentStatus
+  returnStatus
+  currencyCode
+  presentmentCurrencyCode
+  refundable
+  note
+  tags
+  statusPageUrl
+  totalPriceSet { shopMoney { amount currencyCode } }
+  # After edits and refunds: what the order comes to now.
+  currentTotalPriceSet { shopMoney { amount currencyCode } }
+  totalReceivedSet { shopMoney { amount currencyCode } }
+  totalRefundedSet { shopMoney { amount currencyCode } }
+  totalShippingPriceSet { shopMoney { amount currencyCode } }
+  totalRefundedShippingSet { shopMoney { amount currencyCode } }
+  lineItems(first: 50) {
+    nodes {
+      id
+      title
+      variantTitle
+      sku
+      quantity
+      currentQuantity
+      refundableQuantity
+      unfulfilledQuantity
+      originalUnitPriceSet { shopMoney { amount currencyCode } }
+      discountedUnitPriceSet { shopMoney { amount currencyCode } }
+      image { url }
+    }
+  }
+  fulfillments(first: 10) {
+    id
+    status
+    displayStatus
+    createdAt
+    trackingInfo(first: 5) { company number url }
+  }
+  refunds(first: 20) {
+    id
+    createdAt
+    note
+    totalRefundedSet { shopMoney { amount currencyCode } }
+  }
+}

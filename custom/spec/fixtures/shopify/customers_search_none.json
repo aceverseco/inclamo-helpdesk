@@ -1,0 +1,10 @@
+{
+  "variables": {
+    "query": "email:nobody.t001@example.com"
+  },
+  "data": {
+    "customers": {
+      "nodes": []
+    }
+  }
+}

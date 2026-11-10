@@ -1,0 +1,31 @@
+diff --git a/app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue b/app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue
+--- a/app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue
++++ b/app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue
+@@ -1,5 +1,6 @@
+ <script>
+-import { provide } from 'vue';
++import { computed, provide } from 'vue';
++import { useWindowSize } from '@vueuse/core';
+ import { mapGetters } from 'vuex';
+ import { useUISettings } from 'dashboard/composables/useUISettings';
+ import {
+@@ -59,8 +60,17 @@
+     },
+   },
+   setup() {
+-    const { uiSettings, updateUISettings, isOnExpandedLayout } =
+-      useUISettings();
++    const {
++      uiSettings,
++      updateUISettings,
++      isOnExpandedLayout: preferredExpandedLayout,
++    } = useUISettings();
++    const { width } = useWindowSize();
++    // Four columns leave no usable reply area on a laptop. Keep the existing
++    // expanded conversation/back navigation without changing the saved choice.
++    const isOnExpandedLayout = computed(
++      () => preferredExpandedLayout.value || width.value < 1280
++    );
+     const { accountId } = useAccount();
+     provide(
+       CONTACT_CONVERSATION_NAVIGATION,

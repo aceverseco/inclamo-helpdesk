@@ -1,0 +1,18 @@
+# An order as an items edit left it: its lines, its money and what the store
+# recorded on it (the invoice it emailed shows as an event).
+query edited_order($id: ID!) {
+  order(id: $id) {
+    id
+    name
+    displayFinancialStatus
+    currentTotalPriceSet { shopMoney { amount currencyCode } }
+    totalOutstandingSet { shopMoney { amount currencyCode } }
+    totalRefundedSet { shopMoney { amount currencyCode } }
+    lineItems(first: 20) {
+      nodes { id title quantity currentQuantity unfulfilledQuantity variant { id } }
+    }
+    events(first: 30, reverse: true) {
+      nodes { action message createdAt }
+    }
+  }
+}

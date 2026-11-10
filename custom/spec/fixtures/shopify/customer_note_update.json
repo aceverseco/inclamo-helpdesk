@@ -1,0 +1,16 @@
+{
+  "variables": {
+    "input": {
+      "id": "gid://shopify/Customer/31352101470366",
+      "note": "Prefers phone calls"
+    }
+  },
+  "data": {
+    "customerUpdate": {
+      "customer": {
+        "id": "gid://shopify/Customer/31352101470366"
+      },
+      "userErrors": []
+    }
+  }
+}

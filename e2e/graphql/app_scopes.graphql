@@ -1,0 +1,4 @@
+query app_scopes {
+  shop { myshopifyDomain }
+  currentAppInstallation { accessScopes { handle } }
+}

@@ -1,0 +1,6 @@
+query seeded_orders($query: String!, $after: String) {
+  orders(first: 50, query: $query, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes { id name cancelledAt closed tags note }
+  }
+}

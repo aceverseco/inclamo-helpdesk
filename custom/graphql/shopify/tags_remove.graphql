@@ -1,0 +1,12 @@
+# Removes tags from an order or a customer. The other tags stay.
+mutation tags_remove($id: ID!, $tags: [String!]!) {
+  tagsRemove(id: $id, tags: $tags) {
+    node {
+      id
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

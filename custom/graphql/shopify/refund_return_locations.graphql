@@ -1,0 +1,16 @@
+# Where the store itself would put returned units back: for each line, the
+# location it was shipped from. Asked only for units that have shipped. Needs
+# read_locations.
+query refund_return_locations($id: ID!, $refundLineItems: [RefundLineItemInput!]) {
+  order(id: $id) {
+    id
+    suggestedRefund(refundLineItems: $refundLineItems) {
+      refundLineItems {
+        lineItem { id }
+        quantity
+        restockType
+        location { id name }
+      }
+    }
+  }
+}

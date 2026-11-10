@@ -1,0 +1,15 @@
+{
+  "variables": {
+    "id": "gid://shopify/DraftOrder/1630539088030"
+  },
+  "data": {
+    "draftOrderInvoiceSend": {
+      "draftOrder": {
+        "id": "gid://shopify/DraftOrder/1630539088030",
+        "status": "INVOICE_SENT",
+        "invoiceSentAt": "2026-11-06T11:29:06Z"
+      },
+      "userErrors": []
+    }
+  }
+}

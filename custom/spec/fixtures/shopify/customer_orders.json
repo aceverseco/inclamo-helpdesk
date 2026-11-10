@@ -1,0 +1,460 @@
+{
+  "variables": {
+    "id": "gid://shopify/Customer/31350524117150",
+    "first": 10,
+    "after": null
+  },
+  "data": {
+    "customer": {
+      "id": "gid://shopify/Customer/31350524117150",
+      "displayName": "Maya Example",
+      "numberOfOrders": "3",
+      "amountSpent": {
+        "amount": "5357.65",
+        "currencyCode": "UAH"
+      },
+      "defaultEmailAddress": {
+        "emailAddress": "maya.example.t001@example.com"
+      },
+      "defaultPhoneNumber": {
+        "phoneNumber": "+15005551011"
+      },
+      "tags": [
+        "e2e",
+        "e2e-t001"
+      ],
+      "latestOrders": {
+        "nodes": [
+          {
+            "id": "gid://shopify/Order/18985501393054",
+            "name": "#1003",
+            "displayFinancialStatus": "PARTIALLY_REFUNDED",
+            "displayFulfillmentStatus": "UNFULFILLED",
+            "totalPriceSet": {
+              "shopMoney": {
+                "amount": "1399.9",
+                "currencyCode": "UAH"
+              }
+            },
+            "tags": [
+              "e2e",
+              "e2e-t001"
+            ]
+          }
+        ]
+      },
+      "orders": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "eyJsYXN0X2lkIjoxODk4NTUwMTI5NDc1MCwibGFzdF92YWx1ZSI6IjIwMjYtMTEtMDUgMTU6Mzc6MTMuNTExMDkwIn0="
+        },
+        "nodes": [
+          {
+            "id": "gid://shopify/Order/18985501393054",
+            "legacyResourceId": "18985501393054",
+            "statusPageUrl": "https://shop.example.com/orders/fixture-order/status",
+            "name": "#1003",
+            "createdAt": "2026-11-05T15:37:17Z",
+            "cancelledAt": null,
+            "cancelReason": null,
+            "closed": false,
+            "displayFinancialStatus": "PARTIALLY_REFUNDED",
+            "displayFulfillmentStatus": "UNFULFILLED",
+            "returnStatus": "NO_RETURN",
+            "currencyCode": "UAH",
+            "presentmentCurrencyCode": "UAH",
+            "refundable": true,
+            "note": "e2e partial refund",
+            "tags": [
+              "e2e",
+              "e2e-t001"
+            ],
+            "totalPriceSet": {
+              "shopMoney": {
+                "amount": "1399.9",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalReceivedSet": {
+              "shopMoney": {
+                "amount": "1399.9",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalRefundedSet": {
+              "shopMoney": {
+                "amount": "20.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalShippingPriceSet": {
+              "shopMoney": {
+                "amount": "0.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalRefundedShippingSet": {
+              "shopMoney": {
+                "amount": "0.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "lineItems": {
+              "nodes": [
+                {
+                  "id": "gid://shopify/LineItem/50880935592094",
+                  "title": "The Complete Snowboard",
+                  "variantTitle": "Ice",
+                  "sku": null,
+                  "quantity": 2,
+                  "currentQuantity": 2,
+                  "refundableQuantity": 2,
+                  "unfulfilledQuantity": 2,
+                  "originalUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "699.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "discountedUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "699.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "image": {
+                    "url": "https://cdn.shopify.com/s/files/1/0804/7090/0894/files/Main_589fc064-24a2-4236-9eaf-13b2bd35d21d.jpg?v=1793794123"
+                  }
+                }
+              ]
+            },
+            "fulfillments": [],
+            "refunds": [
+              {
+                "id": "gid://shopify/Refund/1117133504670",
+                "createdAt": "2026-11-05T15:37:18Z",
+                "note": "e2e partial refund",
+                "totalRefundedSet": {
+                  "shopMoney": {
+                    "amount": "20.0",
+                    "currencyCode": "UAH"
+                  }
+                }
+              }
+            ],
+            "customer": {
+              "id": "gid://shopify/Customer/31350524117150",
+              "displayName": "Maya Example"
+            },
+            "shippingAddress": {
+              "name": "Maya Example",
+              "address1": "1 Example Street",
+              "address2": null,
+              "city": "Springfield",
+              "province": "Illinois",
+              "provinceCode": "IL",
+              "zip": "62701",
+              "country": "United States",
+              "countryCodeV2": "US",
+              "phone": null
+            }
+          },
+          {
+            "id": "gid://shopify/Order/18985501327518",
+            "legacyResourceId": "18985501327518",
+            "statusPageUrl": "https://shop.example.com/orders/fixture-order/status",
+            "name": "#1002",
+            "createdAt": "2026-11-05T15:37:14Z",
+            "cancelledAt": null,
+            "cancelReason": null,
+            "closed": true,
+            "displayFinancialStatus": "PAID",
+            "displayFulfillmentStatus": "FULFILLED",
+            "returnStatus": "NO_RETURN",
+            "currencyCode": "UAH",
+            "presentmentCurrencyCode": "UAH",
+            "refundable": true,
+            "note": "e2e two shipments",
+            "tags": [
+              "e2e",
+              "e2e-t001"
+            ],
+            "totalPriceSet": {
+              "shopMoney": {
+                "amount": "1585.9",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalReceivedSet": {
+              "shopMoney": {
+                "amount": "1585.9",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalRefundedSet": {
+              "shopMoney": {
+                "amount": "0.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalShippingPriceSet": {
+              "shopMoney": {
+                "amount": "0.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalRefundedShippingSet": {
+              "shopMoney": {
+                "amount": "0.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "lineItems": {
+              "nodes": [
+                {
+                  "id": "gid://shopify/LineItem/50880935395486",
+                  "title": "The Minimal Snowboard",
+                  "variantTitle": null,
+                  "sku": null,
+                  "quantity": 1,
+                  "currentQuantity": 1,
+                  "refundableQuantity": 1,
+                  "unfulfilledQuantity": 0,
+                  "originalUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "885.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "discountedUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "885.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "image": null
+                },
+                {
+                  "id": "gid://shopify/LineItem/50880935428254",
+                  "title": "The Complete Snowboard",
+                  "variantTitle": "Ice",
+                  "sku": null,
+                  "quantity": 1,
+                  "currentQuantity": 1,
+                  "refundableQuantity": 1,
+                  "unfulfilledQuantity": 0,
+                  "originalUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "699.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "discountedUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "699.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "image": {
+                    "url": "https://cdn.shopify.com/s/files/1/0804/7090/0894/files/Main_589fc064-24a2-4236-9eaf-13b2bd35d21d.jpg?v=1793794123"
+                  }
+                }
+              ]
+            },
+            "fulfillments": [
+              {
+                "id": "gid://shopify/Fulfillment/7327476514974",
+                "status": "SUCCESS",
+                "displayStatus": "FULFILLED",
+                "createdAt": "2026-11-05T15:37:16Z",
+                "trackingInfo": [
+                  {
+                    "company": "DHL Express",
+                    "number": "E2Et001A",
+                    "url": "https://example.com/track/E2Et001A"
+                  }
+                ]
+              },
+              {
+                "id": "gid://shopify/Fulfillment/7327476547742",
+                "status": "SUCCESS",
+                "displayStatus": "FULFILLED",
+                "createdAt": "2026-11-05T15:37:16Z",
+                "trackingInfo": [
+                  {
+                    "company": "UPS",
+                    "number": "E2Et001B",
+                    "url": "https://example.com/track/E2Et001B"
+                  }
+                ]
+              }
+            ],
+            "refunds": [],
+            "customer": {
+              "id": "gid://shopify/Customer/31350524117150",
+              "displayName": "Maya Example"
+            },
+            "shippingAddress": {
+              "name": "Maya Example",
+              "address1": "1 Example Street",
+              "address2": null,
+              "city": "Springfield",
+              "province": "Illinois",
+              "provinceCode": "IL",
+              "zip": "62701",
+              "country": "United States",
+              "countryCodeV2": "US",
+              "phone": null
+            }
+          },
+          {
+            "id": "gid://shopify/Order/18985501294750",
+            "legacyResourceId": "18985501294750",
+            "statusPageUrl": "https://shop.example.com/orders/fixture-order/status",
+            "name": "#1001",
+            "createdAt": "2026-11-05T15:37:13Z",
+            "cancelledAt": null,
+            "cancelReason": null,
+            "closed": false,
+            "displayFinancialStatus": "PAID",
+            "displayFulfillmentStatus": "UNFULFILLED",
+            "returnStatus": "NO_RETURN",
+            "currencyCode": "UAH",
+            "presentmentCurrencyCode": "UAH",
+            "refundable": true,
+            "note": "e2e open order",
+            "tags": [
+              "e2e",
+              "e2e-t001"
+            ],
+            "totalPriceSet": {
+              "shopMoney": {
+                "amount": "2371.85",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalReceivedSet": {
+              "shopMoney": {
+                "amount": "2371.85",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalRefundedSet": {
+              "shopMoney": {
+                "amount": "0.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalShippingPriceSet": {
+              "shopMoney": {
+                "amount": "0.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "totalRefundedShippingSet": {
+              "shopMoney": {
+                "amount": "0.0",
+                "currencyCode": "UAH"
+              }
+            },
+            "lineItems": {
+              "nodes": [
+                {
+                  "id": "gid://shopify/LineItem/50880935297182",
+                  "title": "The Minimal Snowboard",
+                  "variantTitle": null,
+                  "sku": null,
+                  "quantity": 1,
+                  "currentQuantity": 1,
+                  "refundableQuantity": 1,
+                  "unfulfilledQuantity": 1,
+                  "originalUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "885.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "discountedUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "885.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "image": null
+                },
+                {
+                  "id": "gid://shopify/LineItem/50880935329950",
+                  "title": "The Complete Snowboard",
+                  "variantTitle": "Ice",
+                  "sku": null,
+                  "quantity": 1,
+                  "currentQuantity": 1,
+                  "refundableQuantity": 1,
+                  "unfulfilledQuantity": 1,
+                  "originalUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "699.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "discountedUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "699.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "image": {
+                    "url": "https://cdn.shopify.com/s/files/1/0804/7090/0894/files/Main_589fc064-24a2-4236-9eaf-13b2bd35d21d.jpg?v=1793794123"
+                  }
+                },
+                {
+                  "id": "gid://shopify/LineItem/50880935362718",
+                  "title": "The Compare at Price Snowboard",
+                  "variantTitle": null,
+                  "sku": null,
+                  "quantity": 1,
+                  "currentQuantity": 1,
+                  "refundableQuantity": 1,
+                  "unfulfilledQuantity": 1,
+                  "originalUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "785.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "discountedUnitPriceSet": {
+                    "shopMoney": {
+                      "amount": "785.95",
+                      "currencyCode": "UAH"
+                    }
+                  },
+                  "image": {
+                    "url": "https://cdn.shopify.com/s/files/1/0804/7090/0894/files/snowboard_sky.jpg?v=1793794123"
+                  }
+                }
+              ]
+            },
+            "fulfillments": [],
+            "refunds": [],
+            "customer": {
+              "id": "gid://shopify/Customer/31350524117150",
+              "displayName": "Maya Example"
+            },
+            "shippingAddress": {
+              "name": "Maya Example",
+              "address1": "1 Example Street",
+              "address2": null,
+              "city": "Springfield",
+              "province": "Illinois",
+              "provinceCode": "IL",
+              "zip": "62701",
+              "country": "United States",
+              "countryCodeV2": "US",
+              "phone": null
+            }
+          }
+        ]
+      }
+    }
+  }
+}

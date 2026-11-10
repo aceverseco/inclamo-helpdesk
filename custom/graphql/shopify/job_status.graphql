@@ -1,0 +1,6 @@
+query job_status($id: ID!) {
+  job(id: $id) {
+    id
+    done
+  }
+}

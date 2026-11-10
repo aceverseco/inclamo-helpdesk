@@ -1,0 +1,11 @@
+query discount_code_by_code($code: String!) {
+  codeDiscountNodeByCode(code: $code) {
+    id
+    codeDiscount {
+      ... on DiscountCodeBasic {
+        title
+        endsAt
+      }
+    }
+  }
+}

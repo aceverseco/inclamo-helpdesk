@@ -1,0 +1,6 @@
+mutation delete_draft($input: DraftOrderDeleteInput!) {
+  draftOrderDelete(input: $input) {
+    deletedId
+    userErrors { field message }
+  }
+}

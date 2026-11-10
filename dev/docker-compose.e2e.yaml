@@ -1,0 +1,43 @@
+# The helpdesk for end-to-end tests: every request to Shopify goes through a
+# proxy that the tests control (e2e/proxy/server.mjs), and a stand-in for the
+# AI service answers for the AI agent (e2e/stand-in-agent/server.mjs). Never
+# for an instance that serves real customers: the proxy sees the store's access
+# token, and Chatwoot is let reach private addresses so that it can call the
+# stand-in.
+#
+#   docker compose -f dev/docker-compose.yaml -f dev/docker-compose.e2e.yaml up -d
+x-e2e: &e2e
+  environment:
+    - NODE_ENV=production
+    - RAILS_ENV=production
+    - INSTALLATION_ENV=docker
+    - INCLAMO_E2E=1
+    - INCLAMO_SHOPIFY_BASE_URL=http://shopify-proxy:8080
+    # The tests sign in and call the API far more often than a person would.
+    - ENABLE_RACK_ATTACK=false
+    # Missed SLA targets are looked for every few seconds, not every minute.
+    - INCLAMO_SLA_CHECK_SECONDS=5
+    # The stand-in agent is an address of this stack's own network; Chatwoot's
+    # SSRF filter refuses such addresses everywhere else.
+    - SAFE_FETCH_ALLOW_PRIVATE_NETWORK=true
+
+services:
+  rails:
+    <<: *e2e
+  sidekiq:
+    <<: *e2e
+  shopify-proxy:
+    image: node:24-alpine
+    command: node /proxy/server.mjs
+    volumes:
+      - ../e2e/proxy:/proxy:ro
+    restart: unless-stopped
+  stand-in-agent:
+    image: node:24-alpine
+    command: node /agent/server.mjs
+    environment:
+      - PORT=8090
+      - PUBLIC_URL=http://stand-in-agent:8090
+    volumes:
+      - ../e2e/stand-in-agent:/agent:ro
+    restart: unless-stopped

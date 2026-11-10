@@ -1,0 +1,26 @@
+{
+  "variables": {
+    "id": "gid://shopify/Customer/31352101470366",
+    "tags": [
+      "x"
+    ]
+  },
+  "errors": [
+    {
+      "message": "Access denied for tagsAdd field.",
+      "locations": [
+        {
+          "line": 4,
+          "column": 3
+        }
+      ],
+      "extensions": {
+        "code": "ACCESS_DENIED",
+        "documentation": "https://shopify.dev/api/usage/access-scopes"
+      },
+      "path": [
+        "tagsAdd"
+      ]
+    }
+  ]
+}

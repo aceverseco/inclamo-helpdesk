@@ -1,0 +1,123 @@
+{
+  "variables": {
+    "id": "gid://shopify/CalculatedOrder/226528493726",
+    "variantId": "gid://shopify/ProductVariant/67919901229214",
+    "quantity": 1
+  },
+  "data": {
+    "orderEditAddVariant": {
+      "calculatedLineItem": {
+        "id": "gid://shopify/CalculatedLineItem/79970475-4070-49ac-8ad6-9c293eca9df0"
+      },
+      "calculatedOrder": {
+        "id": "gid://shopify/CalculatedOrder/226528493726",
+        "subtotalPriceSet": {
+          "shopMoney": {
+            "amount": "2445.85",
+            "currencyCode": "UAH"
+          }
+        },
+        "totalPriceSet": {
+          "shopMoney": {
+            "amount": "2445.85",
+            "currencyCode": "UAH"
+          }
+        },
+        "totalOutstandingSet": {
+          "shopMoney": {
+            "amount": "699.95",
+            "currencyCode": "UAH"
+          }
+        },
+        "originalOrder": {
+          "id": "gid://shopify/Order/18987070357662",
+          "name": "#1421",
+          "currencyCode": "UAH",
+          "email": "customer@example.com",
+          "currentTotalPriceSet": {
+            "shopMoney": {
+              "amount": "1745.9",
+              "currencyCode": "UAH"
+            }
+          },
+          "totalOutstandingSet": {
+            "shopMoney": {
+              "amount": "0.0",
+              "currencyCode": "UAH"
+            }
+          }
+        },
+        "lineItems": {
+          "nodes": [
+            {
+              "id": "gid://shopify/CalculatedLineItem/50883907911838",
+              "title": "The Minimal Snowboard",
+              "variantTitle": null,
+              "sku": null,
+              "quantity": 1,
+              "editableQuantity": 0,
+              "editableQuantityBeforeChanges": 0,
+              "restocking": false,
+              "discountedUnitPriceSet": {
+                "shopMoney": {
+                  "amount": "885.95",
+                  "currencyCode": "UAH"
+                }
+              }
+            },
+            {
+              "id": "gid://shopify/CalculatedLineItem/50883907944606",
+              "title": "The Complete Snowboard",
+              "variantTitle": "Ice",
+              "sku": null,
+              "quantity": 1,
+              "editableQuantity": 1,
+              "editableQuantityBeforeChanges": 1,
+              "restocking": false,
+              "discountedUnitPriceSet": {
+                "shopMoney": {
+                  "amount": "699.95",
+                  "currencyCode": "UAH"
+                }
+              }
+            },
+            {
+              "id": "gid://shopify/CalculatedLineItem/50883907977374",
+              "title": "E2E Tracked Mug recmw4wen1n",
+              "variantTitle": null,
+              "sku": null,
+              "quantity": 2,
+              "editableQuantity": 2,
+              "editableQuantityBeforeChanges": 2,
+              "restocking": false,
+              "discountedUnitPriceSet": {
+                "shopMoney": {
+                  "amount": "80.0",
+                  "currencyCode": "UAH"
+                }
+              }
+            }
+          ]
+        },
+        "addedLineItems": {
+          "nodes": [
+            {
+              "id": "gid://shopify/CalculatedLineItem/79970475-4070-49ac-8ad6-9c293eca9df0",
+              "title": "The Complete Snowboard",
+              "variantTitle": "Dawn",
+              "sku": null,
+              "quantity": 1,
+              "discountedUnitPriceSet": {
+                "shopMoney": {
+                  "amount": "699.95",
+                  "currencyCode": "UAH"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "userErrors": []
+    }
+  }
+}

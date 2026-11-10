@@ -1,0 +1,50 @@
+{
+  "variables": {
+    "query": "email:maya.example.t001@example.com"
+  },
+  "data": {
+    "customers": {
+      "nodes": [
+        {
+          "id": "gid://shopify/Customer/31350524117150",
+          "displayName": "Maya Example",
+          "numberOfOrders": "3",
+          "amountSpent": {
+            "amount": "5357.65",
+            "currencyCode": "UAH"
+          },
+          "defaultEmailAddress": {
+            "emailAddress": "maya.example.t001@example.com"
+          },
+          "defaultPhoneNumber": {
+            "phoneNumber": "+15005551011"
+          },
+          "tags": [
+            "e2e",
+            "e2e-t001"
+          ],
+          "latestOrders": {
+            "nodes": [
+              {
+                "id": "gid://shopify/Order/18985501393054",
+                "name": "#1003",
+                "displayFinancialStatus": "PARTIALLY_REFUNDED",
+                "displayFulfillmentStatus": "UNFULFILLED",
+                "totalPriceSet": {
+                  "shopMoney": {
+                    "amount": "1399.9",
+                    "currencyCode": "UAH"
+                  }
+                },
+                "tags": [
+                  "e2e",
+                  "e2e-t001"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

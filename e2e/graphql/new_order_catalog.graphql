@@ -1,0 +1,13 @@
+# Products a test can put into a new order: active, not gift cards, each with
+# its variants and whether the store can sell them.
+query new_order_catalog {
+  products(first: 30, query: "status:active AND gift_card:false") {
+    nodes {
+      id
+      title
+      variants(first: 5) {
+        nodes { id title price availableForSale }
+      }
+    }
+  }
+}

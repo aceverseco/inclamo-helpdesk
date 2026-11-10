@@ -1,0 +1,31 @@
+{
+  "variables": {
+    "id": "gid://shopify/CalculatedOrder/226528526494",
+    "notify": false,
+    "staffNote": "Edited from the helpdesk"
+  },
+  "data": {
+    "orderEditCommit": {
+      "order": {
+        "id": "gid://shopify/Order/18987070357662",
+        "name": "#1421",
+        "currentTotalPriceSet": {
+          "shopMoney": {
+            "amount": "1665.9",
+            "currencyCode": "UAH"
+          }
+        },
+        "totalOutstandingSet": {
+          "shopMoney": {
+            "amount": "-80.0",
+            "currencyCode": "UAH"
+          }
+        }
+      },
+      "successMessages": [
+        "Order updated"
+      ],
+      "userErrors": []
+    }
+  }
+}

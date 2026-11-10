@@ -1,0 +1,7 @@
+# One order with everything the panel shows.
+query order_details($id: ID!) {
+  order(id: $id) {
+    ...OrderFields
+    ...OrderPersonalFields
+  }
+}

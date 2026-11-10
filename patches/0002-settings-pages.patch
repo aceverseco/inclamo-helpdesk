@@ -1,0 +1,67 @@
+diff --git a/app/javascript/dashboard/components-next/sidebar/Sidebar.vue b/app/javascript/dashboard/components-next/sidebar/Sidebar.vue
+index def75b2..645c3aa 100644
+--- a/app/javascript/dashboard/components-next/sidebar/Sidebar.vue
++++ b/app/javascript/dashboard/components-next/sidebar/Sidebar.vue
+@@ -10,6 +10,7 @@ import { useI18n } from 'vue-i18n';
+ import { useSidebarKeyboardShortcuts } from './useSidebarKeyboardShortcuts';
+ import { vOnClickOutside } from '@vueuse/components';
+ import { FEATURE_FLAGS } from 'dashboard/featureFlags';
++import extensionSettingsPages from 'dashboard/extensions/settingsPages';
+ import { useWindowSize, useEventListener } from '@vueuse/core';
+ 
+ import Button from 'dashboard/components-next/button/Button.vue';
+@@ -963,6 +964,12 @@ const menuItems = computed(() => {
+           icon: 'i-lucide-credit-card',
+           to: accountScopedRoute('billing_settings_index'),
+         },
++        ...extensionSettingsPages.map(page => ({
++          name: `Settings ${page.name}`,
++          label: page.label(),
++          icon: page.icon,
++          to: accountScopedRoute(page.name),
++        })),
+       ],
+     },
+   ];
+diff --git a/app/javascript/dashboard/extensions/settingsPages.js b/app/javascript/dashboard/extensions/settingsPages.js
+new file mode 100644
+index 0000000..39a63bc
+--- /dev/null
++++ b/app/javascript/dashboard/extensions/settingsPages.js
+@@ -0,0 +1,5 @@
++// Pages that an extension adds to the account settings. Each entry is
++// { name, path, label: () => string, icon, component, permissions }: it gets a
++// route under settings/<path> named `name`, and an entry in the sidebar's
++// Settings group. Empty in Chatwoot itself.
++export default [];
+diff --git a/app/javascript/dashboard/routes/dashboard/settings/settings.routes.js b/app/javascript/dashboard/routes/dashboard/settings/settings.routes.js
+index b9c0f01..22c4c92 100644
+--- a/app/javascript/dashboard/routes/dashboard/settings/settings.routes.js
++++ b/app/javascript/dashboard/routes/dashboard/settings/settings.routes.js
+@@ -28,6 +28,8 @@ import security from './security/security.routes';
+ import conversationWorkflow from './conversationWorkflow/conversationWorkflow.routes';
+ import captain from './captain/captain.routes';
+ import data from './data/data.routes';
++import SettingsWrapper from './SettingsWrapper.vue';
++import extensionPages from 'dashboard/extensions/settingsPages';
+ 
+ export default {
+   routes: [
+@@ -71,5 +73,17 @@ export default {
+     ...security.routes,
+     ...conversationWorkflow.routes,
+     ...captain.routes,
++    ...extensionPages.map(page => ({
++      path: frontendURL(`accounts/:accountId/settings/${page.path}`),
++      component: SettingsWrapper,
++      children: [
++        {
++          path: '',
++          name: page.name,
++          component: page.component,
++          meta: { permissions: page.permissions },
++        },
++      ],
++    })),
+   ],
+ };

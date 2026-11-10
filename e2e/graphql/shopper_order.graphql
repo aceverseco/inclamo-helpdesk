@@ -1,0 +1,12 @@
+query shopper_order($id: ID!) {
+  order(id: $id) {
+    id
+    name
+    statusPageUrl
+    cancelledAt
+    currentTotalPriceSet { shopMoney { amount currencyCode } }
+    totalOutstandingSet { shopMoney { amount currencyCode } }
+    shippingAddress { address1 city zip }
+    lineItems(first: 20) { nodes { id title currentQuantity } }
+  }
+}

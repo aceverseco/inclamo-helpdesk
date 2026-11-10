@@ -1,0 +1,9 @@
+# Drafts made from the helpdesk moments ago, read by their ids: the store's
+# search may not show them yet. Their fields are the list's.
+query awaiting_payment_drafts($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on DraftOrder {
+      ...AwaitingDraftFields
+    }
+  }
+}

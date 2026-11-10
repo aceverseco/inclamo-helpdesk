@@ -1,0 +1,67 @@
+diff --git a/app/javascript/dashboard/components/widgets/conversation/VariableList.vue b/app/javascript/dashboard/components/widgets/conversation/VariableList.vue
+index 2f95332..1bb53aa 100644
+--- a/app/javascript/dashboard/components/widgets/conversation/VariableList.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/VariableList.vue
+@@ -5,6 +5,7 @@ import { MESSAGE_VARIABLES } from 'shared/constants/messages';
+ import { useMapGetter } from 'dashboard/composables/store';
+ import { sanitizeVariableSearchKey } from 'dashboard/helper/commons';
+ import { resolveVariableText } from 'dashboard/helper/editorHelper';
++import extensionVariables from 'dashboard/extensions/replyVariables';
+ import CaretAnchoredPicker from 'dashboard/components-next/preview-picker/CaretAnchoredPicker.vue';
+ 
+ const props = defineProps({
+@@ -50,8 +51,16 @@ const customVariables = computed(() =>
+     }))
+ );
+ 
++const extensionItems = computed(() =>
++  extensionVariables.flatMap(entry => entry.variables())
++);
++
+ const items = computed(() =>
+-  [...standardVariables.value, ...customVariables.value]
++  [
++    ...standardVariables.value,
++    ...extensionItems.value,
++    ...customVariables.value,
++  ]
+     .filter(
+       ({ key, description }) =>
+         key.toLowerCase().includes(searchTerm.value) ||
+diff --git a/app/javascript/dashboard/extensions/replyVariables.js b/app/javascript/dashboard/extensions/replyVariables.js
+new file mode 100644
+index 0000000..04d4325
+--- /dev/null
++++ b/app/javascript/dashboard/extensions/replyVariables.js
+@@ -0,0 +1,6 @@
++// Variables that an extension adds to replies. Each entry is
++// { variables: () => [{ key, description }], values: context => ({ key: value }) }.
++// The variable list offers what `variables` returns. The editor resolves and
++// checks a reply with what `values` returns for the open conversation; the
++// context is { conversation, contact, inbox, user }. Empty in Chatwoot itself.
++export default [];
+diff --git a/app/javascript/dashboard/helper/editorHelper.js b/app/javascript/dashboard/helper/editorHelper.js
+index 8041003..f0ec941 100644
+--- a/app/javascript/dashboard/helper/editorHelper.js
++++ b/app/javascript/dashboard/helper/editorHelper.js
+@@ -9,6 +9,7 @@ import {
+ import * as Sentry from '@sentry/vue';
+ import camelcaseKeys from 'camelcase-keys';
+ import { getMessageVariables } from '@chatwoot/utils';
++import extensionVariables from 'dashboard/extensions/replyVariables';
+ import { FORMATTING, MARKDOWN_PATTERNS } from 'dashboard/constants/editor';
+ import { INBOX_TYPES, TWILIO_CHANNEL_MEDIUM } from 'dashboard/helper/inbox';
+ 
+@@ -498,6 +499,12 @@ export const getReplyVariables = ({ conversation, contact, inbox, user }) => ({
+   ...getMessageVariables({ conversation, contact, inbox }),
+   ...getContactVariables(contact),
+   ...getAgentVariables(user),
++  ...Object.assign(
++    {},
++    ...extensionVariables.map(entry =>
++      entry.values({ conversation, contact, inbox, user })
++    )
++  ),
+ });
+ 
+ // Resolves a manually typed {{variable}} to its value on the closing braces.

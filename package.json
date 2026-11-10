@@ -1,0 +1,12 @@
+{
+  "name": "inclamo-helpdesk",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "check:graphql": "node scripts/check-graphql.mjs"
+  },
+  "devDependencies": {
+    "graphql": "16.9.0"
+  }
+}

@@ -1,0 +1,60 @@
+name: End-to-end
+
+# Drives the dashboard of the built image against a development store, one
+# test per scenario of the specs. Runs on main, on branches named e2e/..., and
+# by hand. Never for pull requests from forks: it uses the store's credentials.
+on:
+  push:
+    branches: [main, 'e2e/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# The runs share one development store and its order limit.
+concurrency:
+  group: e2e-development-store
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: Every scenario against a development store
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble Chatwoot with the patches and the overlay
+        run: scripts/assemble.sh build/chatwoot
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the image under test
+        uses: docker/build-push-action@v6
+        with:
+          context: build/chatwoot
+          file: build/chatwoot/docker/Dockerfile
+          push: false
+          load: true
+          tags: inclamo-helpdesk:e2e
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run the end-to-end tests
+        run: e2e/run.sh
+        env:
+          CI: 'true'
+          HELPDESK_IMAGE: inclamo-helpdesk:e2e
+          E2E_RUN: ci${{ github.run_id }}
+          E2E_OTHER_SHOP_DOMAIN: ${{ secrets.E2E_OTHER_SHOP_DOMAIN }}
+          SHOPIFY_BENCH_DOMAIN: ${{ secrets.SHOPIFY_BENCH_DOMAIN }}
+          SHOPIFY_BENCH_CLIENT_ID: ${{ secrets.SHOPIFY_BENCH_CLIENT_ID }}
+          SHOPIFY_BENCH_CLIENT_SECRET: ${{ secrets.SHOPIFY_BENCH_CLIENT_SECRET }}
+          SHOPIFY_SEEDER_DOMAIN: ${{ secrets.SHOPIFY_SEEDER_DOMAIN }}
+          SHOPIFY_SEEDER_CLIENT_ID: ${{ secrets.SHOPIFY_SEEDER_CLIENT_ID }}
+          SHOPIFY_SEEDER_CLIENT_SECRET: ${{ secrets.SHOPIFY_SEEDER_CLIENT_SECRET }}
+          # Optional: an app with no distribution method. Without these the
+          # limited-mode tests make the proxy refuse customers' data instead.
+          SHOPIFY_LIMITED_DOMAIN: ${{ secrets.SHOPIFY_LIMITED_DOMAIN }}
+          SHOPIFY_LIMITED_CLIENT_ID: ${{ secrets.SHOPIFY_LIMITED_CLIENT_ID }}
+          SHOPIFY_LIMITED_CLIENT_SECRET: ${{ secrets.SHOPIFY_LIMITED_CLIENT_SECRET }}

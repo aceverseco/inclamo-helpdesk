@@ -1,0 +1,23 @@
+# Where the units of an order that have not shipped are kept: each fulfilment
+# order names its location and how many units of each line still wait there.
+# Needs read_merchant_managed_fulfillment_orders and read_locations.
+query refund_assigned_locations($id: ID!) {
+  order(id: $id) {
+    id
+    fulfillmentOrders(first: 20) {
+      nodes {
+        status
+        assignedLocation {
+          name
+          location { id }
+        }
+        lineItems(first: 50) {
+          nodes {
+            remainingQuantity
+            lineItem { id }
+          }
+        }
+      }
+    }
+  }
+}

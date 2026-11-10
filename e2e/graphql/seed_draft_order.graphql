@@ -1,0 +1,6 @@
+mutation seed_draft_order($input: DraftOrderInput!) {
+  draftOrderCreate(input: $input) {
+    draftOrder { id }
+    userErrors { field message }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "variables": {
+    "query": "name:#1004"
+  },
+  "data": {
+    "orders": {
+      "nodes": [
+        {
+          "id": "gid://shopify/Order/18985501491358",
+          "legacyResourceId": "18985501491358",
+          "statusPageUrl": "https://shop.example.com/orders/fixture-order/status",
+          "name": "#1004",
+          "createdAt": "2026-11-05T15:37:19Z",
+          "cancelledAt": null,
+          "cancelReason": null,
+          "closed": false,
+          "displayFinancialStatus": "PAID",
+          "displayFulfillmentStatus": "UNFULFILLED",
+          "returnStatus": "NO_RETURN",
+          "currencyCode": "UAH",
+          "presentmentCurrencyCode": "UAH",
+          "refundable": true,
+          "note": "e2e order of another customer",
+          "tags": [
+            "e2e",
+            "e2e-t001"
+          ],
+          "totalPriceSet": {
+            "shopMoney": {
+              "amount": "785.95",
+              "currencyCode": "UAH"
+            }
+          },
+          "totalReceivedSet": {
+            "shopMoney": {
+              "amount": "785.95",
+              "currencyCode": "UAH"
+            }
+          },
+          "totalRefundedSet": {
+            "shopMoney": {
+              "amount": "0.0",
+              "currencyCode": "UAH"
+            }
+          },
+          "totalShippingPriceSet": {
+            "shopMoney": {
+              "amount": "0.0",
+              "currencyCode": "UAH"
+            }
+          },
+          "totalRefundedShippingSet": {
+            "shopMoney": {
+              "amount": "0.0",
+              "currencyCode": "UAH"
+            }
+          },
+          "lineItems": {
+            "nodes": [
+              {
+                "id": "gid://shopify/LineItem/50880935723166",
+                "title": "The Compare at Price Snowboard",
+                "variantTitle": null,
+                "sku": null,
+                "quantity": 1,
+                "currentQuantity": 1,
+                "refundableQuantity": 1,
+                "unfulfilledQuantity": 1,
+                "originalUnitPriceSet": {
+                  "shopMoney": {
+                    "amount": "785.95",
+                    "currencyCode": "UAH"
+                  }
+                },
+                "discountedUnitPriceSet": {
+                  "shopMoney": {
+                    "amount": "785.95",
+                    "currencyCode": "UAH"
+                  }
+                },
+                "image": {
+                  "url": "https://cdn.shopify.com/s/files/1/0804/7090/0894/files/snowboard_sky.jpg?v=1793794123"
+                }
+              }
+            ]
+          },
+          "fulfillments": [],
+          "refunds": [],
+          "customer": {
+            "id": "gid://shopify/Customer/31350524182686",
+            "displayName": "Noah Example"
+          },
+          "shippingAddress": {
+            "name": "Noah Example",
+            "address1": "1 Example Street",
+            "address2": null,
+            "city": "Springfield",
+            "province": "Illinois",
+            "provinceCode": "IL",
+            "zip": "62701",
+            "country": "United States",
+            "countryCodeV2": "US",
+            "phone": null
+          }
+        }
+      ]
+    }
+  }
+}

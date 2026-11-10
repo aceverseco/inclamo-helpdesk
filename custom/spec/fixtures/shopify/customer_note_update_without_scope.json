@@ -1,0 +1,27 @@
+{
+  "variables": {
+    "input": {
+      "id": "gid://shopify/Customer/31352101470366",
+      "note": "x"
+    }
+  },
+  "errors": [
+    {
+      "message": "Access denied for customerUpdate field. Required access: `write_customers` access scope.",
+      "locations": [
+        {
+          "line": 4,
+          "column": 3
+        }
+      ],
+      "extensions": {
+        "code": "ACCESS_DENIED",
+        "documentation": "https://shopify.dev/api/usage/access-scopes",
+        "requiredAccess": "`write_customers` access scope."
+      },
+      "path": [
+        "customerUpdate"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "variables": {
+    "query": "status:active AND gift_card:false AND ((E2E* r0001*) OR sku:\"E2E r0001\")",
+    "first": 10,
+    "after": null
+  },
+  "data": {
+    "products": {
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "eyJsYXN0X2lkIjoxNTQ0NzAwMzk4ODEyNiwibGFzdF92YWx1ZSI6MzYuMjA2MTA0fQ=="
+      },
+      "nodes": [
+        {
+          "id": "gid://shopify/Product/15447004053662",
+          "title": "E2E r0001 Hidden Mug",
+          "onlineStoreUrl": null,
+          "featuredMedia": null,
+          "variants": {
+            "nodes": [
+              {
+                "id": "gid://shopify/ProductVariant/67952187375774",
+                "title": "Default Title",
+                "sku": "E2E-R0001-HIDDEN",
+                "price": "150.00",
+                "availableForSale": true
+              }
+            ]
+          }
+        },
+        {
+          "id": "gid://shopify/Product/15447003988126",
+          "title": "E2E r0001 Shown Mug",
+          "onlineStoreUrl": null,
+          "featuredMedia": null,
+          "variants": {
+            "nodes": [
+              {
+                "id": "gid://shopify/ProductVariant/67952187343006",
+                "title": "Default Title",
+                "sku": "E2E-R0001-SHOWN",
+                "price": "150.00",
+                "availableForSale": true
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
