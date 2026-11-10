@@ -10,7 +10,7 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 15_000, toHaveScreenshot: { maxDiffPixelRatio: 0.002 } },
   reporter: [['list'], ['json', { outputFile: `${process.env.E2E_OUTPUT || './theme-output'}/results.json` }]],
-  outputDir: process.env.E2E_OUTPUT || './theme-output',
+  outputDir: `${process.env.E2E_OUTPUT || './theme-output'}/test-results`,
   snapshotPathTemplate: '{testDir}/../theme/snapshots/{arg}{ext}',
   use: {
     browserName: 'chromium',

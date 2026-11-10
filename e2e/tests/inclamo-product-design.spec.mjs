@@ -150,6 +150,9 @@ test('Responsive operator workflow', async ({ page }, info) => {
       // Native narrow-screen workflow: close the contact drawer to write a reply.
       await page.getByRole('button', { name: 'Close', exact: true }).click();
       await expect(editor(page)).toBeVisible();
+      const headerBox = await page.locator('.inclamo-conversation-heading').boundingBox();
+      const resolveBox = await page.getByRole('button', { name: 'Resolve', exact: true }).boundingBox();
+      expect(resolveBox.y + resolveBox.height).toBeLessThanOrEqual(headerBox.y + headerBox.height);
       await editor(page).fill('Long example message '.repeat(25));
       const send = page.locator('.reply-box').getByRole('button', { name: /^Send/ });
       await expect(send).toBeInViewport();
@@ -320,6 +323,19 @@ test('Customer and order actions', async ({ page }, info) => {
     const card = await orderCard(page.getByTestId('inclamo-orders-section'), '#1001');
     await expect(card.getByTestId('inclamo-action-cancel')).toBeDisabled();
     await expect(card.getByTestId('inclamo-action-cancel')).toHaveAttribute('title', /.+/);
+    await signIn(page, users.admin);
+    await page.route('**/inclamo/shopify/conversations/*/panel*', route => route.fulfill({ json: {
+      state: 'not_connected', orders: [], viewer: { administrator: true, can_act_on_orders: true },
+      connection: { connected: false, encryption_configured: true },
+    } }));
+    await openOrders(page, account, conversation.id);
+    const connect = page.getByTestId('inclamo-connect-open');
+    await expect(connect).toHaveCSS('color', 'rgb(16, 27, 61)');
+    await expect(connect).toHaveCSS('background-color', 'rgb(145, 200, 245)');
+    await connect.click();
+    await expect(page.getByTestId('inclamo-connect-dialog')).toBeVisible();
+    await capture(page, 'connect-store', info);
+    await page.keyboard.press('Escape');
 });
 
 test('Authentication and administration', async ({ page }, info) => {
@@ -327,20 +343,20 @@ test('Authentication and administration', async ({ page }, info) => {
     await page.goto('/app/login');
     await expect(page.locator('.inclamo-auth-root')).toBeVisible();
     await expect(page.locator('body')).toHaveClass(/inclamo-app-theme/);
-    await expect(page.locator('input[type="email"]')).toBeVisible();
+    await expect(page.locator('input[name="email_address"], input[type="email"]')).toBeVisible();
     await capture(page, 'login', info);
     await page.getByRole('link', { name: /Forgot/i }).click();
-    await expect(page.locator('input[type="email"]')).toBeVisible();
+    await expect(page.locator('input[name="email_address"], input[type="email"]')).toBeVisible();
     await capture(page, 'recovery', info);
     await page.goto('/app/login');
-    await page.locator('input[type="email"]').fill(users.admin.email);
+    await page.locator('input[name="email_address"], input[type="email"]').fill(users.admin.email);
     await page.locator('input[type="password"]').fill(users.admin.password);
     await page.locator('button[type="submit"]').click();
     await expect(page).toHaveURL(new RegExp(`/app/accounts/${account}`));
     await page.goto('/super_admin/sign_in');
     await expect(page.locator('body')).toHaveClass(/inclamo-administration/);
     await capture(page, 'superadmin-login', info);
-    await page.locator('input[type="email"]').fill(users.admin.email);
+    await page.locator('input[name="email_address"], input[type="email"]').fill(users.admin.email);
     await page.locator('input[type="password"]').fill(users.admin.password);
     await page.locator('button[type="submit"]').click();
     await expect(page).toHaveURL(/super_admin(?!\/sign_in)/);

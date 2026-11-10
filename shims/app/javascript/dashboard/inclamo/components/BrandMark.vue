@@ -1,5 +1,5 @@
 <script setup>
-import { t } from '../i18n';
+import { t } from "../i18n";
 defineProps({ compact: Boolean });
 </script>
 
@@ -12,7 +12,7 @@ defineProps({ compact: Boolean });
       height="36"
     />
     <span v-if="!compact"
-      >{{ t('BRAND.WORDMARK') }}<span class="inclamo-brand-dot">.</span></span
+      >{{ t("BRAND.WORDMARK") }}<span class="inclamo-brand-dot">.</span></span
     >
   </div>
 </template>

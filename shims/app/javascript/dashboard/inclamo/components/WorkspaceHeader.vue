@@ -1,17 +1,17 @@
 <script setup>
-import { useAccount } from 'dashboard/composables/useAccount';
-import { useMapGetter } from 'dashboard/composables/store';
-import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
-import { t } from '../i18n';
+import { useAccount } from "dashboard/composables/useAccount";
+import { useMapGetter } from "dashboard/composables/store";
+import Avatar from "dashboard/components-next/avatar/Avatar.vue";
+import { t } from "../i18n";
 const { currentAccount } = useAccount();
-const currentUser = useMapGetter('getCurrentUser');
+const currentUser = useMapGetter("getCurrentUser");
 </script>
 
 <template>
   <header class="inclamo-workspace-header">
     <div class="inclamo-workspace-breadcrumb">
       <span class="i-lucide-panels-top-left" aria-hidden="true" />
-      <span>{{ t('BRAND.WORKSPACE') }}</span>
+      <span>{{ t("BRAND.WORKSPACE") }}</span>
       <span class="i-lucide-chevron-right" aria-hidden="true" />
       <strong>{{ currentAccount?.name }}</strong>
     </div>

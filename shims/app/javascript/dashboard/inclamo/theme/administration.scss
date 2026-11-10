@@ -1,11 +1,11 @@
-@import 'tokens';
-@import 'controls';
+@import "tokens";
+@import "controls";
 
 body.inclamo-administration {
   @include inclamo-light;
   @include inclamo-controls;
   .bg-n-brand,
-  input[type='submit']:not(.bg-n-ruby-9) {
+  input[type="submit"]:not(.bg-n-ruby-9) {
     background-color: rgb(var(--inclamo-brand));
     color: rgb(var(--inclamo-action-text));
   }

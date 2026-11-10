@@ -50,6 +50,7 @@ No data migration is needed. Deploy the checked product image through the existi
 - `app/controllers/dashboard_controller.rb`
 - `app/javascript/dashboard/App.vue`
 - `app/javascript/dashboard/components-next/Contacts/ContactsListLayout.vue`
+- `app/javascript/dashboard/components-next/Conversation/ConversationCard/UnreadBadge.vue`
 - `app/javascript/dashboard/components-next/button/Button.vue`
 - `app/javascript/dashboard/components-next/input/Input.vue`
 - `app/javascript/dashboard/components-next/message/Message.vue`
@@ -60,6 +61,7 @@ No data migration is needed. Deploy the checked product image through the existi
 - `app/javascript/dashboard/components-next/sidebar/provider.js`
 - `app/javascript/dashboard/components/ChatList.vue`
 - `app/javascript/dashboard/components/ChatListHeader.vue`
+- `app/javascript/dashboard/components/buttons/ResolveAction.vue`
 - `app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue`
 - `app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue`
 - `app/javascript/dashboard/components/widgets/conversation/ConversationSidebar.vue`
@@ -73,6 +75,7 @@ No data migration is needed. Deploy the checked product image through the existi
 - `app/javascript/entrypoints/superadmin.scss`
 - `app/javascript/v3/App.vue`
 - `app/javascript/v3/views/login/Index.vue`
+- `app/views/installation/onboarding/index.html.erb`
 - `app/views/layouts/super_admin/application.html.erb`
 - `app/views/super_admin/application/_brand.html.erb`
 - `app/views/super_admin/application/_standalone.html.erb`

@@ -260,7 +260,7 @@ diff --git a/app/javascript/dashboard/components/widgets/conversation/Conversati
          class="me-2"
        />
        <Avatar
-+          rounded-full
++        rounded-full
          :name="currentContact.name"
          :src="currentContact.thumbnail"
          :size="32"
@@ -288,6 +288,18 @@ diff --git a/app/javascript/dashboard/components/widgets/conversation/ReplyBox.v
      <ReplyTopPanel
        :mode="replyType"
        :conversation-id="conversationId"
+diff --git a/app/javascript/dashboard/components/widgets/conversation/contextMenu/menuItem.vue b/app/javascript/dashboard/components/widgets/conversation/contextMenu/menuItem.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/contextMenu/menuItem.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/contextMenu/menuItem.vue
+@@ -15,7 +15,7 @@
+ </script>
+ 
+ <template>
+-  <div class="menu group text-n-slate-12 min-h-7 min-w-0" role="button">
++  <div data-inclamo-control="context-menu-item" class="menu group text-n-slate-12 min-h-7 min-w-0" role="button">
+     <fluent-icon
+       v-if="variant === 'icon' && option.icon"
+       :icon="option.icon"
 diff --git a/app/javascript/dashboard/routes/dashboard/Dashboard.vue b/app/javascript/dashboard/routes/dashboard/Dashboard.vue
 --- a/app/javascript/dashboard/routes/dashboard/Dashboard.vue
 +++ b/app/javascript/dashboard/routes/dashboard/Dashboard.vue

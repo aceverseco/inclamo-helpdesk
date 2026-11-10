@@ -20,3 +20,5 @@ Before applying this design there, reconcile duplicated feature changes,
 patch numbering and upstream patch seams; run component and isolated synthetic
 visual acceptance on that combined tree. Do not overwrite the integrated
 branch with this older workspace or deploy this snapshot as a verified build.
+
+The source workspace remained active during publication. Latest capture: 2026-11-10T07:26:18+00:00.
