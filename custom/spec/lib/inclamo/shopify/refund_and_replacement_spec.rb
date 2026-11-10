@@ -54,6 +54,7 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
       expect(result.progress['refunded']).to eq("20.0 #{currency}")
       expect(mutation_requests('refund_create') do |variables|
         variables['key'] == 'action-refund-0001' &&
+          variables.dig('input', 'note') == 'Inclamo refund action-refund-0001' &&
           variables.dig('input', 'transactions') == [{ 'parentId' => 'gid://shopify/OrderTransaction/1', 'gateway' => 'manual', 'amount' => '20.0', 'orderId' => order['id'], 'kind' => 'REFUND' }] &&
           !variables['input'].key?('refundLineItems')
       end).to have_been_made.once
@@ -309,8 +310,8 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
         stub_shopify(:order_details_limited, data: { order: order.merge('refunds' => refunds) })
       end
 
-      def made(amount, id: 'gid://shopify/Refund/5', at: Time.current)
-        { 'id' => id, 'createdAt' => at.iso8601, 'note' => nil, 'totalRefundedSet' => { 'shopMoney' => { 'amount' => amount, 'currencyCode' => currency } } }
+      def made(amount, id: 'gid://shopify/Refund/5', at: Time.current, note: 'Inclamo refund action-refund-0001', currency_code: currency)
+        { 'id' => id, 'createdAt' => at.iso8601, 'note' => note, 'totalRefundedSet' => { 'shopMoney' => { 'amount' => amount, 'currencyCode' => currency_code } } }
       end
 
       it 'finds the refund in the order and asks the store for nothing' do
@@ -327,11 +328,68 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
 
       it 'stays unknown while the order shows no such refund' do
         first = lose_refund
-        order_with_refunds(made('20.0', at: 1.day.ago))
+        order_with_refunds(made('20.0', at: 1.day.ago, note: nil))
 
         runner.settle_open!
 
         expect(first.reload.outcome).to eq('unknown')
+        expect(mutation_requests('refund_create')).to have_been_made.once
+      end
+
+      it 'does not claim a manual refund of the same amount made just before the attempt' do
+        manual = made('20.0', at: 30.seconds.ago, note: nil)
+        stub_shopify(:order_details, data: { order: order.merge('refunds' => [manual]) })
+        first = lose_refund
+        order_with_refunds(manual)
+
+        runner.settle_open!
+
+        expect(first.reload.outcome).to eq('unknown')
+        expect(first.progress['refund_id']).to be_nil
+        expect(notes).to be_empty
+        expect(mutation_requests('refund_create')).to have_been_made.once
+      end
+
+      it 'does not claim another attempt with the same amount made after this one' do
+        first = lose_refund
+        order_with_refunds(made('20.0', note: 'Inclamo refund another-action'))
+
+        runner.settle_open!
+
+        expect(first.reload.outcome).to eq('unknown')
+        expect(notes).to be_empty
+      end
+
+      it 'leaves an ambiguous marker unknown instead of choosing the first refund' do
+        first = lose_refund
+        order_with_refunds(made('20.0'), made('20.0', id: 'gid://shopify/Refund/6'))
+
+        runner.settle_open!
+
+        expect(first.reload.outcome).to eq('unknown')
+        expect(notes).to be_empty
+      end
+
+      it 'requires the recorded amount and currency even when the marker matches' do
+        first = lose_refund
+        order_with_refunds(made('21.0'), made('20.0', id: 'gid://shopify/Refund/6', currency_code: 'USD'))
+
+        runner.settle_open!
+
+        expect(first.reload.outcome).to eq('unknown')
+        expect(notes).to be_empty
+      end
+
+      it 'leaves an older attempt without a sent marker unknown' do
+        first = lose_refund
+        old_input = JSON.parse(first.progress['input']).except('note').to_json
+        first.update!(progress: first.progress.merge('input' => old_input))
+        order_with_refunds(made('20.0'))
+
+        runner.settle_open!
+
+        expect(first.reload.outcome).to eq('unknown')
+        expect(notes).to be_empty
         expect(mutation_requests('refund_create')).to have_been_made.once
       end
 
@@ -553,6 +611,42 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner, 'refund and replacement' do
       expect(mutation_requests('replacement_draft_create')).to have_been_made.once
       expect(mutation_requests('replacement_draft_complete')).to have_been_made.once
       expect(notes.size).to eq(1)
+    end
+
+    it 'does not create another draft when the creation answer was lost' do
+      lost = stub_request(:post, shopify_graphql_url).with { |r| JSON.parse(r.body)['query'].include?('mutation replacement_draft_create') }.to_timeout
+
+      first = replace
+      expect(first.outcome).to eq('unknown')
+      expect(first.progress).to include('creation_attempted' => true)
+      expect(first.progress['draft_id']).to be_nil
+
+      remove_request_stub(lost)
+      stub_draft_create
+      stub_draft_update
+      stub_draft_complete
+      runner.settle_open!
+      2.times do
+        expect(replace).to have_attributes(id: first.id, outcome: 'unknown')
+      end
+
+      expect(mutation_requests('replacement_draft_create')).to have_been_made.once
+      expect(mutation_requests('replacement_draft_update')).not_to have_been_made
+      expect(mutation_requests('replacement_draft_complete')).not_to have_been_made
+      expect(notes).to be_empty
+    end
+
+    it 'does not repeat creation after a worker stops before recording the draft id' do
+      unfinished = Inclamo::OrderAction.create!(account: account, conversation: conversation, user: admin, action_id: 'action-replacement-0001', action: 'replacement',
+                                                order_id: order['id'], order_number: '#1001', outcome: 'pending', params: { 'items' => kept },
+                                                progress: { 'creation_attempted' => true }, updated_at: 6.minutes.ago)
+      stub_draft_create
+      stub_draft_update
+      stub_draft_complete
+
+      expect(replace).to have_attributes(id: unfinished.id, outcome: 'unknown')
+      expect(mutation_requests('replacement_draft_create')).not_to have_been_made
+      expect(notes).to be_empty
     end
 
     it 'is unavailable without the draft orders scope or the products scope, naming the scope' do

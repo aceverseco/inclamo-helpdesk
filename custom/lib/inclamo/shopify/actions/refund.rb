@@ -23,8 +23,6 @@ module Inclamo
         MODES = %w[full items shipping amount].freeze
         RECORDED = %w[mode amount items shipping restock notify].freeze
         RESTOCK_SCOPES = %w[read_locations read_merchant_managed_fulfillment_orders].freeze
-        # Clocks of the store and of the helpdesk may differ by this much.
-        CLOCK_SKEW = 1.minute
 
         # What the confirmation shows: the amount, its currency and where the money goes.
         def preview
@@ -51,16 +49,16 @@ module Inclamo
           :accepted
         end
 
-        # After a lost answer, by reading the order: a refund made since the
-        # attempt, of the amount the attempt was for and not already taken by
-        # another attempt, is this one. Nothing is sent to the store.
+        # After a lost answer, only a refund carrying the marker sent with
+        # this attempt can settle it. Amount and time alone cannot distinguish
+        # it from another refund. Nothing is sent to the store.
         def resolve
           # The attempt ended before the store was asked for the refund.
           raise Refused, 'store_unreachable' unless @record.progress.key?('input')
           return :accepted if @record.progress['refund_id']
 
           order = @store.query(:order_details_limited, { id: @record.order_id })['order']
-          refund = order && made_since(order)
+          refund = order && matching_refund(order)
           return unless refund
 
           money = refund.dig('totalRefundedSet', 'shopMoney') || {}
@@ -76,15 +74,20 @@ module Inclamo
           remember!(input: input_for(plan).to_json, total: plan[:total].to_s('F'), currency: currency, restocked_at: restocked_at(plan))
         end
 
-        def made_since(order)
+        def matching_refund(order)
+          # Older attempts did not send a marker: keep those unknown rather
+          # than attributing an unrelated refund to them.
+          marker = JSON.parse(@record.progress['input'])['note']
+          return if marker.blank?
+
           taken = OrderAction.where(account_id: @record.account_id, order_id: @record.order_id, action: 'refund').where.not(id: @record.id)
                              .filter_map { |other| other.progress['refund_id'] }
-          since = @record.created_at - CLOCK_SKEW
-          Array(order['refunds']).find do |refund|
-            made_at = Time.zone.parse(refund['createdAt'].to_s)
-            !taken.include?(refund['id']) && made_at.present? && made_at >= since &&
-              refund.dig('totalRefundedSet', 'shopMoney', 'amount').to_d == @record.progress['total'].to_d
+          matches = Array(order['refunds']).select do |refund|
+            money = refund.dig('totalRefundedSet', 'shopMoney') || {}
+            refund['id'].present? && !taken.include?(refund['id']) && refund['note'] == marker &&
+              money['amount'].to_d == @record.progress['total'].to_d && money['currencyCode'] == @record.progress['currency']
           end
+          matches.one? ? matches.first : nil
         end
 
         def mode
@@ -267,6 +270,7 @@ module Inclamo
         def input_for(plan)
           {
             orderId: @record.order_id, notify: params['notify'] == true,
+            note: "Inclamo refund #{@record.action_id}",
             refundLineItems: plan[:items].map { |item| item.slice(:lineItemId, :quantity, :restockType, :locationId).compact }.presence,
             shipping: (plan[:shipping] ? { fullRefund: true } : nil),
             transactions: plan[:transactions].map { |transaction| transaction.slice(:parentId, :gateway, :amount).merge(orderId: @record.order_id, kind: 'REFUND') }

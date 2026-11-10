@@ -38,6 +38,10 @@ module Inclamo
 
         def call
           return :accepted if @record.progress['new_order_id']
+          # Copying an order accepts neither an idempotency key nor a marker.
+          # If its answer was lost, the draft cannot be identified safely:
+          # keep the outcome unknown instead of creating a second draft.
+          return :unknown if @record.progress['creation_attempted'] && !draft_id
           return finish_from_store if @record.progress['draft_id'] && completed_at_store?
 
           lines = kept_lines # validated before anything is created
@@ -86,6 +90,7 @@ module Inclamo
         end
 
         def create_draft
+          remember!(creation_attempted: true)
           answer = @store.query(:replacement_draft_create, { orderId: @record.order_id })['draftOrderCreateFromOrder']
           user_errors!(answer['userErrors'])
           draft = answer['draftOrder'] or raise Refused, 'store_refused'
