@@ -61,7 +61,7 @@ defineExpose({ open: () => frame.value.open() });
     <div class="grid grid-cols-2 gap-2">
       <label v-for="[field, label] in FIELDS" :key="field" class="flex flex-col gap-1" :class="{ 'col-span-2': field === 'address1' || field === 'address2' }">
         <span>{{ t(`DIALOG.ADDRESS.${label}`) }}</span>
-        <input v-model="form[field]" type="text" class="rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1.5" :data-testid="`inclamo-address-${field}`" />
+        <input v-model="form[field]" type="text" class="rounded-[var(--inclamo-control-radius,0.375rem)] border border-n-weak bg-n-alpha-black2 px-2 py-1.5" :data-testid="`inclamo-address-${field}`" />
       </label>
     </div>
   </ActionDialog>

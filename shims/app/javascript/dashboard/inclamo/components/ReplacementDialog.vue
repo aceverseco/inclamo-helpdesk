@@ -48,7 +48,7 @@ defineExpose({ open: () => frame.value.open() });
         type="number"
         min="0"
         :max="item.quantity"
-        class="w-16 rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1"
+        class="w-16 rounded-[var(--inclamo-control-radius,0.375rem)] border border-n-weak bg-n-alpha-black2 px-2 py-1"
         :data-testid="`inclamo-replacement-quantity-${item.id}`"
       />
     </label>

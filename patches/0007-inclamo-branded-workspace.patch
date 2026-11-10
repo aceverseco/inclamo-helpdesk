@@ -1,0 +1,589 @@
+diff --git a/app/controllers/dashboard_controller.rb b/app/controllers/dashboard_controller.rb
+--- a/app/controllers/dashboard_controller.rb
++++ b/app/controllers/dashboard_controller.rb
+@@ -50,6 +50,7 @@
+ 
+   def set_global_config
+     @global_config = GlobalConfig.get(*GLOBAL_CONFIG_KEYS).merge(app_config)
++    @global_config['INSTALLATION_NAME'] = 'Inclamo' if @global_config['INSTALLATION_NAME'] == 'Chatwoot'
+   end
+ 
+   def set_dashboard_scripts
+diff --git a/app/javascript/dashboard/App.vue b/app/javascript/dashboard/App.vue
+--- a/app/javascript/dashboard/App.vue
++++ b/app/javascript/dashboard/App.vue
+@@ -23,6 +23,7 @@
+ } from './helper/pushHelper';
+ import ReconnectService from 'dashboard/helper/ReconnectService';
+ import { useUISettings } from 'dashboard/composables/useUISettings';
++import { useApplicationTheme } from './inclamo/theme/useApplicationTheme';
+ 
+ export default {
+   name: 'App',
+@@ -40,6 +41,7 @@
+     FeatureAnnouncement,
+   },
+   setup() {
++    useApplicationTheme();
+     const router = useRouter();
+     const store = useStore();
+     const { accountId } = useAccount();
+diff --git a/app/javascript/dashboard/components-next/Contacts/ContactsListLayout.vue b/app/javascript/dashboard/components-next/Contacts/ContactsListLayout.vue
+--- a/app/javascript/dashboard/components-next/Contacts/ContactsListLayout.vue
++++ b/app/javascript/dashboard/components-next/Contacts/ContactsListLayout.vue
+@@ -78,7 +78,7 @@
+ 
+ <template>
+   <section
+-    class="flex w-full h-full gap-4 overflow-hidden justify-evenly bg-n-surface-1"
++    class="inclamo-contacts-layout flex w-full h-full gap-4 overflow-hidden justify-evenly bg-n-surface-1"
+   >
+     <div class="flex flex-col w-full h-full transition-all duration-300">
+       <ContactListHeaderWrapper
+diff --git a/app/javascript/dashboard/components-next/Conversation/ConversationCard/UnreadBadge.vue b/app/javascript/dashboard/components-next/Conversation/ConversationCard/UnreadBadge.vue
+--- a/app/javascript/dashboard/components-next/Conversation/ConversationCard/UnreadBadge.vue
++++ b/app/javascript/dashboard/components-next/Conversation/ConversationCard/UnreadBadge.vue
+@@ -17,7 +17,7 @@
+ <template>
+   <span
+     v-if="count > 0"
+-    class="bg-n-teal-9 rounded-full h-4 min-w-4 max-w-5 px-1 w-fit font-medium text-xxs leading-3 text-white inline-grid place-items-center flex-shrink-0"
++    class="inclamo-unread-badge bg-n-teal-9 rounded-full h-4 min-w-4 max-w-5 px-1 w-fit font-medium text-xxs leading-3 text-white inline-grid place-items-center flex-shrink-0"
+     :class="{
+       'mb-0.5': alignBottom,
+     }"
+diff --git a/app/javascript/dashboard/components-next/button/Button.vue b/app/javascript/dashboard/components-next/button/Button.vue
+--- a/app/javascript/dashboard/components-next/button/Button.vue
++++ b/app/javascript/dashboard/components-next/button/Button.vue
+@@ -239,6 +239,9 @@
+ <template>
+   <button
+     v-bind="filteredAttrs"
++    data-inclamo-control="button"
++    :data-inclamo-color="computedColor"
++    :data-inclamo-variant="computedVariant"
+     :class="{
+       [STYLE_CONFIG.base]: true,
+       [isLink ? linkButtonClasses : buttonClasses]: true,
+diff --git a/app/javascript/dashboard/components-next/input/Input.vue b/app/javascript/dashboard/components-next/input/Input.vue
+--- a/app/javascript/dashboard/components-next/input/Input.vue
++++ b/app/javascript/dashboard/components-next/input/Input.vue
+@@ -115,6 +115,7 @@
+     <!-- Added prefix slot to allow adding icons to the input -->
+     <slot name="prefix" />
+     <input
++      data-inclamo-control="input"
+       :id="uniqueId"
+       v-bind="$attrs"
+       ref="inputRef"
+diff --git a/app/javascript/dashboard/components-next/message/Message.vue b/app/javascript/dashboard/components-next/message/Message.vue
+--- a/app/javascript/dashboard/components-next/message/Message.vue
++++ b/app/javascript/dashboard/components-next/message/Message.vue
+@@ -598,7 +598,7 @@
+   <div
+     v-if="shouldRenderMessage"
+     :id="`message${props.id}`"
+-    class="flex w-full mb-2 message-bubble-container"
++    class="inclamo-message flex w-full mb-2 message-bubble-container"
+     :data-message-id="props.id"
+     :class="[
+       flexOrientationClass,
+diff --git a/app/javascript/dashboard/components-next/message/bubbles/Base.vue b/app/javascript/dashboard/components-next/message/bubbles/Base.vue
+--- a/app/javascript/dashboard/components-next/message/bubbles/Base.vue
++++ b/app/javascript/dashboard/components-next/message/bubbles/Base.vue
+@@ -114,6 +114,7 @@
+ 
+ <template>
+   <div
++    :data-inclamo-bubble="variant"
+     class="text-sm min-w-0"
+     :class="[
+       messageClass,
+diff --git a/app/javascript/dashboard/components-next/sidebar/Sidebar.vue b/app/javascript/dashboard/components-next/sidebar/Sidebar.vue
+--- a/app/javascript/dashboard/components-next/sidebar/Sidebar.vue
++++ b/app/javascript/dashboard/components-next/sidebar/Sidebar.vue
+@@ -22,7 +22,7 @@
+ import ChannelIcon from 'next/icon/ChannelIcon.vue';
+ import EmojiIcon from 'next/emoji-icon-picker/EmojiIcon.vue';
+ import SidebarAccountSwitcher from './SidebarAccountSwitcher.vue';
+-import Logo from 'next/icon/Logo.vue';
++import BrandMark from 'dashboard/inclamo/components/BrandMark.vue';
+ import ComposeConversation from 'dashboard/components-next/NewConversation/ComposeConversation.vue';
+ import {
+   SIDEBAR_SORT_SECTIONS,
+@@ -988,7 +988,7 @@
+         ],
+       },
+     ]"
+-    class="bg-n-background flex flex-col text-sm pb-px fixed top-0 ltr:left-0 rtl:right-0 h-full z-40 w-[200px] md:w-auto md:relative md:flex-shrink-0 md:ltr:translate-x-0 md:rtl:translate-x-0 ltr:border-r rtl:border-l border-n-weak"
++    class="inclamo-sidebar bg-n-background flex flex-col text-sm pb-px fixed top-0 ltr:left-0 rtl:right-0 h-full z-40 w-[200px] md:w-auto md:relative md:flex-shrink-0 md:ltr:translate-x-0 md:rtl:translate-x-0 ltr:border-r rtl:border-l border-n-weak"
+     :class="[
+       {
+         'shadow-lg md:shadow-none': isMobileSidebarOpen,
+@@ -999,8 +999,9 @@
+     ]"
+     :style="isMobile ? undefined : { width: `${sidebarWidth}px` }"
+   >
++    <BrandMark :compact="isEffectivelyCollapsed" />
+     <section
+-      class="grid"
++      class="inclamo-sidebar-tools grid"
+       :class="isEffectivelyCollapsed ? 'mt-3 mb-6 gap-4' : 'mt-1 mb-4 gap-2'"
+     >
+       <div
+@@ -1017,10 +1018,6 @@
+           />
+         </template>
+         <template v-else>
+-          <div class="grid flex-shrink-0 place-content-center size-6">
+-            <Logo class="size-4" />
+-          </div>
+-          <div class="flex-shrink-0 w-px h-3 bg-n-strong" />
+           <SidebarAccountSwitcher
+             class="flex-grow -mx-1 min-w-0"
+             @show-create-account-modal="emit('showCreateAccountModal')"
+diff --git a/app/javascript/dashboard/components-next/sidebar/SidebarGroupHeader.vue b/app/javascript/dashboard/components-next/sidebar/SidebarGroupHeader.vue
+--- a/app/javascript/dashboard/components-next/sidebar/SidebarGroupHeader.vue
++++ b/app/javascript/dashboard/components-next/sidebar/SidebarGroupHeader.vue
+@@ -38,7 +38,7 @@
+ <template>
+   <component
+     :is="to ? 'a' : 'div'"
+-    class="flex items-center gap-2 px-1.5 py-1 rounded-lg h-8 min-w-0"
++    class="inclamo-nav-group flex items-center gap-2 px-1.5 py-1 rounded-lg h-8 min-w-0"
+     role="button"
+     draggable="false"
+     :href="href"
+diff --git a/app/javascript/dashboard/components-next/sidebar/SidebarGroupLeaf.vue b/app/javascript/dashboard/components-next/sidebar/SidebarGroupLeaf.vue
+--- a/app/javascript/dashboard/components-next/sidebar/SidebarGroupLeaf.vue
++++ b/app/javascript/dashboard/components-next/sidebar/SidebarGroupLeaf.vue
+@@ -44,7 +44,7 @@
+       :is="to ? 'router-link' : 'div'"
+       :to="to"
+       :title="label"
+-      class="flex h-8 items-center gap-2 px-2 py-1 rounded-lg ltr:hover:bg-gradient-to-r rtl:hover:bg-gradient-to-l from-transparent via-n-slate-3/70 to-n-slate-3/70 group min-w-0"
++      class="inclamo-nav-leaf flex h-8 items-center gap-2 px-2 py-1 rounded-lg ltr:hover:bg-gradient-to-r rtl:hover:bg-gradient-to-l from-transparent via-n-slate-3/70 to-n-slate-3/70 group min-w-0"
+       :class="{
+         'text-n-slate-12 bg-n-alpha-2 active': active,
+       }"
+diff --git a/app/javascript/dashboard/components-next/sidebar/provider.js b/app/javascript/dashboard/components-next/sidebar/provider.js
+--- a/app/javascript/dashboard/components-next/sidebar/provider.js
++++ b/app/javascript/dashboard/components-next/sidebar/provider.js
+@@ -5,7 +5,7 @@
+ 
+ const SidebarControl = Symbol('SidebarControl');
+ 
+-const DEFAULT_WIDTH = 200;
++const DEFAULT_WIDTH = 218;
+ const MIN_WIDTH = 56;
+ const COLLAPSED_THRESHOLD = 160;
+ const MAX_WIDTH = 320;
+diff --git a/app/javascript/dashboard/components/ChatList.vue b/app/javascript/dashboard/components/ChatList.vue
+--- a/app/javascript/dashboard/components/ChatList.vue
++++ b/app/javascript/dashboard/components/ChatList.vue
+@@ -905,7 +905,8 @@
+ 
+ <template>
+   <div
+-    class="flex flex-col flex-shrink-0 conversations-list-wrap bg-n-surface-1 relative"
++    :data-inclamo-layout="isOnExpandedLayout ? 'expanded' : 'condensed'"
++    class="inclamo-conversation-list flex flex-col flex-shrink-0 conversations-list-wrap bg-n-surface-1 relative"
+     :class="[
+       { hidden: !showConversationList },
+       isOnExpandedLayout ? 'basis-full' : 'w-[340px] 2xl:w-[412px]',
+diff --git a/app/javascript/dashboard/components/ChatListHeader.vue b/app/javascript/dashboard/components/ChatListHeader.vue
+--- a/app/javascript/dashboard/components/ChatListHeader.vue
++++ b/app/javascript/dashboard/components/ChatListHeader.vue
+@@ -72,7 +72,7 @@
+ 
+ <template>
+   <div
+-    class="flex items-center justify-between gap-2 px-3 h-[3.25rem]"
++    class="inclamo-list-heading flex items-center justify-between gap-2 px-3 h-[3.25rem]"
+     :class="{
+       'border-b border-n-strong': hasAppliedFiltersOrActiveFolders,
+     }"
+diff --git a/app/javascript/dashboard/components/buttons/ResolveAction.vue b/app/javascript/dashboard/components/buttons/ResolveAction.vue
+--- a/app/javascript/dashboard/components/buttons/ResolveAction.vue
++++ b/app/javascript/dashboard/components/buttons/ResolveAction.vue
+@@ -178,7 +178,7 @@
+ <template>
+   <div class="flex relative justify-end items-center resolve-actions">
+     <ButtonGroup
+-      class="flex-shrink-0 rounded-lg shadow outline-1 outline"
++      class="inclamo-resolve-buttons flex-shrink-0 rounded-lg shadow outline-1 outline"
+       :class="!showOpenButton ? 'outline-n-container' : 'outline-transparent'"
+     >
+       <Button
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue b/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
+@@ -109,7 +109,7 @@
+ 
+ <template>
+   <div
+-    class="relative flex items-start flex-grow-0 flex-shrink-0 w-auto max-w-full py-0 cursor-pointer conversation border-b border-n-slate-3 hover:border-n-surface-1 hover:bg-n-alpha-1 dark:hover:bg-n-alpha-3 group hover:z-[1] before:content-[none] before:absolute before:-top-px before:inset-x-0 before:h-px before:bg-n-surface-1 before:pointer-events-none hover:before:content-['']"
++    class="inclamo-conversation-card relative flex items-start flex-grow-0 flex-shrink-0 w-auto max-w-full py-0 cursor-pointer conversation border-b border-n-slate-3 hover:border-n-surface-1 hover:bg-n-alpha-1 dark:hover:bg-n-alpha-3 group hover:z-[1] before:content-[none] before:absolute before:-top-px before:inset-x-0 before:h-px before:bg-n-surface-1 before:pointer-events-none hover:before:content-['']"
+     :class="{
+       'active animate-card-select bg-n-background !border-n-surface-1':
+         isActiveChat,
+@@ -126,6 +126,7 @@
+       @mouseleave="onThumbnailLeave"
+     >
+       <Avatar
++          rounded-full
+         v-if="!hideThumbnail"
+         :name="currentContact.name"
+         :src="currentContact.thumbnail"
+@@ -146,7 +147,7 @@
+         </template>
+       </Avatar>
+     </div>
+-    <div class="px-0 py-3 flex-1 min-w-0 border-line">
++    <div class="inclamo-conversation-card-content px-0 py-3 flex-1 min-w-0 border-line">
+       <div
+         v-if="showMetaSection"
+         class="flex items-center min-w-0 gap-1"
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue b/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue
+@@ -115,7 +115,7 @@
+ <template>
+   <div
+     ref="conversationHeader"
+-    class="flex flex-col gap-3 items-center justify-between flex-1 w-full min-w-0 xl:flex-row px-3 pt-3 pb-2 h-24 xl:h-12"
++    class="inclamo-conversation-heading flex flex-col gap-3 items-center justify-between flex-1 w-full min-w-0 xl:flex-row px-3 pt-3 pb-2 h-24 xl:h-12"
+   >
+     <div
+       class="flex items-center justify-start w-full xl:w-auto max-w-full min-w-0 xl:flex-1"
+@@ -126,6 +126,7 @@
+         class="me-2"
+       />
+       <Avatar
++          rounded-full
+         :name="currentContact.name"
+         :src="currentContact.thumbnail"
+         :size="32"
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ConversationSidebar.vue b/app/javascript/dashboard/components/widgets/conversation/ConversationSidebar.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/ConversationSidebar.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ConversationSidebar.vue
+@@ -51,7 +51,7 @@
+         ],
+       },
+     ]"
+-    class="bg-n-surface-2 h-full overflow-hidden flex flex-col fixed top-0 z-40 w-full max-w-sm transition-transform duration-300 ease-in-out ltr:right-0 rtl:left-0 md:static md:w-[320px] md:min-w-[320px] ltr:border-l rtl:border-r border-n-weak 2xl:min-w-[360px] 2xl:w-[360px] shadow-lg md:shadow-none"
++    class="inclamo-customer-sidebar bg-n-surface-2 h-full overflow-hidden flex flex-col fixed top-0 z-40 w-full max-w-sm transition-transform duration-300 ease-in-out ltr:right-0 rtl:left-0 md:static md:w-[320px] md:min-w-[320px] ltr:border-l rtl:border-r border-n-weak 2xl:min-w-[360px] 2xl:w-[360px] shadow-lg md:shadow-none"
+     :class="[
+       {
+         'md:flex': activeTab === 0,
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ReplyBox.vue b/app/javascript/dashboard/components/widgets/conversation/ReplyBox.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/ReplyBox.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ReplyBox.vue
+@@ -1349,7 +1349,7 @@
+ 
+ <template>
+   <ReplyBoxBanner :message="message" :is-on-private-note="isOnPrivateNote" />
+-  <div class="reply-box" :class="replyBoxClass">
++  <div class="inclamo-composer reply-box" :class="replyBoxClass">
+     <ReplyTopPanel
+       :mode="replyType"
+       :conversation-id="conversationId"
+diff --git a/app/javascript/dashboard/routes/dashboard/Dashboard.vue b/app/javascript/dashboard/routes/dashboard/Dashboard.vue
+--- a/app/javascript/dashboard/routes/dashboard/Dashboard.vue
++++ b/app/javascript/dashboard/routes/dashboard/Dashboard.vue
+@@ -26,11 +26,13 @@
+ 
+ import MobileSidebarLauncher from 'dashboard/components-next/sidebar/MobileSidebarLauncher.vue';
+ import { useDashboardTheme } from 'dashboard/inclamo/theme/useDashboardTheme';
++import WorkspaceHeader from 'dashboard/inclamo/components/WorkspaceHeader.vue';
+ import { useCallsStore } from 'dashboard/stores/calls';
+ 
+ export default {
+   components: {
+     NextSidebar,
++    WorkspaceHeader,
+     CommandBar,
+     WootKeyShortcutModal,
+     AddAccountModal,
+@@ -131,7 +133,7 @@
+ </script>
+ 
+ <template>
+-  <div class="flex flex-grow overflow-hidden text-n-slate-12">
++  <div class="inclamo-workspace flex flex-grow overflow-hidden text-n-slate-12">
+     <NextSidebar
+       :is-mobile-sidebar-open="isMobileSidebarOpen"
+       @toggle-account-modal="toggleAccountModal"
+@@ -142,38 +144,41 @@
+     />
+ 
+     <main
+-      class="flex flex-1 h-full w-full min-h-0 px-0 overflow-hidden bg-n-surface-1"
++      class="inclamo-workspace-main flex flex-col flex-1 h-full w-full min-h-0 px-0 overflow-hidden bg-n-surface-1"
+     >
+-      <UpgradePage
+-        v-show="showUpgradePage"
+-        ref="upgradePageRef"
+-        :bypass-upgrade-page="bypassUpgradePage"
+-      >
+-        <MobileSidebarLauncher
+-          :is-mobile-sidebar-open="isMobileSidebarOpen"
+-          @toggle="toggleMobileSidebar"
++      <WorkspaceHeader />
++      <div class="inclamo-workbench flex flex-1 min-h-0 min-w-0 overflow-hidden">
++        <UpgradePage
++          v-show="showUpgradePage"
++          ref="upgradePageRef"
++          :bypass-upgrade-page="bypassUpgradePage"
++        >
++          <MobileSidebarLauncher
++            :is-mobile-sidebar-open="isMobileSidebarOpen"
++            @toggle="toggleMobileSidebar"
++          />
++        </UpgradePage>
++        <template v-if="!showUpgradePage">
++          <router-view />
++          <CopilotLauncher />
++          <MobileSidebarLauncher
++            :is-mobile-sidebar-open="isMobileSidebarOpen"
++            @toggle="toggleMobileSidebar"
++          />
++          <CopilotContainer />
++          <FloatingCallWidget v-if="hasActiveCall || hasIncomingCall" />
++        </template>
++        <CommandBar :is-paywalled="isAccountPaywalled" />
++        <AddAccountModal
++          :show="showCreateAccountModal"
++          @close-account-create-modal="closeCreateAccountModal"
+         />
+-      </UpgradePage>
+-      <template v-if="!showUpgradePage">
+-        <router-view />
+-        <CopilotLauncher />
+-        <MobileSidebarLauncher
+-          :is-mobile-sidebar-open="isMobileSidebarOpen"
+-          @toggle="toggleMobileSidebar"
++        <WootKeyShortcutModal
++          v-model:show="showShortcutModal"
++          @close="closeKeyShortcutModal"
++          @clickaway="closeKeyShortcutModal"
+         />
+-        <CopilotContainer />
+-        <FloatingCallWidget v-if="hasActiveCall || hasIncomingCall" />
+-      </template>
+-      <CommandBar :is-paywalled="isAccountPaywalled" />
+-      <AddAccountModal
+-        :show="showCreateAccountModal"
+-        @close-account-create-modal="closeCreateAccountModal"
+-      />
+-      <WootKeyShortcutModal
+-        v-model:show="showShortcutModal"
+-        @close="closeKeyShortcutModal"
+-        @clickaway="closeKeyShortcutModal"
+-      />
++      </div>
+     </main>
+   </div>
+ </template>
+diff --git a/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue b/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
+--- a/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
++++ b/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
+@@ -148,7 +148,7 @@
+ </script>
+ 
+ <template>
+-  <div class="w-full">
++  <div class="inclamo-contact-panel w-full">
+     <SidebarActionsHeader
+       :title="$t('CONVERSATION.SIDEBAR.CONTACT')"
+       @close="closeContactPanel"
+diff --git a/app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue b/app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue
+--- a/app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue
++++ b/app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue
+@@ -197,7 +197,7 @@
+ </script>
+ 
+ <template>
+-  <section class="flex w-full h-full min-w-0">
++  <section class="inclamo-conversation-view flex w-full h-full min-w-0">
+     <ChatList
+       :show-conversation-list="showConversationList"
+       :conversation-inbox="inboxId"
+diff --git a/app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue b/app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue
+--- a/app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue
++++ b/app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue
+@@ -204,21 +204,22 @@
+ </script>
+ 
+ <template>
+-  <div class="relative items-center w-full p-4">
++  <div class="inclamo-contact-profile relative items-center w-full p-4">
+     <div class="flex flex-col w-full gap-2 text-left rtl:text-right">
+-      <div class="flex flex-row justify-between">
++      <div class="inclamo-contact-avatar flex flex-row justify-between">
+         <Avatar
++          rounded-full
+           v-if="showAvatar"
+           :src="contact.thumbnail"
+           :name="contact.name"
+           :status="contact.availability_status"
+-          :size="48"
++          :size="56"
+           hide-offline-status
+         />
+       </div>
+ 
+       <div class="flex flex-col items-start gap-1.5 min-w-0 w-full">
+-        <div v-if="showAvatar" class="flex items-center w-full min-w-0 gap-2">
++        <div v-if="showAvatar" class="inclamo-contact-name flex items-center w-full min-w-0 gap-2">
+           <div class="group/name flex items-center min-w-0 gap-2">
+             <InlineInput
+               v-if="isEditingName"
+diff --git a/app/javascript/dashboard/routes/dashboard/settings/SettingsHeader.vue b/app/javascript/dashboard/routes/dashboard/settings/SettingsHeader.vue
+--- a/app/javascript/dashboard/routes/dashboard/settings/SettingsHeader.vue
++++ b/app/javascript/dashboard/routes/dashboard/settings/SettingsHeader.vue
+@@ -41,7 +41,7 @@
+ 
+ <template>
+   <div
+-    class="flex justify-between items-center h-20 min-h-[3.5rem] px-6 py-2 bg-n-surface-1"
++    class="inclamo-page-heading flex justify-between items-center h-20 min-h-[3.5rem] px-6 py-2 bg-n-surface-1"
+   >
+     <h1 class="flex items-center mb-0 text-2xl text-n-slate-12">
+       <BackButton
+diff --git a/app/javascript/dashboard/routes/dashboard/settings/SettingsWrapper.vue b/app/javascript/dashboard/routes/dashboard/settings/SettingsWrapper.vue
+--- a/app/javascript/dashboard/routes/dashboard/settings/SettingsWrapper.vue
++++ b/app/javascript/dashboard/routes/dashboard/settings/SettingsWrapper.vue
+@@ -20,7 +20,7 @@
+ 
+ <template>
+   <div
+-    class="flex flex-col w-full h-full m-0 pb-8 pt-4 px-6 overflow-auto bg-n-surface-1"
++    class="inclamo-settings-page flex flex-col w-full h-full m-0 pb-8 pt-4 px-6 overflow-auto bg-n-surface-1"
+   >
+     <div class="flex items-start w-full max-w-5xl mx-auto">
+       <router-view v-slot="{ Component }">
+diff --git a/app/javascript/entrypoints/superadmin.scss b/app/javascript/entrypoints/superadmin.scss
+--- a/app/javascript/entrypoints/superadmin.scss
++++ b/app/javascript/entrypoints/superadmin.scss
+@@ -1,2 +1,3 @@
+ @config "../../../tailwind.superadmin.config.js";
+ @import '../dashboard/assets/scss/super_admin/index';
++@import '../dashboard/inclamo/theme/administration';
+diff --git a/app/javascript/v3/App.vue b/app/javascript/v3/App.vue
+--- a/app/javascript/v3/App.vue
++++ b/app/javascript/v3/App.vue
+@@ -1,8 +1,12 @@
+ <script>
+ import SnackbarContainer from './components/SnackBar/Container.vue';
++import { useApplicationTheme } from 'dashboard/inclamo/theme/useApplicationTheme';
+ 
+ export default {
+   components: { SnackbarContainer },
++  setup() {
++    useApplicationTheme();
++  },
+   data() {
+     return { theme: 'light' };
+   },
+@@ -44,7 +48,7 @@
+ </script>
+ 
+ <template>
+-  <div class="h-full min-h-screen w-full antialiased" :class="theme">
++  <div class="inclamo-auth-root h-full min-h-screen w-full antialiased" :class="theme">
+     <router-view />
+     <SnackbarContainer />
+   </div>
+@@ -56,6 +60,8 @@
+ @tailwind utilities;
+ 
+ @import '../dashboard/assets/scss/next-colors';
++@import 'shared/assets/fonts/InterDisplay/inter-display';
++@import '../dashboard/inclamo/theme/authentication';
+ 
+ html,
+ body {
+diff --git a/app/javascript/v3/views/login/Index.vue b/app/javascript/v3/views/login/Index.vue
+--- a/app/javascript/v3/views/login/Index.vue
++++ b/app/javascript/v3/views/login/Index.vue
+@@ -398,7 +398,7 @@
+ 
+ <template>
+   <main
+-    class="flex flex-col w-full min-h-screen py-20 bg-n-brand/5 dark:bg-n-background sm:px-6 lg:px-8"
++    class="inclamo-auth-page flex flex-col w-full min-h-screen py-20 bg-n-brand/5 dark:bg-n-background sm:px-6 lg:px-8"
+   >
+     <section class="max-w-5xl mx-auto">
+       <img
+diff --git a/app/views/installation/onboarding/index.html.erb b/app/views/installation/onboarding/index.html.erb
+--- a/app/views/installation/onboarding/index.html.erb
++++ b/app/views/installation/onboarding/index.html.erb
+@@ -1,4 +1,4 @@
+-<%= render "super_admin/application/standalone", heading: t("installation.onboarding.heading") do %>
++<%= render "super_admin/application/standalone", heading: t("inclamo.brand.welcome") do %>
+   <%= form_tag('/installation/onboarding', class: 'space-y-4') do %>
+     <div>
+       <label for="user_name" class="text-label"><%= t("installation.onboarding.name") %></label>
+diff --git a/app/views/layouts/super_admin/application.html.erb b/app/views/layouts/super_admin/application.html.erb
+--- a/app/views/layouts/super_admin/application.html.erb
++++ b/app/views/layouts/super_admin/application.html.erb
+@@ -15,7 +15,7 @@
+   <%= csrf_meta_tags %>
+   <%= render "prefetch" %>
+ </head>
+-<body class="min-h-full bg-n-background font-inter text-n-slate-12 antialiased">
++<body class="inclamo-administration min-h-full bg-n-background font-inter text-n-slate-12 antialiased">
+   <div class="pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 origin-left scale-x-0 bg-n-brand" data-page-progress></div>
+   <div class="lg:flex">
+     <%= render "navigation" %>
+diff --git a/app/views/super_admin/application/_brand.html.erb b/app/views/super_admin/application/_brand.html.erb
+--- a/app/views/super_admin/application/_brand.html.erb
++++ b/app/views/super_admin/application/_brand.html.erb
+@@ -12,7 +12,7 @@
+   <%= link_to image_tag("/brand-assets/logo_thumbnail.svg", alt: "", class: "size-8"), super_admin_root_path, class: "shrink-0", tabindex: -1, aria: { hidden: true } %>
+   <div class="min-w-0 whitespace-nowrap">
+     <div class="flex items-baseline gap-1.5 leading-5">
+-      <%= link_to "Chatwoot", super_admin_root_path, class: "text-sm font-medium text-n-slate-12" %>
++      <%= link_to "Inclamo", super_admin_root_path, class: "text-sm font-medium text-n-slate-12" %>
+       <%= link_to "https://github.com/chatwoot/chatwoot/releases/tag/v#{version}",
+                   target: "_blank", rel: "noopener noreferrer",
+                   title: update_available ? t("super_admin.navigation.update_available", version: latest_version) : t("super_admin.navigation.release_notes"),
+diff --git a/app/views/super_admin/application/_standalone.html.erb b/app/views/super_admin/application/_standalone.html.erb
+--- a/app/views/super_admin/application/_standalone.html.erb
++++ b/app/views/super_admin/application/_standalone.html.erb
+@@ -5,18 +5,18 @@
+     <meta charset="utf-8">
+     <meta name="robots" content="noindex">
+     <meta name="viewport" content="width=device-width, initial-scale=1">
+-    <title>SuperAdmin | Chatwoot</title>
++    <title>SuperAdmin | Inclamo</title>
+     <%= render "super_admin/application/theme" %>
+     <%= render "super_admin/application/font_preload", file: "Inter/InterVariable.woff2" %>
+     <%= render "super_admin/application/font_preload", file: "InterDisplay/InterDisplay-SemiBold.woff2" %>
+     <%= vite_client_tag %>
+     <%= vite_stylesheet_tag 'superadmin.scss' %>
+   </head>
+-  <body class="min-h-full bg-n-background text-n-slate-12 antialiased">
++  <body class="inclamo-administration min-h-full bg-n-background text-n-slate-12 antialiased">
+     <div class="fixed inset-x-0 top-0 h-64 bg-pixel-band [mask-image:linear-gradient(to_bottom,black,transparent)]"></div>
+     <main class="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-10">
+-      <img src="/brand-assets/logo.svg" alt="Chatwoot" class="mx-auto h-8 w-auto dark:hidden">
+-      <img src="/brand-assets/logo_dark.svg" alt="Chatwoot" class="mx-auto hidden h-8 w-auto dark:block">
++      <img src="/brand-assets/logo.svg" alt="Inclamo" class="mx-auto h-8 w-auto dark:hidden">
++      <img src="/brand-assets/logo_dark.svg" alt="Inclamo" class="mx-auto hidden h-8 w-auto dark:block">
+       <h1 class="mt-6 text-center font-interDisplay text-2xl font-semibold tracking-tight"><%= heading %></h1>
+       <div class="rounded-xl border border-n-weak bg-n-solid-1 mt-8 p-6 sm:p-8">
+         <% if flash[:error].present? %>
+diff --git a/config/installation_config.yml b/config/installation_config.yml
+--- a/config/installation_config.yml
++++ b/config/installation_config.yml
+@@ -15,7 +15,7 @@
+ 
+ # ------- Branding Related Config ------- #
+ - name: INSTALLATION_NAME
+-  value: 'Chatwoot'
++  value: 'Inclamo'
+   display_title: 'Installation Name'
+   description: 'The installation wide name that would be used in the dashboard, title etc.'
+ - name: LOGO_THUMBNAIL

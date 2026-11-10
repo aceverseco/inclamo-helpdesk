@@ -1,0 +1,124 @@
+{
+  "interactions": {
+    "conversation": {
+      "baseline": {
+        "samplesMs": [
+          250.92827300000135,
+          244.7902499999982,
+          258.99012700000094,
+          263.5886169999976,
+          292.7114980000006
+        ],
+        "medianMs": 258.99012700000094
+      },
+      "theme": {
+        "samplesMs": [
+          264.89190099999905,
+          266.2652519999974,
+          252.57750999999917,
+          233.12155399999756,
+          261.76577400000315
+        ],
+        "medianMs": 261.76577400000315
+      },
+      "deltaMs": 2.775647000002209,
+      "investigationThresholdMs": 50
+    },
+    "dialog": {
+      "baseline": {
+        "samplesMs": [
+          197.36602799999673,
+          220.4034670000001,
+          210.59916599999997,
+          214.82700599999953,
+          198.31734700000015
+        ],
+        "medianMs": 210.59916599999997
+      },
+      "theme": {
+        "samplesMs": [
+          210.2969890000022,
+          190.7306770000032,
+          200.0398860000023,
+          222.05901500000255,
+          190.98597299999892
+        ],
+        "medianMs": 200.0398860000023
+      },
+      "deltaMs": -10.55927999999767,
+      "investigationThresholdMs": 50
+    }
+  },
+  "loadedAssets": {
+    "baseline": {
+      "workspace": {
+        "requests": 29,
+        "gzipBytes": {
+          ".css": 402641,
+          ".js": 6522486,
+          ".woff2": 345398
+        },
+        "fonts": [
+          "assets/InterVariable-CWi-zmRD.woff2"
+        ]
+      },
+      "dialog": {
+        "requests": 29,
+        "gzipBytes": {
+          ".css": 402641,
+          ".js": 6522486,
+          ".woff2": 345398
+        },
+        "fonts": [
+          "assets/InterVariable-CWi-zmRD.woff2"
+        ]
+      },
+      "settings": {
+        "requests": 29,
+        "gzipBytes": {
+          ".css": 402641,
+          ".js": 6522486,
+          ".woff2": 345398
+        },
+        "fonts": [
+          "assets/InterVariable-CWi-zmRD.woff2"
+        ]
+      }
+    },
+    "theme": {
+      "workspace": {
+        "requests": 29,
+        "gzipBytes": {
+          ".css": 403604,
+          ".js": 6522730,
+          ".woff2": 345398
+        },
+        "fonts": [
+          "assets/InterVariable-CWi-zmRD.woff2"
+        ]
+      },
+      "dialog": {
+        "requests": 29,
+        "gzipBytes": {
+          ".css": 403604,
+          ".js": 6522730,
+          ".woff2": 345398
+        },
+        "fonts": [
+          "assets/InterVariable-CWi-zmRD.woff2"
+        ]
+      },
+      "settings": {
+        "requests": 29,
+        "gzipBytes": {
+          ".css": 403604,
+          ".js": 6522730,
+          ".woff2": 345398
+        },
+        "fonts": [
+          "assets/InterVariable-CWi-zmRD.woff2"
+        ]
+      }
+    }
+  }
+}

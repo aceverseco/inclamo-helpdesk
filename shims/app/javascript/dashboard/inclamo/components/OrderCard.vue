@@ -1,11 +1,12 @@
 <script setup>
 import { ref, computed } from 'vue';
+import Button from 'dashboard/components-next/button/Button.vue';
 import CancelDialog from './CancelDialog.vue';
 import RefundDialog from './RefundDialog.vue';
 import AddressDialog from './AddressDialog.vue';
 import ReplacementDialog from './ReplacementDialog.vue';
 import { t } from '../i18n';
-import { money, date, status } from '../format';
+import { money, date } from '../format';
 
 const props = defineProps({
   conversationId: { type: [Number, String], required: true },
@@ -43,8 +44,8 @@ const start = action => dialogs[action].value.open();
 </script>
 
 <template>
-  <div class="rounded-lg outline outline-1 outline-n-weak bg-n-solid-1" :data-testid="`inclamo-order-${order.number}`">
-    <button type="button" class="flex w-full items-start justify-between gap-2 px-3 py-2 text-left" @click="expanded = !expanded">
+  <div class="inclamo-order-card rounded-lg outline outline-1 outline-n-weak bg-n-solid-1" :data-testid="`inclamo-order-${order.number}`">
+    <button type="button" class="flex w-full items-start justify-between gap-2 px-3 py-2 text-start" @click="expanded = !expanded">
       <span class="flex flex-col">
         <span class="font-medium text-n-slate-12">{{ order.number }}</span>
         <span class="text-xs text-n-slate-11">{{ t('ORDER.PLACED', { date: date(order.created_at) }) }}</span>
@@ -54,7 +55,7 @@ const start = action => dialogs[action].value.open();
         <span class="text-xs text-n-slate-11" data-testid="inclamo-order-statuses">
           <template v-if="cancelling">{{ t('ORDER.CANCELLING') }}</template>
           <template v-else-if="order.cancelled_at">{{ t('ORDER.CANCELLED') }}</template>
-          <template v-else>{{ status(order.financial_status) }} · {{ status(order.fulfillment_status) }}</template>
+          <template v-else>{{ order.financial_status_text }} · {{ order.fulfillment_status_text }}</template>
         </span>
       </span>
     </button>
@@ -100,18 +101,21 @@ const start = action => dialogs[action].value.open();
         <p>{{ t('ORDER.REFUNDABLE', { amount: money(order.refundable.amount, order.refundable.currency) }) }}</p>
       </section>
       <div class="flex flex-wrap gap-2">
-        <button
+        <Button
           v-for="action in ACTIONS"
           :key="action"
           type="button"
-          class="rounded-md border border-n-weak px-2 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+          color="slate"
+          variant="outline"
+          size="xs"
+          class="disabled:cursor-not-allowed"
           :disabled="!!whyNot(action) || cancelling"
           :title="whyNot(action)"
           :data-testid="`inclamo-action-${action}`"
           @click="start(action)"
         >
           {{ t(`ORDER.ACTIONS.${action}`) }}
-        </button>
+        </Button>
       </div>
       <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
         <button v-if="!marked" type="button" class="text-n-blue-text" data-testid="inclamo-order-mark" @click="emit('mark', order)">{{ t('ORDER.MARK') }}</button>

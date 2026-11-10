@@ -155,7 +155,10 @@ RSpec.describe 'Inclamo conversation order panel API', type: :request do
     expect(record.reload).to be_working
   end
 
-  it 'writes nothing to the database while reading' do
+  # The one thing a read may store: the attributes of the conversation (the
+  # marked order, the customer's store facts) and the definitions that make
+  # them known to Chatwoot. No table holds an order or a customer.
+  it 'writes nothing to the database while reading but the attributes of the conversation' do
     connect!
     stub_shopify_fixture(:customers_search, 'customers_search_one')
     stub_shopify_fixture(:customer_orders, 'customer_orders')
@@ -172,7 +175,12 @@ RSpec.describe 'Inclamo conversation order panel API', type: :request do
     end
 
     expect(response.parsed_body['state']).to eq('matched')
-    expect(writes).to eq([])
+    attributes_only = lambda do |sql|
+      sql.start_with?('INSERT INTO "custom_attribute_definitions"') ||
+        (sql.start_with?('UPDATE "conversations" SET') && sql[/SET (.+) WHERE/m, 1].scan(/"(\w+)" =/).flatten.sort == %w[custom_attributes updated_at])
+    end
+    expect(writes.reject(&attributes_only)).to eq([])
+    expect(conversation.reload.custom_attributes.to_json).not_to match(/Maya|example\.com|\+1500|Street/)
   end
 
   describe 'the order the conversation is about' do
@@ -191,6 +199,8 @@ RSpec.describe 'Inclamo conversation order panel API', type: :request do
       expect(response.parsed_body['marked_order']).to include('number' => '#1002')
       expect(conversation.reload.custom_attributes).to include('shopify_order_number' => '#1002', 'shopify_order_tracking_number' => 'E2Et001A')
       expect(panel['marked_order']).to include('number' => '#1002')
+      expect(panel.dig('marked_order', 'variables')).to include('number' => '#1002', 'total' => '1,585.90 UAH', 'fulfillment_status' => 'Shipped')
+      expect(panel['orders']).to all(include('financial_status_text', 'fulfillment_status_text'))
     end
 
     it 'is refreshed when the panel reads an order that changed in the store' do

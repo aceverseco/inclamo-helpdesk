@@ -16,6 +16,8 @@ module Inclamo
           id: @node['id'], number: @node['name'], admin_url: admin_url, created_at: @node['createdAt'],
           cancelled_at: @node['cancelledAt'], cancel_reason: @node['cancelReason'],
           financial_status: @node['displayFinancialStatus'], fulfillment_status: @node['displayFulfillmentStatus'],
+          financial_status_text: StatusWords.for(@node['displayFinancialStatus']),
+          fulfillment_status_text: StatusWords.for(@node['displayFulfillmentStatus']),
           return_status: @node['returnStatus'], currency: @node['currencyCode'],
           total: money('totalPriceSet'), refunded: money('totalRefundedSet'), shipping: money('totalShippingPriceSet'),
           refundable: { amount: refundable_amount.to_s('F'), currency: @node['currencyCode'] },

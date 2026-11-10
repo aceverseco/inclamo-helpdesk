@@ -1,0 +1,24 @@
+@import 'shared/assets/fonts/inter';
+@import 'tokens';
+@import 'controls';
+body.inclamo-app-theme,
+.inclamo-auth-root {
+  @include inclamo-light;
+  @include inclamo-controls;
+}
+html.dark body.inclamo-app-theme,
+.inclamo-auth-root.dark {
+  @include inclamo-dark;
+}
+.inclamo-auth-root main {
+  background: rgb(var(--background-color));
+}
+.inclamo-auth-root main > section > img {
+  width: auto;
+  height: 3.25rem;
+}
+.inclamo-auth-root button[type='submit'] {
+  background: rgb(var(--inclamo-brand));
+  color: rgb(var(--inclamo-action-text));
+  border-radius: var(--inclamo-control-radius);
+}

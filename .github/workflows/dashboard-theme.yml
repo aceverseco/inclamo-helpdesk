@@ -1,0 +1,49 @@
+name: Dashboard theme
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dashboard-theme-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  theme:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble the pinned CE and overlay
+        run: scripts/assemble.sh build/chatwoot
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the usual product image
+        uses: docker/build-push-action@v6
+        with:
+          context: build/chatwoot
+          file: build/chatwoot/docker/Dockerfile
+          push: false
+          load: true
+          tags: inclamo-helpdesk:theme
+          cache-from: type=gha,scope=theme
+          cache-to: type=gha,mode=max,scope=theme
+      - name: Run synthetic theme acceptance
+        run: sh e2e/theme/run.sh
+        env:
+          HELPDESK_IMAGE: inclamo-helpdesk:theme
+      - name: Retain synthetic visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-theme-evidence
+          path: |
+            e2e/theme-output/results.json
+            e2e/theme-output/**/attachments/
+            e2e/theme-output/**/*.png
+            e2e/theme-output/**/trace.zip
+          retention-days: 14

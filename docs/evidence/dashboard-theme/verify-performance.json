@@ -1,0 +1,49 @@
+{
+  "timings": {
+    "conversation": [
+      281.64271799999915,
+      264.53817400000116,
+      218.9122180000013,
+      227.55314799999906,
+      214.42357099999936
+    ],
+    "dialog": [
+      200.3383670000003,
+      207.55757200000153,
+      185.542680999999,
+      210.55288599999767,
+      195.7873380000019
+    ]
+  },
+  "resources": [
+    "http://rails:3000/vite/assets/dashboard-ePSBY2Vc.js",
+    "http://rails:3000/vite/assets/vue.esm-bundler-DGR2tkX1.js",
+    "http://rails:3000/vite/assets/purify.es-BpmnC4gd.js",
+    "http://rails:3000/vite/assets/useBranding-DyNVYWLU.js",
+    "http://rails:3000/vite/assets/index-DJvsux1d.js",
+    "http://rails:3000/vite/assets/Validators-DENgbBhy.js",
+    "http://rails:3000/vite/assets/index-CU2AgJwL.js",
+    "http://rails:3000/vite/assets/js.cookie-Cz0CWeBA.js",
+    "http://rails:3000/vite/assets/index-CawToLEA.js",
+    "http://rails:3000/vite/assets/ApiClient-BCxWp7NR.js",
+    "http://rails:3000/vite/assets/Icon-Ci8ArWmi.js",
+    "http://rails:3000/vite/assets/DashboardIcon-BjRleFwA.js",
+    "http://rails:3000/vite/assets/vue-dompurify-html-Dy7NmH7X.js",
+    "http://rails:3000/vite/assets/typing-BICcM29j.js",
+    "http://rails:3000/vite/assets/useKeyboardNavigableList-9AsyP2hC.js",
+    "http://rails:3000/vite/assets/helper-BVTgYTlr.js",
+    "http://rails:3000/vite/assets/index-B2x46FtM.js",
+    "http://rails:3000/vite/assets/module-BCOKzvjc.js",
+    "http://rails:3000/vite/assets/chatwoot-viz-BrjvizMh.js",
+    "http://rails:3000/vite/assets/index-BzsA7Fck.js",
+    "http://rails:3000/vite/assets/constants-lVAyZKq6.js",
+    "http://rails:3000/vite/assets/IframeLoader-BSILEqXj.js",
+    "http://rails:3000/vite/assets/dashboard-DL7qShk6.css",
+    "http://rails:3000/vite/assets/useBranding-DSFJg_40.css",
+    "http://rails:3000/vite/assets/DashboardIcon-DMWJmtc4.css",
+    "http://rails:3000/vite/assets/chatwoot-viz-CjR1jhrx.css",
+    "http://rails:3000/vite/assets/InterVariable-CWi-zmRD.woff2",
+    "http://rails:3000/vite/assets/commandbar-DQeDapcT.js",
+    "http://rails:3000/vite/assets/commandbar-DaCNDihA.css"
+  ]
+}

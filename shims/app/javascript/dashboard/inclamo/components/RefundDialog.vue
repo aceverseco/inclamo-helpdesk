@@ -92,7 +92,7 @@ defineExpose({ open: () => frame.value.open() });
         type="number"
         min="0"
         step="0.01"
-        class="rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1.5"
+        class="rounded-[var(--inclamo-control-radius,0.375rem)] border border-n-weak bg-n-alpha-black2 px-2 py-1.5"
         data-testid="inclamo-refund-amount"
         @input="preview = null"
       />
@@ -108,7 +108,7 @@ defineExpose({ open: () => frame.value.open() });
           type="number"
           min="0"
           :max="item.refundable_quantity"
-          class="w-16 rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1"
+          class="w-16 rounded-[var(--inclamo-control-radius,0.375rem)] border border-n-weak bg-n-alpha-black2 px-2 py-1"
           :data-testid="`inclamo-refund-quantity-${index}`"
           @input="preview = null"
         />
@@ -120,7 +120,7 @@ defineExpose({ open: () => frame.value.open() });
     <button
       v-if="!preview"
       type="button"
-      class="self-start rounded-md border border-n-weak px-3 py-1.5 disabled:opacity-50"
+      class="self-start rounded-[var(--inclamo-control-radius,0.375rem)] border border-n-weak px-3 py-1.5 disabled:opacity-50"
       :disabled="!valid || calculating"
       data-testid="inclamo-refund-calculate"
       @click="calculate"

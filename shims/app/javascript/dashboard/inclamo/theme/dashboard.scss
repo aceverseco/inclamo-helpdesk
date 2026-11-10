@@ -1,0 +1,13 @@
+@import 'tokens';
+@import 'controls';
+
+// App owns staff authentication and the workspace; public entrypoints do not import this scope.
+body.inclamo-app-theme {
+  @include inclamo-light;
+  &.dark {
+    @include inclamo-dark;
+  }
+  @include inclamo-controls;
+}
+
+@import 'workspace';

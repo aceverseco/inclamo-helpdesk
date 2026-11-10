@@ -6,6 +6,7 @@ import InclamoAPI from '../api';
 import OrderCard from './OrderCard.vue';
 import ConnectDialog from './ConnectDialog.vue';
 import { ORDER_ROLES_ROUTE } from '../routes';
+import { notePanel } from '../orderState';
 import { t } from '../i18n';
 import { money } from '../format';
 
@@ -42,6 +43,7 @@ const load = async () => {
     const { data } = await InclamoAPI.getPanel(props.conversationId);
     panel.value = data;
     orders.value = data.orders || [];
+    notePanel(props.conversationId, data);
   } catch (error) {
     failed.value = true;
   } finally {
@@ -63,6 +65,7 @@ const loadMore = async () => {
 const apply = data => {
   panel.value = data;
   orders.value = data.orders || [];
+  notePanel(props.conversationId, data);
 };
 
 const findOrder = async () => {
@@ -208,9 +211,9 @@ watch(
       <form v-if="lookupStates.includes(state)" class="flex items-end gap-2" data-testid="inclamo-lookup" @submit.prevent="findOrder">
         <label class="flex flex-1 flex-col gap-1">
           <span class="text-xs text-n-slate-11">{{ t('ORDERS.LOOKUP.LABEL') }}</span>
-          <input v-model="lookupNumber" type="text" :placeholder="t('ORDERS.LOOKUP.PLACEHOLDER')" class="rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-lookup-number" />
+          <input v-model="lookupNumber" type="text" :placeholder="t('ORDERS.LOOKUP.PLACEHOLDER')" class="rounded-[var(--inclamo-control-radius,0.375rem)] border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-lookup-number" />
         </label>
-        <button type="submit" class="rounded-md border border-n-weak px-3 py-1.5" :disabled="lookupBusy" data-testid="inclamo-lookup-find">{{ t('ORDERS.LOOKUP.FIND') }}</button>
+        <button type="submit" class="rounded-[var(--inclamo-control-radius,0.375rem)] border border-n-weak px-3 py-1.5" :disabled="lookupBusy" data-testid="inclamo-lookup-find">{{ t('ORDERS.LOOKUP.FIND') }}</button>
       </form>
       <div v-if="lookupResult" class="mt-2 flex flex-col gap-2">
         <p v-if="!lookupResult.found" data-testid="inclamo-lookup-not-found">{{ t('ORDERS.LOOKUP.NOT_FOUND') }}</p>

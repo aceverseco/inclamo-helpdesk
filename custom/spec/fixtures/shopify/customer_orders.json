@@ -19,6 +19,30 @@
       "defaultPhoneNumber": {
         "phoneNumber": "+15005551011"
       },
+      "tags": [
+        "e2e",
+        "e2e-t001"
+      ],
+      "latestOrders": {
+        "nodes": [
+          {
+            "id": "gid://shopify/Order/18985501393054",
+            "name": "#1003",
+            "displayFinancialStatus": "PARTIALLY_REFUNDED",
+            "displayFulfillmentStatus": "UNFULFILLED",
+            "totalPriceSet": {
+              "shopMoney": {
+                "amount": "1399.9",
+                "currencyCode": "UAH"
+              }
+            },
+            "tags": [
+              "e2e",
+              "e2e-t001"
+            ]
+          }
+        ]
+      },
       "orders": {
         "pageInfo": {
           "hasNextPage": false,
@@ -28,6 +52,7 @@
           {
             "id": "gid://shopify/Order/18985501393054",
             "legacyResourceId": "18985501393054",
+            "statusPageUrl": "https://shop.example.com/orders/fixture-order/status",
             "name": "#1003",
             "createdAt": "2026-11-05T15:37:17Z",
             "cancelledAt": null,
@@ -137,6 +162,7 @@
           {
             "id": "gid://shopify/Order/18985501327518",
             "legacyResourceId": "18985501327518",
+            "statusPageUrl": "https://shop.example.com/orders/fixture-order/status",
             "name": "#1002",
             "createdAt": "2026-11-05T15:37:14Z",
             "cancelledAt": null,
@@ -284,6 +310,7 @@
           {
             "id": "gid://shopify/Order/18985501294750",
             "legacyResourceId": "18985501294750",
+            "statusPageUrl": "https://shop.example.com/orders/fixture-order/status",
             "name": "#1001",
             "createdAt": "2026-11-05T15:37:13Z",
             "cancelledAt": null,

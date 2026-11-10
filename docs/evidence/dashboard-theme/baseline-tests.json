@@ -1,0 +1,74 @@
+[
+  {
+    "scenario": "Operator workspace uses the common appearance",
+    "status": "passed",
+    "durationMs": 25736,
+    "startTime": "2026-11-09T20:29:00.867Z"
+  },
+  {
+    "scenario": "Inclamo settings belong to the same interface",
+    "status": "passed",
+    "durationMs": 12441,
+    "startTime": "2026-11-09T20:29:27.556Z"
+  },
+  {
+    "scenario": "Existing preference survives navigation and reload",
+    "status": "passed",
+    "durationMs": 6770,
+    "startTime": "2026-11-09T20:29:40.012Z"
+  },
+  {
+    "scenario": "Changing appearance preserves an unsent reply",
+    "status": "passed",
+    "durationMs": 4111,
+    "startTime": "2026-11-09T20:29:46.797Z"
+  },
+  {
+    "scenario": "Keyboard navigation through a dialog",
+    "status": "passed",
+    "durationMs": 2995,
+    "startTime": "2026-11-09T20:29:50.921Z"
+  },
+  {
+    "scenario": "Narrow workspace with long content",
+    "status": "passed",
+    "durationMs": 13237,
+    "startTime": "2026-11-09T20:29:53.932Z"
+  },
+  {
+    "scenario": "Light and dark control states remain legible",
+    "status": "passed",
+    "durationMs": 25255,
+    "startTime": "2026-11-09T20:30:07.187Z"
+  },
+  {
+    "scenario": "Reply workflow retains its behavior",
+    "status": "passed",
+    "durationMs": 4509,
+    "startTime": "2026-11-09T20:30:32.454Z"
+  },
+  {
+    "scenario": "Order-action dialog preserves restrictions and feedback",
+    "status": "passed",
+    "durationMs": 16599,
+    "startTime": "2026-11-09T20:30:36.977Z"
+  },
+  {
+    "scenario": "Public and administration surfaces retain their appearance",
+    "status": "passed",
+    "durationMs": 4704,
+    "startTime": "2026-11-09T20:30:53.590Z"
+  },
+  {
+    "scenario": "Other dashboard pages remain usable",
+    "status": "passed",
+    "durationMs": 5464,
+    "startTime": "2026-11-09T20:30:58.317Z"
+  },
+  {
+    "scenario": "Other products are unreachable",
+    "status": "passed",
+    "durationMs": 4852,
+    "startTime": "2026-11-09T20:31:03.804Z"
+  }
+]

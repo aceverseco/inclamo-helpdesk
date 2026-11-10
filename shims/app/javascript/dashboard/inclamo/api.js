@@ -38,6 +38,15 @@ class InclamoAPI extends ApiClient {
     return axios.delete(`${this.url}/order_roles/${userId}`);
   }
 
+  getRulePresets() {
+    return axios.get(`${this.url}/rule_presets`);
+  }
+
+  // payload: { active, value } — the value only for a preset that needs one.
+  switchRulePreset(key, payload) {
+    return axios.put(`${this.url}/rule_presets/${key}`, payload);
+  }
+
   getPanel(conversationId, after) {
     return axios.get(`${this.conversation(conversationId)}/panel`, { params: after ? { after } : {} });
   }

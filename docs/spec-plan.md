@@ -70,9 +70,10 @@ telephony providers other than Telnyx, Chatwoot Enterprise features.
 
 - Outside, it is our product: name, logo, colours, widget without third-party
   branding (branding removal is our code, not a Chatwoot edition flag).
-- Inside, it stays Chatwoot: our sections go where an agent expects them, in
-  Chatwoot's own look. The closer to native, the cheaper every upstream
-  release.
+- Inside, retain Chatwoot's native Vue components, workflows and expected
+  section placement. Apply one Twenty-inspired dashboard theme with light and
+  dark palettes through owned values and minimal documented presentation
+  patches; preserve upstream behavior and keep upgrades reproducible.
 - Without a subscription the AI does nothing at all: no classifier, no
   summaries, no drafts, no replies. It stays visible as a door: a wizard step,
   greyed "Summarise" and "Draft reply" buttons, and the AI settings page that
@@ -120,11 +121,16 @@ proposal and will move as the first slices land.
    conversation.
 2. Ingress classifier (subscription): labels and attributes on every new
    conversation through the AI connector.
-3. Macros with order variables and preset automation rules.
-4. SLA timers and alerts on the conversation.
+3. Agent toolkit, eight changes proposed on 2026-11-06, in this order:
+   `reply-order-variables`, `store-data-rules` (with preset rules),
+   `order-tags-and-notes`, `new-order-with-invoice`, `order-item-editing`,
+   `reply-product-and-discount`, `macro-order-actions`, `sla-timers`.
+4. (merged into 3.)
 5. AI connector contract: agent-bot flow, handover, approvals, counters.
 6. AI surfaces: settings page, header buttons, usage counter.
-7. Setup wizard and branding.
+7. Setup wizard and branding. `twenty-inspired-dashboard` covers the common
+   authenticated appearance, operator workspace and Inclamo settings; public
+   surfaces and branding removal remain separate work.
 8. Voice calls as conversations (Telnyx through the AI service).
 9. Installer, image build and the upstream-release routine.
 10. MCP server over the helpdesk and the store.

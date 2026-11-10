@@ -1,0 +1,9 @@
+FROM mcr.microsoft.com/playwright:v1.56.0-noble
+WORKDIR /work/e2e
+COPY e2e/package.json ./
+RUN npm install --no-audit --no-fund
+COPY e2e/playwright.theme.config.mjs ./
+COPY e2e/lib/helpdesk.mjs ./lib/helpdesk.mjs
+COPY e2e/tests/dashboard-theme.spec.mjs ./tests/dashboard-theme.spec.mjs
+COPY e2e/tests/inclamo-product-design.spec.mjs ./tests/inclamo-product-design.spec.mjs
+COPY e2e/tests/inclamo-onboarding.spec.mjs ./tests/inclamo-onboarding.spec.mjs

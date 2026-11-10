@@ -32,7 +32,7 @@ defineExpose({ open: () => frame.value.open() });
     <p class="font-medium text-n-ruby-11" data-testid="inclamo-cancel-warning">{{ t('DIALOG.CANCEL.WARNING') }}</p>
     <label class="flex flex-col gap-1">
       <span>{{ t('DIALOG.CANCEL.REASON') }}</span>
-      <select v-model="form.reason" class="rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-cancel-reason">
+      <select v-model="form.reason" class="rounded-[var(--inclamo-control-radius,0.375rem)] border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-cancel-reason">
         <option v-for="reason in REASONS" :key="reason" :value="reason">{{ t(`DIALOG.CANCEL.REASONS.${reason}`) }}</option>
       </select>
     </label>

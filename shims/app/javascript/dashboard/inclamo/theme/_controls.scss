@@ -1,0 +1,67 @@
+@mixin inclamo-controls {
+  font-family: Inter, sans-serif;
+  color: rgb(var(--slate-12));
+  background-color: rgb(var(--background-color));
+
+  :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid rgb(var(--inclamo-focus));
+    outline-offset: 2px;
+  }
+
+  [data-inclamo-control='button'],
+  .button {
+    border-radius: var(--inclamo-control-radius);
+    font-weight: 500;
+  }
+  [data-inclamo-color='blue'][data-inclamo-variant='solid'],
+  .button:not(.clear):not(.hollow):not(.secondary):not(.alert):not(
+      .success
+    ):not(.warning) {
+    background-color: rgb(var(--inclamo-brand));
+    color: rgb(var(--inclamo-action-text));
+    &:hover:not(:disabled) {
+      background-color: rgb(var(--inclamo-action-hover));
+    }
+  }
+  [data-inclamo-color='blue'][data-inclamo-variant='outline'],
+  [data-inclamo-color='blue'][data-inclamo-variant='faded'] {
+    background-color: rgb(var(--inclamo-field));
+    color: rgb(var(--inclamo-brand-text));
+  }
+  :where(
+      input:not([type='checkbox']):not([type='radio']):not([type='file']):not(
+          [type='hidden']
+        ),
+      select,
+      textarea
+    ) {
+    --border-weak: var(--inclamo-control-border);
+    --slate-6: var(--inclamo-control-border);
+    --ruby-8: var(--ruby-11);
+    border-radius: var(--inclamo-control-radius);
+    background-color: rgb(var(--inclamo-field));
+    color: rgb(var(--slate-12));
+  }
+  :where(input[type='checkbox'], input[type='radio']) {
+    accent-color: rgb(var(--inclamo-focus));
+  }
+  :where(input, textarea)::placeholder {
+    color: rgb(var(--slate-10));
+  }
+  :where(thead) {
+    background-color: rgb(var(--solid-2));
+  }
+  :where(th) {
+    font-weight: 500;
+    color: rgb(var(--slate-11));
+  }
+  :where(tbody tr:hover) {
+    background-color: rgb(var(--alpha-1));
+  }
+  :where(dialog) {
+    border-radius: var(--inclamo-dialog-radius);
+  }
+  :where(dialog)::backdrop {
+    background-color: rgba(var(--overlay));
+  }
+}

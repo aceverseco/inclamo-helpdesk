@@ -59,7 +59,7 @@ defineExpose({ open });
     <div class="flex flex-col gap-3 text-sm text-n-slate-12" data-testid="inclamo-connect-dialog">
       <label class="flex flex-col gap-1">
         <span>{{ t('DIALOG.CONNECT.DOMAIN') }}</span>
-        <input v-model="form.shop_domain" type="text" :placeholder="t('DIALOG.CONNECT.DOMAIN_PLACEHOLDER')" class="rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-connect-domain" />
+        <input v-model="form.shop_domain" type="text" :placeholder="t('DIALOG.CONNECT.DOMAIN_PLACEHOLDER')" class="rounded-[var(--inclamo-control-radius,0.375rem)] border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-connect-domain" />
       </label>
       <label v-for="kind in ['client_credentials', 'legacy_token']" :key="kind" class="flex items-center gap-2">
         <input v-model="form.kind" type="radio" :value="kind" :data-testid="`inclamo-connect-kind-${kind}`" />
@@ -68,16 +68,16 @@ defineExpose({ open });
       <template v-if="form.kind === 'client_credentials'">
         <label class="flex flex-col gap-1">
           <span>{{ t('DIALOG.CONNECT.CLIENT_ID') }}</span>
-          <input v-model="form.client_id" type="text" autocomplete="off" class="rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-connect-client-id" />
+          <input v-model="form.client_id" type="text" autocomplete="off" class="rounded-[var(--inclamo-control-radius,0.375rem)] border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-connect-client-id" />
         </label>
         <label class="flex flex-col gap-1">
           <span>{{ t('DIALOG.CONNECT.CLIENT_SECRET') }}</span>
-          <input v-model="form.client_secret" type="password" autocomplete="off" class="rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-connect-client-secret" />
+          <input v-model="form.client_secret" type="password" autocomplete="off" class="rounded-[var(--inclamo-control-radius,0.375rem)] border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-connect-client-secret" />
         </label>
       </template>
       <label v-else class="flex flex-col gap-1">
         <span>{{ t('DIALOG.CONNECT.ACCESS_TOKEN') }}</span>
-        <input v-model="form.access_token" type="password" autocomplete="off" class="rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-connect-access-token" />
+        <input v-model="form.access_token" type="password" autocomplete="off" class="rounded-[var(--inclamo-control-radius,0.375rem)] border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-connect-access-token" />
       </label>
       <div class="p-2 rounded-md bg-n-alpha-black2 text-xs text-n-slate-11">
         <p class="font-medium text-n-slate-12">{{ t('DIALOG.CONNECT.SCOPES') }}</p>
