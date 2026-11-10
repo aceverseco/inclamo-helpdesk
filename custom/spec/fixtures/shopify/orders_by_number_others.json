@@ -8,7 +8,7 @@
         {
           "id": "gid://shopify/Order/18985501491358",
           "legacyResourceId": "18985501491358",
-          "statusPageUrl": "https://shop.example.com/60000000001/orders/69dff12c0c7e66d54dd8af3cc922f8c4/authenticate?key=ab7bf5811d37ba78a81b10be4517006c",
+          "statusPageUrl": "https://shop.example.com/orders/fixture-order/status",
           "name": "#1004",
           "createdAt": "2026-11-05T15:37:19Z",
           "cancelledAt": null,

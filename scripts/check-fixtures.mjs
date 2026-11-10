@@ -23,6 +23,9 @@ function walk(value, path, file) {
   const parent = path.split('.').slice(-2, -1)[0] || '';
   if (key === 'name' && /^(shippingAddress|billingAddress)$/.test(parent) && !/Example$/.test(value)) fail('a person not named "... Example"');
   if (/myshopify\.com/.test(value)) fail('a store domain');
+  if (key === 'statusPageUrl' && value !== 'https://shop.example.com/orders/fixture-order/status') {
+    fail('an order status link must use the fully synthetic fixture URL, without an authentication key');
+  }
 }
 
 const files = readdirSync(dir).filter(file => file.endsWith('.json')).sort();

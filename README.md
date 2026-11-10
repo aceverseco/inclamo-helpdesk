@@ -44,6 +44,12 @@ autonomous with explicit limits. A cancellation with a refund needs both rights;
 a discounted new order also needs discount permission. The connector contract,
 identity checks and outcome handling are documented in [docs/ai-connector.md](docs/ai-connector.md).
 
+Service builders start with [the integration handoff](docs/service-integration.md).
+[Scaling requirements](docs/scaling.md) define durable processing, tenant isolation
+and measurable capacity gates; thousands of merchants have not yet been load-tested.
+The [acceptance record](docs/release-readiness.md) separates verified behavior from
+remaining production work.
+
 ## Build and verify
 
 Build the assembled image with `sh scripts/build-image.sh <image-tag>`.

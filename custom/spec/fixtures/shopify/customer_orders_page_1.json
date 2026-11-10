@@ -52,7 +52,7 @@
           {
             "id": "gid://shopify/Order/18985501393054",
             "legacyResourceId": "18985501393054",
-            "statusPageUrl": "https://shop.example.com/60000000001/orders/0d8c21a8014d2b0904649430479c005f/authenticate?key=2f8c83a22bd848d7898ef87ff602f8a4",
+            "statusPageUrl": "https://shop.example.com/orders/fixture-order/status",
             "name": "#1003",
             "createdAt": "2026-11-05T15:37:17Z",
             "cancelledAt": null,
@@ -162,7 +162,7 @@
           {
             "id": "gid://shopify/Order/18985501327518",
             "legacyResourceId": "18985501327518",
-            "statusPageUrl": "https://shop.example.com/60000000001/orders/6ef72584df0eee80322c853ff2581986/authenticate?key=3cbecbfe992303fc1f90fea649a0ed91",
+            "statusPageUrl": "https://shop.example.com/orders/fixture-order/status",
             "name": "#1002",
             "createdAt": "2026-11-05T15:37:14Z",
             "cancelledAt": null,
