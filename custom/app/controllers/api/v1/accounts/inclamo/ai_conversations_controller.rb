@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
-# The two calls of the AI agent (design D6; docs/ai-connector.md §5): a
-# conversation's public history with its files, and adding `inclamo_` labels.
+# The AI agent's calls of docs/ai-connector.md §5: a conversation's public
+# history with its files, the protected reply, `inclamo_` labels and the
+# order authority's calls.
 #
 # Only the agent bot of the account's connection may call them, with its
 # token, and only for conversations of the connected inboxes. That is stricter
@@ -39,6 +40,19 @@ class Api::V1::Accounts::Inclamo::AiConversationsController < Api::V1::Accounts:
 
   def messages
     render json: ::Inclamo::Ai::History.new(@conversation, @connection, limit: params[:limit])
+  end
+
+  # The protected reply (ai-reply-ownership): posted only while the
+  # conversation is Pending, checked and saved under the conversation's lock.
+  def reply
+    content = params[:content]
+    return refuse(:empty_reply, :unprocessable_entity) unless content.is_a?(String) && content.strip.present?
+
+    protected_reply = ::Inclamo::Ai::ProtectedReply.new(conversation: @conversation, bot: @resource, content: content)
+    message = protected_reply.perform
+    return refuse(:conversation_not_pending, :conflict, status: protected_reply.status) unless message
+
+    render json: { id: message.id, created_at: message.created_at }, status: :created
   end
 
   def labels
@@ -91,6 +105,10 @@ class Api::V1::Accounts::Inclamo::AiConversationsController < Api::V1::Accounts:
   end
 
   def refuse_labels(code, extra = {})
-    render json: { error: code, message: I18n.t("inclamo.ai_agent.errors.#{code}") }.merge(extra), status: :unprocessable_entity
+    refuse(code, :unprocessable_entity, extra)
+  end
+
+  def refuse(code, http_status, extra = {})
+    render json: { error: code, message: I18n.t("inclamo.ai_agent.errors.#{code}") }.merge(extra), status: http_status
   end
 end

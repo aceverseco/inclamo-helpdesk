@@ -78,6 +78,16 @@ RSpec.describe Inclamo::AiAgentListener do
     expect(pending.reload.status).to eq('pending')
   end
 
+  it 'stays a fallback: after the take-over in the transaction it hands over nothing a second time' do
+    allow(Rails.configuration.dispatcher).to receive(:dispatch).and_call_original
+    message_by(agent)
+    message_by(agent)
+
+    expect(conversation.reload.status).to eq('open')
+    expect(Rails.configuration.dispatcher).to have_received(:dispatch)
+      .with(Events::Types::CONVERSATION_BOT_HANDOFF, anything, hash_including(conversation: conversation)).once
+  end
+
   it 'is one of the listeners of Chatwoot dispatcher' do
     expect(AsyncDispatcher.new.listeners).to include(described_class.instance)
   end
