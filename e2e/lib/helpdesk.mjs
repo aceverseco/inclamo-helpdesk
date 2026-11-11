@@ -198,5 +198,13 @@ export async function orderCard(section, number) {
   return card;
 }
 
+// The store connection's controls (recheck, roles, removal) sit in the
+// collapsed "Store connection" menu at the foot of the Orders section.
+export async function openStoreMenu(section) {
+  const menu = section.locator('details.reference-store-menu');
+  if (await menu.count() && (await menu.getAttribute('open')) === null) await menu.locator('summary').click();
+  await section.getByTestId('inclamo-manage').waitFor({ state: 'visible' });
+}
+
 // The run tag of this test run: every store record the tests create carries it.
 export const runTag = suffix => `${process.env.E2E_RUN || 'local'}${suffix}`;

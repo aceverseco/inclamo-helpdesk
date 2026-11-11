@@ -1,7 +1,7 @@
 // Scenarios of behavior contract `conversation-order-panel` about acting on
 // orders. Each describe is a requirement, each test one of its scenarios.
 import { test, expect } from '@playwright/test';
-import { signIn, openOrders, orderCard, apiAs, proxy, bench, runTag, users } from '../lib/helpdesk.mjs';
+import { signIn, openOrders, orderCard, openStoreMenu, apiAs, proxy, bench, runTag, users } from '../lib/helpdesk.mjs';
 import { openStore } from '../lib/store.mjs';
 
 const account = process.env.E2E_ACCOUNT_ID || '1';
@@ -88,6 +88,7 @@ test.describe('Order actions need a role given by an administrator', () => {
   test('Administrator gives the role', async ({ page }) => {
     const { section } = await open(page, users.admin, orders.view.number);
     // The panel links to the page of the account settings that holds the switches.
+    await openStoreMenu(section);
     await section.getByTestId('inclamo-manage-roles').click();
     await expect(page).toHaveURL(/\/settings\/order-actions$/);
     await expect(page.getByRole('link', { name: 'Order actions' })).toBeVisible();

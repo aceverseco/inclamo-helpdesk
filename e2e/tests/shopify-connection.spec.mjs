@@ -1,7 +1,7 @@
 // Scenarios of behavior contract `shopify-connection`. Each test is named
 // after its scenario; scripts/check-e2e-coverage.mjs relies on that.
 import { test, expect } from '@playwright/test';
-import { signIn, openOrders, apiAs, proxy, bench, limited, users } from '../lib/helpdesk.mjs';
+import { signIn, openOrders, openStoreMenu, apiAs, proxy, bench, limited, users } from '../lib/helpdesk.mjs';
 import { accessToken, credentials } from '../lib/shopify.mjs';
 
 const account = process.env.E2E_ACCOUNT_ID || '1';
@@ -250,6 +250,7 @@ test('Scopes change at the store', async ({ page }) => {
   await signIn(page, users.admin);
   const section = await openOrders(page, account, conversation.id);
 
+  await openStoreMenu(section);
   await section.getByTestId('inclamo-manage-recheck').click();
 
   await expect.poll(async () => (await admin.connection()).actions.filter(action => action.available).map(action => action.name)).toEqual(ACTIONS);
@@ -287,6 +288,7 @@ test('Removal', async ({ page }) => {
 
   await signIn(page, users.admin);
   const section = await openOrders(page, account, conversation.id);
+  await openStoreMenu(section);
   await section.getByTestId('inclamo-manage-remove').click();
   await section.getByTestId('inclamo-manage-remove-confirm').click();
 
