@@ -1,4 +1,4 @@
-// Scenarios of openspec capability `macro-order-actions`: order steps in
+// Scenarios of behavior contract `macro-order-actions`: order steps in
 // macros. Each describe is a requirement, each test one of its scenarios.
 import { test, expect } from '@playwright/test';
 import { signIn, apiAs, proxy, bench, runTag, users, eventually } from '../lib/helpdesk.mjs';

@@ -1,4 +1,4 @@
-// Scenarios of openspec capability `shopify-connection`. Each test is named
+// Scenarios of behavior contract `shopify-connection`. Each test is named
 // after its scenario; scripts/check-e2e-coverage.mjs relies on that.
 import { test, expect } from '@playwright/test';
 import { signIn, openOrders, apiAs, proxy, bench, limited, users } from '../lib/helpdesk.mjs';

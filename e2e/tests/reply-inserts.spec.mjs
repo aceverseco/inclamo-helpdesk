@@ -1,4 +1,4 @@
-// Scenarios of openspec capability `reply-inserts`: a product of the store and
+// Scenarios of behavior contract `reply-inserts`: a product of the store and
 // a discount code made from an administrator's preset go into the reply the
 // agent is writing. Each describe is a requirement, each test one of its
 // scenarios. Every code the helpdesk creates is checked in the store through

@@ -102,7 +102,11 @@ jobs:
         run: node scripts/check-fixtures.mjs
       - name: Interface strings of the overlay come from its locale file
         run: node scripts/check-ui-strings.mjs
-      - name: Every scenario of the specs has an end-to-end test
+      - name: Repository boundary checks reject internal artifacts
+        run: node --test scripts/check-repository-boundary.test.mjs
+      - name: Public source and documentation are self-contained
+        run: node scripts/check-repository-boundary.mjs
+      - name: Every behavior scenario has an end-to-end test
         run: node scripts/check-e2e-coverage.mjs
       - name: The stand-in AI agent refuses what the AI service refuses
         run: node --test e2e/stand-in-agent/server.test.mjs

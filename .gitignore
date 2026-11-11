@@ -6,3 +6,20 @@ __pycache__/
 build/
 dev/.env
 package-lock.json
+
+# Internal planning and generated review artifacts are maintained separately.
+/openspec/
+/.claude/
+/.agents/
+/.codex/
+/.mcp.json
+/CLAUDE.md
+/CLAUDE.local.md
+/STATUS.md
+/context/
+/reports/
+/strategy/
+/projects/
+/prototypes/
+/docs/evidence/
+/docs/spec-plan.md

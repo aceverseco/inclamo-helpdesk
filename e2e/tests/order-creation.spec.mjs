@@ -1,4 +1,4 @@
-// Scenarios of openspec capability `order-creation`: an agent builds a paid
+// Scenarios of behavior contract `order-creation`: an agent builds a paid
 // order for the customer of a conversation and hands them a payment link.
 // Each describe is a requirement, each test one of its scenarios. What the
 // helpdesk created is checked in the store through the Admin API.

@@ -1,4 +1,4 @@
-// Scenarios of openspec capability `order-item-editing`: an agent changes the
+// Scenarios of behavior contract `order-item-editing`: an agent changes the
 // items of an order that has not fully shipped, sees the money difference as
 // the store calculates it, and settles it. Each describe is a requirement,
 // each test one of its scenarios. The orders are completed from drafts: the

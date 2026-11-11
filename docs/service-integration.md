@@ -1,10 +1,10 @@
 # Connecting an AI service
 
-Implementation handoff, 2026-11-10. The wire contract is
+The wire contract is
 [ai-connector.md](ai-connector.md); this guide explains the integration sequence
 and its acceptance. The helpdesk side is implemented. The included simulator
-is not a production AI service. Finished-call ingestion is still proposed in
-[ai-connector-calls.md](ai-connector-calls.md).
+is not a production AI service. Finished-call ingestion is not implemented
+in this source revision.
 
 ## Ownership
 
@@ -139,5 +139,5 @@ store. Preserve before/after state, proposal/action IDs, outcome and cleanup.
 The deterministic integration tests and real-service mode are described in
 [ai-connector.md §8](ai-connector.md#8-testing-against-this-contract). Real-service
 mode skips simulator-only controls: it is not a substitute for fault injection
-or model-quality tests. The current acceptance scope and remaining gaps are in
+or model-quality tests. Current capabilities and limitations are in
 [release-readiness.md](release-readiness.md).
