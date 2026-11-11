@@ -1,0 +1,15 @@
+# Overlay for the isolated theme fixture stack only; never use with merchant data.
+services:
+  rails:
+    environment:
+      FRONTEND_URL: http://localhost:3197
+      SAFE_FETCH_ALLOW_PRIVATE_NETWORK: 'true'
+  sidekiq:
+    environment:
+      FRONTEND_URL: http://localhost:3197
+      SAFE_FETCH_ALLOW_PRIVATE_NETWORK: 'true'
+  bot-fixture:
+    image: node:24-alpine
+    command: node /fixture/bot-fixture.mjs
+    volumes:
+      - ../website-widget:/fixture:ro

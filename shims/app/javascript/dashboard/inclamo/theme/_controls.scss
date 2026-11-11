@@ -1,5 +1,5 @@
 @mixin inclamo-controls {
-  font-family: Inter, sans-serif;
+  font-family: "Inclamo Inter", Inter, sans-serif;
   color: rgb(var(--slate-12));
   background-color: rgb(var(--background-color));
 
@@ -46,13 +46,11 @@
     background-color: rgb(var(--inclamo-field));
     color: rgb(var(--inclamo-brand-text));
   }
-  :where(
-      input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(
-          [type="hidden"]
-        ),
-      select,
-      textarea
+  :is(input, select, textarea):where(
+      :not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"])
     ) {
+    // Native legacy field-base has a highly specific selector; theme its token.
+    --black-alpha-2: var(--inclamo-field-alpha);
     --border-weak: var(--inclamo-control-border);
     --slate-6: var(--inclamo-control-border);
     --ruby-8: var(--ruby-11);

@@ -30,7 +30,13 @@ inbox.channel.update!(identifier: 'theme-example-channel')
 [admin, agent].each { |user| InboxMember.find_or_create_by!(inbox: inbox, user: user) }
 conversations = [
   ['Maya Example', 'maya.example.t001@example.com', 'Hello, could you help with order #1001?'],
-  ['Alex Example', 'alex.theme@example.test', 'Thank you for your help.']
+  ['Alex Example', 'alex.theme@example.test', 'Thank you for your help.'],
+  ['Emma Example', 'emma.theme@example.test', 'Will this be available in blue?'],
+  ['Oliver Example', 'oliver.theme@example.test', 'Can I exchange this for another size?'],
+  ['Isabella Example', 'isabella.theme@example.test', 'Could you include a gift note?'],
+  ['Noah Example', 'noah.theme@example.test', 'When will my package arrive?'],
+  ['Amelia Example', 'amelia.theme@example.test', 'Could you help me choose the right size?'],
+  ['Lucas Example', 'lucas.theme@example.test', 'I would like to update my delivery details.']
 ].each_with_index.map do |(name, email, text), index|
   contact = account.contacts.create!(name: name, email: email)
   contact_inbox = ContactInbox.create!(contact: contact, inbox: inbox, source_id: "theme-example-#{index}")
@@ -38,6 +44,10 @@ conversations = [
   # Distinct timestamps keep the native conversation sort deterministic.
   fixture_time = Time.utc(2026, 11, 9, 10) - index * 3600
   conversation.messages.create!(account: account, inbox: inbox, sender: contact, message_type: :incoming, content: text, created_at: fixture_time)
+  if index.zero?
+    conversation.messages.create!(account: account, inbox: inbox, sender: admin, message_type: :outgoing, content: 'Hi Maya! Your order has not shipped yet, so we can help. Could you send me the new address?', created_at: fixture_time + 120)
+    conversation.messages.create!(account: account, inbox: inbox, sender: contact, message_type: :incoming, content: 'Thanks! The new address is 24 Maple Street, Brooklyn, NY 11201. Really appreciate your help!', created_at: fixture_time + 240)
+  end
   conversation.update_columns(display_id: index + 1, created_at: fixture_time, last_activity_at: fixture_time)
   { id: conversation.display_id, contactId: contact.id }
 end
@@ -53,4 +63,4 @@ survey = account.conversations.create!(inbox: widget_inbox, contact: survey_cont
 survey.messages.create!(account: account, inbox: widget_inbox, sender: admin, message_type: :outgoing, content_type: :input_csat, content: 'Please rate your experience')
 Redis::Alfred.delete(Redis::Alfred::CHATWOOT_INSTALLATION_ONBOARDING)
 puts "THEME_ACCOUNT_ID=#{account.id}"
-puts "THEME_DATA=#{JSON.generate({ inbox: { id: inbox.id }, conversation: conversations.first, second: conversations.last, survey: survey.uuid })}"
+puts "THEME_DATA=#{JSON.generate({ inbox: { id: inbox.id }, conversation: conversations.first, second: conversations[1], survey: survey.uuid })}"

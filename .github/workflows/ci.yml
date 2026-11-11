@@ -56,6 +56,11 @@ jobs:
       - name: Assemble Chatwoot with the patches and the overlay
         run: scripts/assemble.sh build/chatwoot
 
+      - name: Install the image validation runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvips-dev
+
       - uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
@@ -99,7 +104,11 @@ jobs:
         run: node scripts/check-fixtures.mjs
       - name: Interface strings of the overlay come from its locale file
         run: node scripts/check-ui-strings.mjs
-      - name: Every scenario of the specs has an end-to-end test
+      - name: Repository boundary checks reject internal artifacts
+        run: node --test scripts/check-repository-boundary.test.mjs
+      - name: Public source and documentation are self-contained
+        run: node scripts/check-repository-boundary.mjs
+      - name: Every behavior scenario has an end-to-end test
         run: node scripts/check-e2e-coverage.mjs
 
   frontend:

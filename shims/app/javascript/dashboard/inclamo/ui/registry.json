@@ -1,0 +1,116 @@
+{
+  "source": "https://github.com/unovue/shadcn-vue",
+  "reference": "prototypes/operator-dashboard/shadcn-registry.json",
+  "adaptations": [
+    "Local import alias",
+    "Namespaced ui-* Tailwind colours",
+    "Input focus forwarding for existing callers",
+    "Controlled input uses application Vue computed and forwards native model/events; preserves immediate number normalization instead of VueUse 12\u2019s separately resolved Vue instance"
+  ],
+  "files": [
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/button/index.ts",
+      "prototypeSha256": "26eef7169dd921bb1ebd2c5c014b3790e40c135656c49a9ab59022c5fbc753ed"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/button/Button.vue",
+      "prototypeSha256": "61123a887c84a2ac6a900d891c877248c135b889e2bde53f95ff2360dec5a1f4"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/input/index.ts",
+      "prototypeSha256": "ba728db29f97b894318836d094705b34c0f792352548189703224c694d29ed5b"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/input/Input.vue",
+      "prototypeSha256": "972fc376d3db1393eac9088ffc09c332a3105905a25da41f1ea4f7bec4c5fac5"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/tabs/Tabs.vue",
+      "prototypeSha256": "c62854e7545e6cd0ea8ef588a6c85c46a15aefdc50c8277481f03616590e343c"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/tabs/TabsContent.vue",
+      "prototypeSha256": "ad5092fbbfd7aa8992cce4123eb35ad6dcaeb901833aaae14132b0654ddddb9e"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/tabs/TabsTrigger.vue",
+      "prototypeSha256": "c1e5b83b9a17406e3a4c8c1fa886ec4444a6e706e8694e1f2e5b1ca62b6e1d2f"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/tabs/TabsList.vue",
+      "prototypeSha256": "5ee5774a76198643fe7d367674ae0961d91c285e8d41fb455675748978bb61e9"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/tabs/index.ts",
+      "prototypeSha256": "5e98735f90589ee6b48c4932a7b939b014d657ae346a7b07a99ffef6ba2fa437"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/badge/Badge.vue",
+      "prototypeSha256": "e033f5a369446270b849a425214613cd1b854cd5871ac4db0a8d7fdd20aa753c"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/badge/index.ts",
+      "prototypeSha256": "0aeef64c132cccd0f316298bc312ac09631d82e234c651278abf137485ecc661"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenuLabel.vue",
+      "prototypeSha256": "b1ca38469209f59358c8d9edf2e49e160ac6b6ee112c9016c412101003306042"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenuRadioItem.vue",
+      "prototypeSha256": "10d89e3009d70cc4878af317ee4f1111166222cc95e88dc8564d568ba25e196d"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenuSeparator.vue",
+      "prototypeSha256": "c68a8965d35817107ba42e24f250a079f124d73919ffe4f12beb6aa9de2b0f32"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenuGroup.vue",
+      "prototypeSha256": "cba632d064adf57e4f32c1767865d5dbffbf02259715b815a28f6b26fa017025"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenuTrigger.vue",
+      "prototypeSha256": "5287fc452f27feb66b3eb46e99bde0127c6fb8764c766dd73df94f26c5700783"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenuContent.vue",
+      "prototypeSha256": "7d8f374b179821994c5350d885fc8b6543163cf184823a128a16c0fa05db1882"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenuShortcut.vue",
+      "prototypeSha256": "bfa482ce5b6d17df077dc83b4c4a066a759bbd85d74d9bf849a375324b793875"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenuCheckboxItem.vue",
+      "prototypeSha256": "c2b2d006eacb7e41888b82dbe3881173314c3d5e1299347455304ab1ec1bf0a8"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenuItem.vue",
+      "prototypeSha256": "12de4f01cdfc7b1e51e2e98958280f9460466fbcd094371e6c072b32a9140441"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenuRadioGroup.vue",
+      "prototypeSha256": "c7d1b33752cea4ba45b6ed1f70fa4fa37bf1be8d3ade7d14a24b2e86938d039d"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenu.vue",
+      "prototypeSha256": "643bd6ca3fbe790ee479408e78a8f5fceeb58807dd0de10d20c326513baa2523"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/index.ts",
+      "prototypeSha256": "19ee04e0a51375d18aa2d8310f86cdfcc4abe15439033df6a54a3134b3e1d415"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenuSubContent.vue",
+      "prototypeSha256": "142eb89c2b218afceace45f808b7be7b2da390cad7701791d778896cb5577c08"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenuSubTrigger.vue",
+      "prototypeSha256": "fc0e5e533a6b417ed1467c700d9953ec42bbdc8279b24ebd386b78aa04ef022c"
+    },
+    {
+      "file": "shims/app/javascript/dashboard/inclamo/ui/dropdown-menu/DropdownMenuSub.vue",
+      "prototypeSha256": "5febef5eace3dd0da94ab8e86594886f46cfc3ddc0f35641989636a318e3e637"
+    }
+  ]
+}

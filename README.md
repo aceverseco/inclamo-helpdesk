@@ -4,15 +4,16 @@ An open-source, self-hosted helpdesk layer for e-commerce merchants, built
 **around** [Chatwoot](https://github.com/chatwoot/chatwoot) Community Edition
 without forking it.
 
-Status: **planning**. No code yet. The plan for the first release is in
-`docs/spec-plan.md`; the first change is being specified in `openspec/`.
+Status: **development build**. [Behavior contracts](docs/behavior/README.md)
+and tests ship with this source revision. See [Shopify setup](docs/connect-shopify.md)
+and [workspace widgets and support](docs/workspace-widgets-and-support.md) for configuration.
 
 ## What it is
 
-- Chatwoot CE as the inbox, unchanged: the official `-ce` image, pinned by tag.
-- Our services next to it: marketplace bridges, a Shopify connection, a
-  conversation sidebar app, a classifier on ingress, an MCP server, and an
-  installer with an upgrade path.
+- Chatwoot CE at a pinned version, assembled with our backend overlay,
+  dashboard components and versioned integration patches.
+- A Shopify customer/order panel, store-aware templates and rules, workspace
+  widgets and in-product support.
 - An AI agent for chat and voice provided as a separate service. The agent
   itself is not part of this repository.
 
@@ -27,6 +28,17 @@ Status: **planning**. No code yet. The plan for the first release is in
   under a separate licence and is never used, patched or shipped.
 - The open-source edition runs on the merchant's own infrastructure. A hosted
   edition by the authors uses the same code.
+
+## Repository contents
+
+The repository contains product source, tests, build tooling and documentation
+for installing, operating and extending the product. Development plans,
+internal reports and design prototypes are maintained separately.
+Public builds and checks require no access to a private workspace.
+
+Run `node scripts/check-repository-boundary.mjs` before publishing changes.
+Generated review output belongs under ignored `build/`; test fixtures and
+deliberately reviewed regression snapshots remain part of the test suite.
 
 ## Licence
 

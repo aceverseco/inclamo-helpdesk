@@ -1,0 +1,1563 @@
+diff --git a/app/javascript/dashboard/components-next/sidebar/Sidebar.vue b/app/javascript/dashboard/components-next/sidebar/Sidebar.vue
+--- a/app/javascript/dashboard/components-next/sidebar/Sidebar.vue
++++ b/app/javascript/dashboard/components-next/sidebar/Sidebar.vue
+@@ -12,7 +12,7 @@
+ import extensionSettingsPages from 'dashboard/extensions/settingsPages';
+ import { useWindowSize, useEventListener } from '@vueuse/core';
+ 
+-import SidebarGroup from './SidebarGroup.vue';
++import WorkspaceNavigation from 'dashboard/inclamo/workspace/Navigation.vue';
+ import SidebarProfileMenu from './SidebarProfileMenu.vue';
+ import SidebarChangelogCard from './SidebarChangelogCard.vue';
+ import SidebarChangelogButton from './SidebarChangelogButton.vue';
+@@ -21,7 +21,6 @@
+ import EmojiIcon from 'next/emoji-icon-picker/EmojiIcon.vue';
+ import SidebarAccountSwitcher from './SidebarAccountSwitcher.vue';
+ import BrandMark from 'dashboard/inclamo/components/BrandMark.vue';
+-import { t as inclamoT } from 'dashboard/inclamo/i18n';
+ import {
+   SIDEBAR_SORT_SECTIONS,
+   getSidebarSortOptions,
+@@ -1021,24 +1020,12 @@
+           />
+         </template>
+       </div>
+-
+     </section>
+-    <div v-if="!isEffectivelyCollapsed" class="inclamo-nav-heading">{{ inclamoT('WORKSPACE.HEADING') }}</div>
+-    <nav
+-      class="grid overflow-y-scroll flex-grow gap-2 pb-5 no-scrollbar min-w-0"
+-      :class="isEffectivelyCollapsed ? 'px-1' : 'px-2'"
+-    >
+-      <ul
+-        class="flex flex-col gap-1 m-0 list-none min-w-0"
+-        :class="{ 'items-center': isEffectivelyCollapsed }"
+-      >
+-        <SidebarGroup
+-          v-for="item in menuItems"
+-          :key="item.name"
+-          v-bind="item"
+-        />
+-      </ul>
+-    </nav>
++    <WorkspaceNavigation
++      :items="menuItems"
++      :collapsed="isEffectivelyCollapsed"
++      @help="emit('openKeyShortcutModal')"
++    />
+     <section
+       class="flex relative flex-col flex-shrink-0 gap-1 justify-between items-center"
+     >
+diff --git a/app/javascript/dashboard/components/ChatList.vue b/app/javascript/dashboard/components/ChatList.vue
+--- a/app/javascript/dashboard/components/ChatList.vue
++++ b/app/javascript/dashboard/components/ChatList.vue
+@@ -8,6 +8,7 @@
+ } from 'dashboard/composables/store.js';
+ 
+ import ChatListHeader from './ChatListHeader.vue';
++import ConversationBasicFilter from './widgets/conversation/ConversationBasicFilter.vue';
+ import InboxTools from 'dashboard/inclamo/components/InboxTools.vue';
+ import ConversationList from './ConversationList.vue';
+ import Dialog from 'dashboard/components-next/dialog/Dialog.vue';
+@@ -72,7 +73,11 @@
+ 
+ const resolveAttributesModalRef = ref(null);
+ 
+-const activeAssigneeTab = ref(wootConstants.ASSIGNEE_TYPE.ME);
++const activeAssigneeTab = ref(
++  ['all', 'me', 'unassigned'].includes(route.query.queue)
++    ? route.query.queue
++    : wootConstants.ASSIGNEE_TYPE.ALL
++);
+ const activeStatus = ref(wootConstants.STATUS_TYPE.OPEN);
+ const activeSortBy = ref(wootConstants.SORT_BY_TYPE.LAST_ACTIVITY_AT_DESC);
+ const showAdvancedFilters = ref(false);
+@@ -188,6 +193,17 @@
+   }));
+ });
+ 
++// A linked queue must still be available to this user's conversation permissions.
++watch(
++  assigneeTabItems,
++  items => {
++    if (!items.some(item => item.key === activeAssigneeTab.value)) {
++      activeAssigneeTab.value = items[0]?.key || wootConstants.ASSIGNEE_TYPE.ME;
++    }
++  },
++  { immediate: true }
++);
++
+ const showAssigneeInConversationCard = computed(() => {
+   return (
+     hasAppliedFiltersOrActiveFolders.value ||
+@@ -647,6 +663,14 @@
+   }
+ }
+ 
++watch(
++  () => route.query.queue,
++  value => {
++    if (assigneeTabItems.value.some(item => item.key === value))
++      updateAssigneeTab(value);
++  }
++);
++
+ function onBasicFilterChange(value, type) {
+   if (type === 'status') {
+     activeStatus.value = value;
+@@ -919,7 +943,6 @@
+       :contact-filter="appliedContactFilter"
+       :has-applied-filters="hasAppliedFilters"
+       :has-active-folders="hasActiveFolders"
+-      :active-status="activeStatus"
+       :is-on-expanded-layout="isOnExpandedLayout"
+       :conversation-stats="conversationStats"
+       :is-list-loading="chatListLoading && !conversationList.length"
+@@ -927,10 +950,13 @@
+       @delete-folders="onClickOpenDeleteFoldersModal"
+       @filters-modal="onToggleAdvanceFiltersModal"
+       @reset-filters="resetFilters"
+-      @basic-filter-change="onBasicFilterChange"
+     />
+ 
+-    <InboxTools :status="activeStatus" :show-status="!hasAppliedFiltersOrActiveFolders" @status-change="onBasicFilterChange" />
++    <InboxTools
++      :status="activeStatus"
++      :show-status="!hasAppliedFiltersOrActiveFolders"
++      @status-change="onBasicFilterChange"
++    />
+ 
+     <TeleportWithDirection
+       v-if="showAddFoldersModal"
+@@ -953,13 +979,19 @@
+       @close="onCloseDeleteFoldersModal"
+     />
+ 
+-    <ChatTypeTabs
+-      v-if="!hasAppliedFiltersOrActiveFolders"
+-      :items="assigneeTabItems"
+-      :active-tab="activeAssigneeTab"
+-      is-compact
+-      @chat-tab-change="updateAssigneeTab"
+-    />
++    <div class="reference-list-toolbar">
++      <ChatTypeTabs
++        :items="assigneeTabItems"
++        :active-tab="activeAssigneeTab"
++        is-compact
++        @chat-tab-change="updateAssigneeTab"
++      />
++      <ConversationBasicFilter
++        :is-on-expanded-layout="isOnExpandedLayout"
++        :show-status-filter="!hasAppliedFiltersOrActiveFolders"
++        @change-filter="onBasicFilterChange"
++      />
++    </div>
+ 
+     <p
+       v-if="!chatListLoading && !conversationList.length"
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue b/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
+@@ -4,11 +4,10 @@
+ import Avatar from 'next/avatar/Avatar.vue';
+ import Icon from 'dashboard/components-next/icon/Icon.vue';
+ import MessagePreview from './MessagePreview.vue';
+-import InboxName from '../InboxName.vue';
+-import TimeAgo from 'dashboard/components/ui/TimeAgo.vue';
++import ActivityTime from 'dashboard/inclamo/workspace/ActivityTime.vue';
++import ConversationRow from 'dashboard/inclamo/workspace/ConversationRow.vue';
+ import CardLabels from './conversationCardComponents/CardLabels.vue';
+ import CardPriorityIcon from 'dashboard/components-next/Conversation/ConversationCard/CardPriorityIcon.vue';
+-import UnreadBadge from 'dashboard/components-next/Conversation/ConversationCard/UnreadBadge.vue';
+ import SLACardLabel from './components/SLACardLabel.vue';
+ import VoiceCallStatus from './VoiceCallStatus.vue';
+ import Checkbox from 'dashboard/components-next/checkbox/Checkbox.vue';
+@@ -48,14 +47,6 @@
+     status: last.call.status,
+     direction: last.call.direction === 'outgoing' ? 'outbound' : 'inbound',
+   };
+-});
+-
+-const showMetaSection = computed(() => {
+-  return (
+-    props.showInboxName ||
+-    (props.showAssignee && props.assignee.name) ||
+-    props.chat.priority
+-  );
+ });
+ 
+ const isAIAssignee = computed(() =>
+@@ -109,139 +100,82 @@
+ 
+ <template>
+   <div
+-    class="inclamo-conversation-card relative flex items-start flex-grow-0 flex-shrink-0 w-auto max-w-full py-0 cursor-pointer conversation border-b border-n-slate-3 hover:border-n-surface-1 hover:bg-n-alpha-1 dark:hover:bg-n-alpha-3 group hover:z-[1] before:content-[none] before:absolute before:-top-px before:inset-x-0 before:h-px before:bg-n-surface-1 before:pointer-events-none hover:before:content-['']"
+-    :class="{
+-      'active animate-card-select bg-n-background !border-n-surface-1':
+-        isActiveChat,
+-      'selected bg-n-slate-2 !border-n-surface-1': selected,
+-      'px-0': compact,
+-      'px-3': !compact,
+-    }"
++    class="reference-row-host"
++    :class="{ selected }"
++    role="button"
++    tabindex="0"
++    :aria-pressed="isActiveChat"
++    :aria-label="currentContact.name"
+     @click="$emit('click', $event)"
++    @keydown.enter.prevent="$emit('click', $event)"
+     @contextmenu="$emit('contextmenu', $event)"
+   >
+-    <div
+-      class="relative"
+-      @mouseenter="onThumbnailHover"
+-      @mouseleave="onThumbnailLeave"
++    <ConversationRow
++      :name="currentContact.name"
++      :subject="chat.additional_attributes?.mail_subject || inbox.name"
++      :selected="isActiveChat"
++      :unread="hasUnread"
++      :channel="inbox.channel_type"
+     >
+-      <Avatar
+-        class="inclamo-list-avatar"
+-          rounded-full
+-        v-if="!hideThumbnail"
+-        :name="currentContact.name"
+-        :src="currentContact.thumbnail"
+-        :size="32"
+-        :status="currentContact.availability_status"
+-        :class="!showInboxName ? 'mt-4' : 'mt-8'"
+-        hide-offline-status
+-      >
+-        <template #overlay="{ size }">
+-          <label
+-            v-if="hovered || selected"
+-            class="flex items-center justify-center rounded-full cursor-pointer absolute inset-0 z-10 backdrop-blur-[2px]"
+-            :style="{ width: `${size}px`, height: `${size}px` }"
+-            @click.stop
++      <template #avatar>
++        <div @mouseenter="onThumbnailHover" @mouseleave="onThumbnailLeave">
++          <Avatar
++            v-if="!hideThumbnail"
++            :name="currentContact.name"
++            :src="currentContact.thumbnail"
++            :size="31"
++            rounded-full
+           >
+-            <Checkbox v-model="selectedModel" />
+-          </label>
+-        </template>
+-      </Avatar>
+-    </div>
+-    <div class="inclamo-conversation-card-content px-0 py-3 flex-1 min-w-0 border-line">
+-      <div
+-        v-if="showMetaSection"
+-        class="inclamo-card-meta flex items-center min-w-0 gap-1"
+-        :class="{
+-          'ltr:ml-2 rtl:mr-2': !compact,
+-          'mx-2': compact,
+-        }"
+-      >
+-        <InboxName v-if="showInboxName" :inbox="inbox" class="flex-1 min-w-0" />
+-        <div
+-          class="flex items-baseline gap-2 flex-shrink-0"
+-          :class="{
+-            'flex-1 justify-between': !showInboxName,
+-          }"
++            <template #overlay="{ size }">
++              <label
++                v-if="hovered || selected"
++                class="absolute inset-0 grid place-items-center rounded-full backdrop-blur-sm"
++                :style="{ width: `${size}px`, height: `${size}px` }"
++                @click.stop
++              >
++                <Checkbox v-model="selectedModel" />
++              </label>
++            </template>
++          </Avatar>
++        </div>
++      </template>
++      <template #time>
++        <ActivityTime :timestamp="chat.timestamp" />
++      </template>
++      <template #preview>
++        <VoiceCallStatus
++          v-if="voiceCallData.status"
++          :status="voiceCallData.status"
++          :direction="voiceCallData.direction"
++          :message-preview-class="messagePreviewClass"
++        />
++        <MessagePreview
++          v-else-if="lastMessageInChat"
++          :message="lastMessageInChat"
++        />
++        <span v-else>{{ $t('CHAT_LIST.NO_MESSAGES') }}</span>
++      </template>
++      <template #labels>
++        <CardLabels v-if="showLabelsSection" :conversation-labels="chat.labels">
++          <template v-if="hasSlaPolicyId" #before>
++            <SLACardLabel :chat="chat" />
++          </template>
++        </CardLabels>
++        <span
++          v-else-if="showInboxName && inbox.name"
++          class="conversation-tag"
++          >{{ inbox.name }}</span
+         >
+-          <span
+-            v-if="showAssignee && assignee.name"
+-            class="text-n-slate-11 text-xs font-medium leading-3 py-0.5 px-0 inline-flex items-center gap-px truncate"
+-          >
+-            <Icon
+-              :icon="isAIAssignee ? 'i-lucide-bot' : 'i-lucide-user-round'"
+-              class="size-3 text-n-slate-11 flex-shrink-0"
+-            />
+-            <span class="truncate">{{ assignee.name }}</span>
+-          </span>
+-          <CardPriorityIcon
+-            :priority="chat.priority"
+-            class="flex-shrink-0 !size-3.5"
+-          />
+-        </div>
+-      </div>
+-      <h4
+-        class="conversation--user text-sm my-0 mx-2 capitalize pt-0.5 text-ellipsis overflow-hidden whitespace-nowrap flex-1 min-w-0 ltr:pr-16 rtl:pl-16 text-n-slate-12"
+-        :class="hasUnread ? 'font-semibold' : 'font-medium'"
+-      >
+-        {{ currentContact.name }}
+-      </h4>
+-      <p v-if="chat.additional_attributes?.mail_subject" class="inclamo-card-subject">{{ chat.additional_attributes.mail_subject }}</p>
+-      <VoiceCallStatus
+-        v-if="voiceCallData.status"
+-        key="voice-status-row"
+-        :status="voiceCallData.status"
+-        :direction="voiceCallData.direction"
+-        :message-preview-class="messagePreviewClass"
+-      />
+-      <MessagePreview
+-        v-else-if="lastMessageInChat"
+-        key="message-preview"
+-        :message="lastMessageInChat"
+-        class="my-0 mx-2 leading-6 h-6 flex-1 min-w-0 text-sm"
+-        :class="messagePreviewClass"
+-      />
+-      <p
+-        v-else
+-        key="no-messages"
+-        class="text-n-slate-11 text-sm my-0 mx-2 leading-6 h-6 flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
+-        :class="messagePreviewClass"
+-      >
+-        <fluent-icon
+-          size="16"
+-          class="-mt-0.5 align-middle inline-block text-n-slate-10"
+-          icon="info"
++      </template>
++      <template #meta>
++        <Icon
++          v-if="showAssignee && assignee.name"
++          :icon="isAIAssignee ? 'i-lucide-bot' : 'i-lucide-user-round'"
++          :title="assignee.name"
++          class="size-3"
+         />
+-        <span class="mx-0.5">
+-          {{ $t(`CHAT_LIST.NO_MESSAGES`) }}
+-        </span>
+-      </p>
+-      <div
+-        class="inclamo-card-time absolute flex flex-col ltr:right-3 rtl:left-3"
+-        :class="showMetaSection ? 'top-8' : 'top-4'"
+-      >
+-        <span class="ml-auto font-normal leading-4 text-xxs">
+-          <TimeAgo
+-            :last-activity-timestamp="chat.timestamp"
+-            :created-at-timestamp="chat.created_at"
+-            :conversation-id="chat.id"
+-          />
+-        </span>
+-        <UnreadBadge
+-          v-if="hasUnread"
+-          :count="unreadCount"
+-          class="ltr:ml-auto rtl:mr-auto mt-1"
+-        />
+-      </div>
+-      <CardLabels
+-        v-if="showLabelsSection"
+-        :conversation-labels="chat.labels"
+-        class="mt-0.5 mx-2 mb-0"
+-      >
+-        <template v-if="hasSlaPolicyId" #before>
+-          <SLACardLabel :chat="chat" class="ltr:mr-1 rtl:ml-1" />
+-        </template>
+-      </CardLabels>
+-    </div>
++        <CardPriorityIcon :priority="chat.priority" class="priority-flag" />
++      </template>
++    </ConversationRow>
+   </div>
+ </template>
+diff --git a/app/javascript/dashboard/components/widgets/conversation/MessagesView.vue b/app/javascript/dashboard/components/widgets/conversation/MessagesView.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/MessagesView.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/MessagesView.vue
+@@ -24,6 +24,7 @@
+ // components
+ import ReplyBox from './ReplyBox.vue';
+ import MessageList from 'next/message/MessageList.vue';
++import ThreadTitle from 'dashboard/inclamo/workspace/ThreadTitle.vue';
+ import ContactConversationLink from './ContactConversationLink.vue';
+ import Banner from 'dashboard/components/ui/Banner.vue';
+ import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
+@@ -76,6 +77,7 @@
+ export default {
+   components: {
+     MessageList,
++    ThreadTitle,
+     ReplyBox,
+     Banner,
+     ContactConversationLink,
+@@ -584,10 +586,12 @@
+       @retry="handleMessageRetry"
+     >
+       <template #beforeAll>
++        <ThreadTitle />
+         <transition name="slide-up">
+           <!-- eslint-disable-next-line vue/require-toggle-inside-transition -->
+           <li
+-            class="min-h-[4rem] flex flex-shrink-0 flex-grow-0 items-center flex-auto justify-center max-w-full mt-0 mr-0 mb-1 ml-0 relative first:mt-auto last:mb-0"
++            v-if="shouldShowSpinner"
++            class="reference-history-loader flex justify-center py-3"
+           >
+             <Spinner v-if="shouldShowSpinner" class="text-n-brand" />
+           </li>
+diff --git a/app/javascript/dashboard/components-next/message/MessageList.vue b/app/javascript/dashboard/components-next/message/MessageList.vue
+--- a/app/javascript/dashboard/components-next/message/MessageList.vue
++++ b/app/javascript/dashboard/components-next/message/MessageList.vue
+@@ -1,6 +1,7 @@
+ <script setup>
+ import { computed, reactive } from 'vue';
+ import Message from './Message.vue';
++import TimelineDate from 'dashboard/inclamo/workspace/TimelineDate.vue';
+ import CampaignMessage from './CampaignMessage.vue';
+ import { MESSAGE_TYPES } from './constants.js';
+ import { useCamelCase } from 'dashboard/composables/useTransformKeys';
+@@ -187,6 +188,14 @@
+   <ul class="px-4 bg-n-surface-1">
+     <slot name="beforeAll" />
+     <template v-for="(entry, index) in timeline" :key="entry.key">
++      <TimelineDate
++        v-if="
++          !index ||
++          new Date(entry.createdAt * 1000).toDateString() !==
++            new Date(timeline[index - 1].createdAt * 1000).toDateString()
++        "
++        :timestamp="entry.createdAt"
++      />
+       <slot
+         v-if="firstUnreadId && entry.message?.id === firstUnreadId"
+         name="unreadBadge"
+diff --git a/app/javascript/dashboard/components-next/message/bubbles/Base.vue b/app/javascript/dashboard/components-next/message/bubbles/Base.vue
+--- a/app/javascript/dashboard/components-next/message/bubbles/Base.vue
++++ b/app/javascript/dashboard/components-next/message/bubbles/Base.vue
+@@ -16,6 +16,8 @@
+ const props = defineProps({
+   hideMeta: { type: Boolean, default: false },
+ });
++
++defineOptions({ inheritAttrs: false });
+ 
+ const {
+   variant,
+@@ -113,32 +115,35 @@
+ </script>
+ 
+ <template>
+-  <div
+-    :data-inclamo-bubble="variant"
+-    class="text-sm min-w-0"
+-    :class="[
+-      messageClass,
+-      {
+-        'max-w-lg': variant !== MESSAGE_VARIANTS.EMAIL,
+-      },
+-    ]"
+-  >
++  <div class="reference-message-surface">
+     <div
+-      v-if="inReplyTo"
+-      class="p-2 -mx-1 mb-2 rounded-lg cursor-pointer bg-n-alpha-black1"
+-      @click="scrollToMessage"
++      v-bind="$attrs"
++      :data-inclamo-bubble="variant"
++      class="text-sm min-w-0"
++      :class="[
++        messageClass,
++        {
++          'max-w-lg': variant !== MESSAGE_VARIANTS.EMAIL,
++        },
++      ]"
+     >
+       <div
+-        v-dompurify-html="replyToPreview"
+-        class="prose prose-bubble line-clamp-2"
+-      />
++        v-if="inReplyTo"
++        class="p-2 -mx-1 mb-2 rounded-lg cursor-pointer bg-n-alpha-black1"
++        @click="scrollToMessage"
++      >
++        <div
++          v-dompurify-html="replyToPreview"
++          class="prose prose-bubble line-clamp-2"
++        />
++      </div>
++      <slot />
+     </div>
+-    <slot />
+     <template v-if="shouldShowMeta">
+       <CaptainGenerationDetails
+         v-if="isCaptainMessage"
+         :message-id="id"
+-        class="mt-2"
++        class="reference-message-meta"
+       >
+         <TranslationToggle
+           :icon="false"
+@@ -155,7 +160,7 @@
+       <MessageMeta
+         v-else
+         :class="[flexOrientationClass, emailMetaClass, metaColorClass]"
+-        class="mt-2"
++        class="reference-message-meta"
+       />
+     </template>
+   </div>
+diff --git a/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue b/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
+--- a/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
++++ b/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
+@@ -14,7 +14,6 @@
+ import ConversationAction from './ConversationAction.vue';
+ import ConversationParticipant from './ConversationParticipant.vue';
+ import ContactInfo from './contact/ContactInfo.vue';
+-import { t as inclamoT } from 'dashboard/inclamo/i18n';
+ import ContactNotes from './contact/ContactNotes.vue';
+ import ConversationInfo from './ConversationInfo.vue';
+ import CustomAttributes from './customAttributes/CustomAttributes.vue';
+@@ -22,7 +21,9 @@
+ import Draggable from 'vuedraggable';
+ import MacrosList from './Macros/List.vue';
+ import ShopifyOrdersList from 'dashboard/components/widgets/conversation/ShopifyOrdersList.vue';
+-import SidebarActionsHeader from 'dashboard/components-next/SidebarActionsHeader.vue';
++import CustomerPane from 'dashboard/inclamo/workspace/CustomerPane.vue';
++import OrdersSection from 'dashboard/inclamo/components/OrdersSection.vue';
++import ConversationLabels from './labels/LabelBox.vue';
+ import LinearIssuesList from 'dashboard/components/widgets/conversation/linear/IssuesList.vue';
+ import LinearSetupCTA from 'dashboard/components/widgets/conversation/linear/LinearSetupCTA.vue';
+ import StripeCustomer from 'dashboard/components/widgets/conversation/StripeCustomer.vue';
+@@ -150,232 +151,275 @@
+ 
+ <template>
+   <div class="inclamo-contact-panel w-full">
+-    <SidebarActionsHeader
+-      class="inclamo-details-header"
+-      :title="inclamoT('WORKSPACE.DETAILS')"
+-      @close="closeContactPanel"
+-    />
+-    <ContactInfo :contact="contact" :channel-type="channelType" />
+-    <div class="px-2 pb-8 list-group">
+-      <Draggable
+-        :list="conversationSidebarItems"
+-        animation="200"
+-        ghost-class="ghost"
+-        handle=".drag-handle"
+-        item-key="name"
+-        class="flex flex-col gap-3"
+-        @start="dragging = true"
+-        @end="onDragEnd"
+-      >
+-        <template #item="{ element }">
+-          <div
+-            v-if="element.name === 'conversation_actions'"
+-            class="conversation--actions"
++    <CustomerPane @close="closeContactPanel">
++      <template #profile>
++        <ContactInfo :contact="contact" :channel-type="channelType" />
++      </template>
++      <template #commerce>
++        <OrdersSection
++          :conversation-id="conversationId"
++          :contact-id="contactId"
++        >
++          <template #labels>
++            <section class="reference-customer-tags">
++              <div class="section-title">
++                <h4>
++                  {{ $t('CONVERSATION_SIDEBAR.ACCORDION.CONVERSATION_LABELS') }}
++                </h4>
++              </div>
++              <ConversationLabels />
++            </section>
++          </template>
++        </OrdersSection>
++      </template>
++      <template #manage>
++        <div class="px-2 pb-8 list-group">
++          <Draggable
++            :list="conversationSidebarItems"
++            animation="200"
++            ghost-class="ghost"
++            handle=".drag-handle"
++            item-key="name"
++            class="flex flex-col gap-3"
++            @start="dragging = true"
++            @end="onDragEnd"
+           >
+-            <AccordionItem
+-              :title="$t('CONVERSATION_SIDEBAR.ACCORDION.CONVERSATION_ACTIONS')"
+-              :is-open="isContactSidebarItemOpen('is_conv_actions_open')"
+-              @toggle="
+-                value => toggleSidebarUIState('is_conv_actions_open', value)
+-              "
+-            >
+-              <ConversationAction
+-                :conversation-id="conversationId"
+-                :inbox-id="inboxId"
+-              />
+-            </AccordionItem>
+-          </div>
+-          <div
+-            v-else-if="element.name === 'conversation_participants'"
+-            class="conversation--actions"
+-          >
+-            <AccordionItem
+-              :title="$t('CONVERSATION_PARTICIPANTS.SIDEBAR_TITLE')"
+-              :is-open="isContactSidebarItemOpen('is_conv_participants_open')"
+-              @toggle="
+-                value =>
+-                  toggleSidebarUIState('is_conv_participants_open', value)
+-              "
+-            >
+-              <ConversationParticipant
+-                :conversation-id="conversationId"
+-                :inbox-id="inboxId"
+-              />
+-            </AccordionItem>
+-          </div>
+-          <div v-else-if="element.name === 'conversation_info'">
+-            <AccordionItem
+-              :title="$t('CONVERSATION_SIDEBAR.ACCORDION.CONVERSATION_INFO')"
+-              :is-open="isContactSidebarItemOpen('is_conv_details_open')"
+-              compact
+-              @toggle="
+-                value => toggleSidebarUIState('is_conv_details_open', value)
+-              "
+-            >
+-              <ConversationInfo
+-                :conversation-attributes="conversationAdditionalAttributes"
+-                :contact-attributes="contactAdditionalAttributes"
+-              />
+-            </AccordionItem>
+-          </div>
+-          <div v-else-if="element.name === 'contact_attributes'">
+-            <AccordionItem
+-              :title="$t('CONVERSATION_SIDEBAR.ACCORDION.CONTACT_ATTRIBUTES')"
+-              :is-open="isContactSidebarItemOpen('is_contact_attributes_open')"
+-              compact
+-              @toggle="
+-                value =>
+-                  toggleSidebarUIState('is_contact_attributes_open', value)
+-              "
+-            >
+-              <CustomAttributes
+-                attribute-type="contact_attribute"
+-                attribute-from="conversation_contact_panel"
+-                :contact-id="contact.id"
+-              />
+-            </AccordionItem>
+-          </div>
+-          <div
+-            v-else-if="
+-              element.name === 'previous_conversation' && !isListScopedToContact
+-            "
+-          >
+-            <AccordionItem
+-              v-if="contact.id"
+-              :title="
+-                $t('CONVERSATION_SIDEBAR.ACCORDION.PREVIOUS_CONVERSATION')
+-              "
+-              :is-open="isContactSidebarItemOpen('is_previous_conv_open')"
+-              compact
+-              @toggle="
+-                value => toggleSidebarUIState('is_previous_conv_open', value)
+-              "
+-            >
+-              <ContactConversations
+-                :contact-id="contact.id"
+-                :conversation-id="conversationId"
+-              />
+-            </AccordionItem>
+-          </div>
+-          <woot-feature-toggle
+-            v-else-if="element.name === 'macros'"
+-            feature-key="macros"
+-          >
+-            <AccordionItem
+-              :title="$t('CONVERSATION_SIDEBAR.ACCORDION.MACROS')"
+-              :is-open="isContactSidebarItemOpen('is_macro_open')"
+-              compact
+-              @toggle="value => toggleSidebarUIState('is_macro_open', value)"
+-            >
+-              <MacrosList :conversation-id="conversationId" />
+-            </AccordionItem>
+-          </woot-feature-toggle>
+-          <div
+-            v-else-if="
+-              element.name === 'linear_issues' &&
+-              isLinearFeatureEnabled &&
+-              isLinearClientIdConfigured
+-            "
+-          >
+-            <AccordionItem
+-              :title="$t('CONVERSATION_SIDEBAR.ACCORDION.LINEAR_ISSUES')"
+-              :is-open="isContactSidebarItemOpen('is_linear_issues_open')"
+-              compact
+-              @toggle="
+-                value => toggleSidebarUIState('is_linear_issues_open', value)
+-              "
+-            >
+-              <LinearSetupCTA v-if="!isLinearConnected" />
+-              <LinearIssuesList v-else :conversation-id="conversationId" />
+-            </AccordionItem>
+-          </div>
+-          <div
+-            v-else-if="
+-              element.name === 'shopify_orders' && isShopifyFeatureEnabled
+-            "
+-          >
+-            <AccordionItem
+-              :title="$t('CONVERSATION_SIDEBAR.ACCORDION.SHOPIFY_ORDERS')"
+-              :is-open="isContactSidebarItemOpen('is_shopify_orders_open')"
+-              compact
+-              @toggle="
+-                value => toggleSidebarUIState('is_shopify_orders_open', value)
+-              "
+-            >
+-              <ShopifyOrdersList :contact-id="contactId" />
+-            </AccordionItem>
+-          </div>
+-          <div
+-            v-else-if="
+-              element.name === 'stripe_customer' &&
+-              isCloudFeatureEnabled(FEATURE_FLAGS.STRIPE) &&
+-              stripeIntegration.enabled
+-            "
+-          >
+-            <AccordionItem
+-              :title="$t('STRIPE_INTEGRATION.TITLE')"
+-              :is-open="isContactSidebarItemOpen('is_stripe_customer_open')"
+-              compact
+-              @toggle="
+-                value => toggleSidebarUIState('is_stripe_customer_open', value)
+-              "
+-            >
+-              <StripeCustomer
+-                v-if="isContactSidebarItemOpen('is_stripe_customer_open')"
+-                :conversation-id="conversationId"
+-                :contact-email="contact.email"
+-              />
+-            </AccordionItem>
+-          </div>
+-          <div v-else-if="element.name === 'contact_notes'">
+-            <AccordionItem
+-              :title="$t('CONVERSATION_SIDEBAR.ACCORDION.CONTACT_NOTES')"
+-              :is-open="isContactSidebarItemOpen('is_contact_notes_open')"
+-              compact
+-              @toggle="
+-                value => toggleSidebarUIState('is_contact_notes_open', value)
+-              "
+-            >
+-              <ContactNotes :contact-id="contactId" />
+-            </AccordionItem>
+-          </div>
+-          <div v-else-if="element.name === 'shared_files'">
+-            <AccordionItem
+-              :title="$t('CONVERSATION_SIDEBAR.ACCORDION.SHARED_FILES')"
+-              :is-open="isContactSidebarItemOpen('is_shared_files_open')"
+-              compact
+-              @toggle="
+-                value => toggleSidebarUIState('is_shared_files_open', value)
+-              "
+-            >
+-              <SharedFiles />
+-            </AccordionItem>
+-          </div>
+-          <div v-else-if="extensionSection(element.name)">
+-            <AccordionItem
+-              :title="extensionSection(element.name).title()"
+-              :is-open="
+-                isContactSidebarItemOpen(extensionSection(element.name).openKey)
+-              "
+-              compact
+-              @toggle="
+-                value =>
+-                  toggleSidebarUIState(
+-                    extensionSection(element.name).openKey,
+-                    value
+-                  )
+-              "
+-            >
+-              <component
+-                :is="extensionSection(element.name).component"
+-                :conversation-id="conversationId"
+-                :contact-id="contactId"
+-              />
+-            </AccordionItem>
+-          </div>
+-        </template>
+-      </Draggable>
+-    </div>
++            <template #item="{ element }">
++              <div
++                v-if="element.name === 'conversation_actions'"
++                class="conversation--actions"
++              >
++                <AccordionItem
++                  :title="
++                    $t('CONVERSATION_SIDEBAR.ACCORDION.CONVERSATION_ACTIONS')
++                  "
++                  :is-open="isContactSidebarItemOpen('is_conv_actions_open')"
++                  @toggle="
++                    value => toggleSidebarUIState('is_conv_actions_open', value)
++                  "
++                >
++                  <ConversationAction
++                    :conversation-id="conversationId"
++                    :inbox-id="inboxId"
++                  />
++                </AccordionItem>
++              </div>
++              <div
++                v-else-if="element.name === 'conversation_participants'"
++                class="conversation--actions"
++              >
++                <AccordionItem
++                  :title="$t('CONVERSATION_PARTICIPANTS.SIDEBAR_TITLE')"
++                  :is-open="
++                    isContactSidebarItemOpen('is_conv_participants_open')
++                  "
++                  @toggle="
++                    value =>
++                      toggleSidebarUIState('is_conv_participants_open', value)
++                  "
++                >
++                  <ConversationParticipant
++                    :conversation-id="conversationId"
++                    :inbox-id="inboxId"
++                  />
++                </AccordionItem>
++              </div>
++              <div v-else-if="element.name === 'conversation_info'">
++                <AccordionItem
++                  :title="
++                    $t('CONVERSATION_SIDEBAR.ACCORDION.CONVERSATION_INFO')
++                  "
++                  :is-open="isContactSidebarItemOpen('is_conv_details_open')"
++                  compact
++                  @toggle="
++                    value => toggleSidebarUIState('is_conv_details_open', value)
++                  "
++                >
++                  <ConversationInfo
++                    :conversation-attributes="conversationAdditionalAttributes"
++                    :contact-attributes="contactAdditionalAttributes"
++                  />
++                </AccordionItem>
++              </div>
++              <div v-else-if="element.name === 'contact_attributes'">
++                <AccordionItem
++                  :title="
++                    $t('CONVERSATION_SIDEBAR.ACCORDION.CONTACT_ATTRIBUTES')
++                  "
++                  :is-open="
++                    isContactSidebarItemOpen('is_contact_attributes_open')
++                  "
++                  compact
++                  @toggle="
++                    value =>
++                      toggleSidebarUIState('is_contact_attributes_open', value)
++                  "
++                >
++                  <CustomAttributes
++                    attribute-type="contact_attribute"
++                    attribute-from="conversation_contact_panel"
++                    :contact-id="contact.id"
++                  />
++                </AccordionItem>
++              </div>
++              <div
++                v-else-if="
++                  element.name === 'previous_conversation' &&
++                  !isListScopedToContact
++                "
++              >
++                <AccordionItem
++                  v-if="contact.id"
++                  :title="
++                    $t('CONVERSATION_SIDEBAR.ACCORDION.PREVIOUS_CONVERSATION')
++                  "
++                  :is-open="isContactSidebarItemOpen('is_previous_conv_open')"
++                  compact
++                  @toggle="
++                    value =>
++                      toggleSidebarUIState('is_previous_conv_open', value)
++                  "
++                >
++                  <ContactConversations
++                    :contact-id="contact.id"
++                    :conversation-id="conversationId"
++                  />
++                </AccordionItem>
++              </div>
++              <woot-feature-toggle
++                v-else-if="element.name === 'macros'"
++                feature-key="macros"
++              >
++                <AccordionItem
++                  :title="$t('CONVERSATION_SIDEBAR.ACCORDION.MACROS')"
++                  :is-open="isContactSidebarItemOpen('is_macro_open')"
++                  compact
++                  @toggle="
++                    value => toggleSidebarUIState('is_macro_open', value)
++                  "
++                >
++                  <MacrosList :conversation-id="conversationId" />
++                </AccordionItem>
++              </woot-feature-toggle>
++              <div
++                v-else-if="
++                  element.name === 'linear_issues' &&
++                  isLinearFeatureEnabled &&
++                  isLinearClientIdConfigured
++                "
++              >
++                <AccordionItem
++                  :title="$t('CONVERSATION_SIDEBAR.ACCORDION.LINEAR_ISSUES')"
++                  :is-open="isContactSidebarItemOpen('is_linear_issues_open')"
++                  compact
++                  @toggle="
++                    value =>
++                      toggleSidebarUIState('is_linear_issues_open', value)
++                  "
++                >
++                  <LinearSetupCTA v-if="!isLinearConnected" />
++                  <LinearIssuesList v-else :conversation-id="conversationId" />
++                </AccordionItem>
++              </div>
++              <div
++                v-else-if="
++                  element.name === 'shopify_orders' && isShopifyFeatureEnabled
++                "
++              >
++                <AccordionItem
++                  :title="$t('CONVERSATION_SIDEBAR.ACCORDION.SHOPIFY_ORDERS')"
++                  :is-open="isContactSidebarItemOpen('is_shopify_orders_open')"
++                  compact
++                  @toggle="
++                    value =>
++                      toggleSidebarUIState('is_shopify_orders_open', value)
++                  "
++                >
++                  <ShopifyOrdersList :contact-id="contactId" />
++                </AccordionItem>
++              </div>
++              <div
++                v-else-if="
++                  element.name === 'stripe_customer' &&
++                  isCloudFeatureEnabled(FEATURE_FLAGS.STRIPE) &&
++                  stripeIntegration.enabled
++                "
++              >
++                <AccordionItem
++                  :title="$t('STRIPE_INTEGRATION.TITLE')"
++                  :is-open="isContactSidebarItemOpen('is_stripe_customer_open')"
++                  compact
++                  @toggle="
++                    value =>
++                      toggleSidebarUIState('is_stripe_customer_open', value)
++                  "
++                >
++                  <StripeCustomer
++                    v-if="isContactSidebarItemOpen('is_stripe_customer_open')"
++                    :conversation-id="conversationId"
++                    :contact-email="contact.email"
++                  />
++                </AccordionItem>
++              </div>
++              <div v-else-if="element.name === 'contact_notes'">
++                <AccordionItem
++                  :title="$t('CONVERSATION_SIDEBAR.ACCORDION.CONTACT_NOTES')"
++                  :is-open="isContactSidebarItemOpen('is_contact_notes_open')"
++                  compact
++                  @toggle="
++                    value =>
++                      toggleSidebarUIState('is_contact_notes_open', value)
++                  "
++                >
++                  <ContactNotes :contact-id="contactId" />
++                </AccordionItem>
++              </div>
++              <div v-else-if="element.name === 'shared_files'">
++                <AccordionItem
++                  :title="$t('CONVERSATION_SIDEBAR.ACCORDION.SHARED_FILES')"
++                  :is-open="isContactSidebarItemOpen('is_shared_files_open')"
++                  compact
++                  @toggle="
++                    value => toggleSidebarUIState('is_shared_files_open', value)
++                  "
++                >
++                  <SharedFiles />
++                </AccordionItem>
++              </div>
++              <div
++                v-else-if="
++                  element.name !== 'inclamo_orders' &&
++                  extensionSection(element.name)
++                "
++              >
++                <AccordionItem
++                  :title="extensionSection(element.name).title()"
++                  :is-open="
++                    isContactSidebarItemOpen(
++                      extensionSection(element.name).openKey
++                    )
++                  "
++                  compact
++                  @toggle="
++                    value =>
++                      toggleSidebarUIState(
++                        extensionSection(element.name).openKey,
++                        value
++                      )
++                  "
++                >
++                  <component
++                    :is="extensionSection(element.name).component"
++                    :conversation-id="conversationId"
++                    :contact-id="contactId"
++                  />
++                </AccordionItem>
++              </div>
++            </template>
++          </Draggable>
++        </div>
++      </template>
++    </CustomerPane>
+   </div>
+ </template>
+ 
+diff --git a/app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue b/app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue
+--- a/app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue
++++ b/app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue
+@@ -1,17 +1,15 @@
+ <script>
+ import { mapGetters } from 'vuex';
+-import { t as inclamoT } from 'dashboard/inclamo/i18n';
+ import { FEATURE_FLAGS } from 'dashboard/featureFlags';
+ import { useAlert } from 'dashboard/composables';
+ import {
+   DuplicateContactException,
+   ExceptionWithMessage,
+ } from 'shared/helpers/CustomErrors';
+-import { useExactTimestamp } from 'shared/composables/useExactTimestamp';
+ import { useAdmin } from 'dashboard/composables/useAdmin';
+ import ContactInfoRow from './ContactInfoRow.vue';
++import CustomerProfile from 'dashboard/inclamo/workspace/CustomerProfile.vue';
+ import ViewAllConversations from './ViewAllConversations.vue';
+-import Avatar from 'next/avatar/Avatar.vue';
+ import SocialProfileLinks from 'dashboard/components-next/social-profiles/SocialProfileLinks.vue';
+ import EditContact from './EditContact.vue';
+ import ContactMergeModal from 'dashboard/modules/contact/ContactMergeModal.vue';
+@@ -19,21 +17,19 @@
+ import ComposeConversation from 'dashboard/components-next/NewConversation/ComposeConversation.vue';
+ import NextButton from 'dashboard/components-next/button/Button.vue';
+ import VoiceCallButton from 'dashboard/components-next/Contacts/VoiceCallButton.vue';
+-import InlineInput from 'dashboard/components-next/inline-input/InlineInput.vue';
+ 
+ export default {
+   components: {
+     NextButton,
+     ContactInfoRow,
++    CustomerProfile,
+     ViewAllConversations,
+     EditContact,
+-    Avatar,
+     ComposeConversation,
+     SocialProfileLinks,
+     ContactMergeModal,
+     ContactDeleteModal,
+     VoiceCallButton,
+-    InlineInput,
+   },
+   props: {
+     contact: {
+@@ -50,15 +46,11 @@
+     const { isAdmin } = useAdmin();
+     return {
+       isAdmin,
+-      inclamoT,
+-      exactTimestamp: useExactTimestamp(),
+     };
+   },
+   data() {
+     return {
+       showEditModal: false,
+-      isEditingName: false,
+-      editName: '',
+     };
+   },
+   computed: {
+@@ -148,24 +140,6 @@
+       } catch (error) {
+         return '';
+       }
+-    },
+-    startEditingName() {
+-      this.editName = this.contact.name || '';
+-      this.isEditingName = true;
+-      this.$nextTick(() => {
+-        this.$refs.nameInput?.focus();
+-      });
+-    },
+-    saveNameEdit() {
+-      if (!this.isEditingName) return;
+-      this.isEditingName = false;
+-      const trimmed = this.editName.trim();
+-      if (trimmed && trimmed !== this.contact.name) {
+-        this.updateContactField({ name: trimmed });
+-      }
+-    },
+-    cancelNameEdit() {
+-      this.isEditingName = false;
+     },
+     onFieldUpdate(field, value) {
+       this.updateContactField({ [field]: value });
+@@ -206,144 +180,17 @@
+ </script>
+ 
+ <template>
+-  <div class="inclamo-contact-profile relative items-center w-full p-4">
+-    <div class="flex flex-col w-full gap-2 text-left rtl:text-right">
+-      <div class="inclamo-contact-avatar flex flex-row justify-between">
+-        <Avatar
+-          rounded-full
+-          v-if="showAvatar"
+-          :src="contact.thumbnail"
+-          :name="contact.name"
+-          :status="contact.availability_status"
+-          :size="56"
+-          hide-offline-status
+-        />
+-      </div>
+-
+-      <div class="flex flex-col items-start gap-1.5 min-w-0 w-full">
+-        <div v-if="showAvatar" class="inclamo-contact-name flex items-center w-full min-w-0 gap-2">
+-          <div class="group/name flex items-center min-w-0 gap-2">
+-            <InlineInput
+-              v-if="isEditingName"
+-              ref="nameInput"
+-              v-model="editName"
+-              custom-input-class="!text-base !font-medium !w-auto max-w-full [field-sizing:content]"
+-              class="!w-fit min-w-0"
+-              @enter-press="saveNameEdit"
+-              @escape-press="cancelNameEdit"
+-              @blur="saveNameEdit"
+-            />
+-            <h3
+-              v-else
+-              class="flex-shrink max-w-full min-w-0 my-0 text-base capitalize break-words text-n-slate-12 cursor-pointer hover:text-n-slate-12/80"
+-              :title="$t('CONTACT_PANEL.CLICK_TO_EDIT')"
+-              @click="startEditingName"
+-            >
+-              {{ contact.name }}
+-            </h3>
+-            <NextButton
+-              ghost
+-              xs
+-              slate
+-              icon="i-lucide-pencil"
+-              :title="$t('CONTACT_PANEL.CLICK_TO_EDIT')"
+-              class="flex-shrink-0 -mx-1 opacity-0 transition-opacity"
+-              :class="
+-                isEditingName
+-                  ? 'invisible'
+-                  : 'group-hover/name:opacity-100 focus-visible:opacity-100'
+-              "
+-              @click="startEditingName"
+-            />
+-          </div>
+-          <div class="flex flex-row items-center gap-2">
+-            <span
+-              v-if="contact.created_at"
+-              v-tooltip.left="
+-                `${$t('CONTACT_PANEL.CREATED_AT_LABEL')} ${exactTimestamp(
+-                  contact.created_at
+-                )}`
+-              "
+-              class="i-lucide-info text-sm text-n-slate-10"
+-            />
+-            <a
+-              :href="contactProfileLink"
+-              target="_blank"
+-              rel="noopener nofollow noreferrer"
+-              class="leading-3"
+-            >
+-              <span class="i-lucide-external-link text-sm text-n-slate-10" />
+-            </a>
+-          </div>
+-        </div>
+-
+-        <p v-if="contact.created_at && showAvatar" class="inclamo-customer-since">{{ inclamoT('WORKSPACE.CUSTOMER_SINCE', { date: new Intl.DateTimeFormat($i18n.locale, { month: 'long', year: 'numeric' }).format(new Date(contact.created_at * 1000)) }) }}</p>
+-        <p v-if="additionalAttributes.description" class="break-words mb-0.5">
+-          {{ additionalAttributes.description }}
+-        </p>
+-        <div class="flex flex-col items-start w-full gap-2">
+-          <ContactInfoRow
+-            :href="contact.email ? `mailto:${contact.email}` : ''"
+-            :value="contact.email"
+-            icon="mail"
+-            emoji="✉️"
+-            :title="$t('CONTACT_PANEL.EMAIL_ADDRESS')"
+-            show-copy
+-            editable
+-            @update="value => onFieldUpdate('email', value)"
+-          />
+-          <ContactInfoRow
+-            :href="contact.phone_number ? `tel:${contact.phone_number}` : ''"
+-            :value="contact.phone_number"
+-            icon="call"
+-            emoji="📞"
+-            :title="$t('CONTACT_PANEL.PHONE_NUMBER')"
+-            show-copy
+-            editable
+-            @update="value => onFieldUpdate('phone_number', value)"
+-          />
+-          <ContactInfoRow
+-            v-if="formattedWhatsappUsername"
+-            :value="formattedWhatsappUsername"
+-            icon="brand-whatsapp"
+-            emoji="💬"
+-            :title="$t('CONTACT_PANEL.WHATSAPP_USERNAME')"
+-            show-copy
+-          />
+-          <ContactInfoRow
+-            v-if="contact.identifier"
+-            :value="contact.identifier"
+-            icon="contact-identify"
+-            emoji="🪪"
+-            :title="$t('CONTACT_PANEL.IDENTIFIER')"
+-          />
+-          <ContactInfoRow
+-            :href="companyLink"
+-            :value="additionalAttributes.company_name"
+-            icon="building-bank"
+-            emoji="🏢"
+-            :title="$t('CONTACT_PANEL.COMPANY')"
+-            :editable="!hasCompaniesFeature"
+-            @update="
+-              value =>
+-                updateContactField({
+-                  additional_attributes: {
+-                    ...additionalAttributes,
+-                    company_name: value,
+-                  },
+-                })
+-            "
+-          />
+-          <ContactInfoRow
+-            v-if="location || additionalAttributes.location"
+-            :value="location || additionalAttributes.location"
+-            icon="map"
+-            emoji="🌍"
+-            :title="$t('CONTACT_PANEL.LOCATION')"
+-          />
+-          <SocialProfileLinks :profiles="socialProfiles" class="my-2" />
+-        </div>
+-      </div>
++  <CustomerProfile
++    :contact="contact"
++    :show-avatar="showAvatar"
++    :profile-link="contactProfileLink"
++    :location="
++      [additionalAttributes.city, additionalAttributes.country]
++        .filter(Boolean)
++        .join(', ') || additionalAttributes.location
++    "
++  >
++    <template #actions>
+       <div class="flex items-center w-full mt-0.5 gap-2">
+         <ComposeConversation :contact-id="String(contact.id)">
+           <template #trigger>
+@@ -369,6 +216,7 @@
+         />
+         <NextButton
+           v-tooltip.top-end="$t('EDIT_CONTACT.BUTTON_LABEL')"
++          :aria-label="$t('EDIT_CONTACT.BUTTON_LABEL')"
+           icon="i-lucide-pencil"
+           slate
+           faded
+@@ -405,11 +253,75 @@
+           </template>
+         </ContactDeleteModal>
+       </div>
+-      <EditContact
+-        :show="showEditModal"
+-        :contact="contact"
+-        @cancel="toggleEditModal"
+-      />
+-    </div>
+-  </div>
++    </template>
++    <template #fields>
++      <div class="flex flex-col items-start w-full gap-2">
++        <ContactInfoRow
++          :href="contact.email ? `mailto:${contact.email}` : ''"
++          :value="contact.email"
++          icon="mail"
++          emoji="✉️"
++          :title="$t('CONTACT_PANEL.EMAIL_ADDRESS')"
++          show-copy
++          editable
++          @update="value => onFieldUpdate('email', value)"
++        />
++        <ContactInfoRow
++          :href="contact.phone_number ? `tel:${contact.phone_number}` : ''"
++          :value="contact.phone_number"
++          icon="call"
++          emoji="📞"
++          :title="$t('CONTACT_PANEL.PHONE_NUMBER')"
++          show-copy
++          editable
++          @update="value => onFieldUpdate('phone_number', value)"
++        />
++        <ContactInfoRow
++          v-if="formattedWhatsappUsername"
++          :value="formattedWhatsappUsername"
++          icon="brand-whatsapp"
++          emoji="💬"
++          :title="$t('CONTACT_PANEL.WHATSAPP_USERNAME')"
++          show-copy
++        />
++        <ContactInfoRow
++          v-if="contact.identifier"
++          :value="contact.identifier"
++          icon="contact-identify"
++          emoji="🪪"
++          :title="$t('CONTACT_PANEL.IDENTIFIER')"
++        />
++        <ContactInfoRow
++          :href="companyLink"
++          :value="additionalAttributes.company_name"
++          icon="building-bank"
++          emoji="🏢"
++          :title="$t('CONTACT_PANEL.COMPANY')"
++          :editable="!hasCompaniesFeature"
++          @update="
++            value =>
++              updateContactField({
++                additional_attributes: {
++                  ...additionalAttributes,
++                  company_name: value,
++                },
++              })
++          "
++        />
++        <ContactInfoRow
++          v-if="location || additionalAttributes.location"
++          :value="location || additionalAttributes.location"
++          icon="map"
++          emoji="🌍"
++          :title="$t('CONTACT_PANEL.LOCATION')"
++        />
++        <SocialProfileLinks :profiles="socialProfiles" class="my-2" />
++      </div>
++    </template>
++  </CustomerProfile>
++  <EditContact
++    :show="showEditModal"
++    :contact="contact"
++    @cancel="toggleEditModal"
++  />
+ </template>
+diff --git a/app/javascript/dashboard/components/widgets/WootWriter/ReplyTopPanel.vue b/app/javascript/dashboard/components/widgets/WootWriter/ReplyTopPanel.vue
+--- a/app/javascript/dashboard/components/widgets/WootWriter/ReplyTopPanel.vue
++++ b/app/javascript/dashboard/components/widgets/WootWriter/ReplyTopPanel.vue
+@@ -1,5 +1,6 @@
+ <script>
+ import { ref } from 'vue';
++import ComposerRecipient from 'dashboard/inclamo/workspace/ComposerRecipient.vue';
+ import { useKeyboardEvents } from 'dashboard/composables/useKeyboardEvents';
+ import { useCaptain } from 'dashboard/composables/useCaptain';
+ import { useTrack } from 'dashboard/composables';
+@@ -15,6 +16,7 @@
+   components: {
+     NextButton,
+     EditorModeToggle,
++    ComposerRecipient,
+     CopilotMenuBar,
+   },
+   directives: {
+@@ -160,7 +162,8 @@
+       :is-reply-restricted="isReplyRestricted"
+       @toggle-mode="handleModeToggle"
+     />
+-    <div class="flex items-center mx-4 my-0">
++    <ComposerRecipient v-if="mode === REPLY_EDITOR_MODES.REPLY" />
++    <div v-if="isMessageLengthReachingThreshold" class="flex items-center my-0">
+       <div v-if="isMessageLengthReachingThreshold" class="text-xs">
+         <span :class="charLengthClass">
+           {{ characterLengthWarning }}
+diff --git a/app/javascript/dashboard/components-next/sidebar/SidebarProfileMenu.vue b/app/javascript/dashboard/components-next/sidebar/SidebarProfileMenu.vue
+--- a/app/javascript/dashboard/components-next/sidebar/SidebarProfileMenu.vue
++++ b/app/javascript/dashboard/components-next/sidebar/SidebarProfileMenu.vue
+@@ -155,7 +155,11 @@
+             {{ currentUser.available_name }}
+           </div>
+           <div class="text-xs truncate text-n-slate-11">
+-            {{ currentUser.email }}
++            {{
++              $t(
++                `PROFILE_SETTINGS.FORM.AVAILABILITY.STATUS.${currentUserAvailability.toUpperCase()}`
++              )
++            }}
+           </div>
+         </div>
+       </button>
+diff --git a/app/javascript/dashboard/components/widgets/conversation/specs/ConversationCard.spec.js b/app/javascript/dashboard/components/widgets/conversation/specs/ConversationCard.spec.js
+--- a/app/javascript/dashboard/components/widgets/conversation/specs/ConversationCard.spec.js
++++ b/app/javascript/dashboard/components/widgets/conversation/specs/ConversationCard.spec.js
+@@ -27,6 +27,7 @@
+     global: {
+       stubs: {
+         'fluent-icon': true,
++        ConversationRow: false,
+       },
+     },
+   });
+diff --git a/app/javascript/dashboard/components/ChatListHeader.vue b/app/javascript/dashboard/components/ChatListHeader.vue
+--- a/app/javascript/dashboard/components/ChatListHeader.vue
++++ b/app/javascript/dashboard/components/ChatListHeader.vue
+@@ -6,7 +6,6 @@
+ import { formatNumber } from '@chatwoot/utils';
+ import wootConstants from 'dashboard/constants/globals';
+ 
+-import ConversationBasicFilter from './widgets/conversation/ConversationBasicFilter.vue';
+ import SwitchLayout from 'dashboard/routes/dashboard/conversation/search/SwitchLayout.vue';
+ import NextButton from 'dashboard/components-next/button/Button.vue';
+ 
+@@ -15,7 +14,6 @@
+   contactFilter: { type: Object, default: null },
+   hasAppliedFilters: { type: Boolean, required: true },
+   hasActiveFolders: { type: Boolean, required: true },
+-  activeStatus: { type: String, required: true },
+   isOnExpandedLayout: { type: Boolean, required: true },
+   conversationStats: { type: Object, required: true },
+   isListLoading: { type: Boolean, required: true },
+@@ -25,16 +23,11 @@
+   'addFolders',
+   'deleteFolders',
+   'resetFilters',
+-  'basicFilterChange',
+   'filtersModal',
+ ]);
+ 
+ const { uiSettings, updateUISettings } = useUISettings();
+ const { t } = useI18n();
+-
+-const onBasicFilterChange = (value, type) => {
+-  emit('basicFilterChange', value, type);
+-};
+ 
+ const hasAppliedFiltersOrActiveFolders = computed(() => {
+   return props.hasAppliedFilters || props.hasActiveFolders;
+@@ -54,7 +47,11 @@
+ );
+ 
+ const title = computed(
+-  () => (isContactScoped.value && props.contactFilter.name) || (props.pageTitle === t('CHAT_LIST.TAB_HEADING') ? inclamoT('WORKSPACE.INBOX') : props.pageTitle)
++  () =>
++    (isContactScoped.value && props.contactFilter.name) ||
++    (props.pageTitle === t('CHAT_LIST.TAB_HEADING')
++      ? inclamoT('WORKSPACE.INBOX')
++      : props.pageTitle)
+ );
+ 
+ const toggleConversationLayout = () => {
+@@ -96,15 +93,12 @@
+         {{ title }}
+       </h1>
+       <span
+-        v-if="
+-          allCount > 0 && !isListLoading
+-        "
++        v-if="allCount > 0 && !isListLoading"
+         class="px-2 py-1 my-0.5 mx-1 rounded-md capitalize bg-n-slate-3 text-xxs text-n-slate-12 shrink-0"
+         :title="allCount"
+       >
+         {{ formattedAllCount }}
+       </span>
+-
+     </div>
+     <div class="flex items-center gap-1">
+       <template v-if="hasAppliedFilters && !hasActiveFolders">
+@@ -167,12 +161,6 @@
+           :class="{ 'ltr:right-0 rtl:left-0': isOnExpandedLayout }"
+         />
+       </div>
+-      <ConversationBasicFilter
+-        v-if="!isContactScoped"
+-        :is-on-expanded-layout="isOnExpandedLayout"
+-        :show-status-filter="!hasAppliedFiltersOrActiveFolders"
+-        @change-filter="onBasicFilterChange"
+-      />
+       <SwitchLayout
+         :is-on-expanded-layout="isOnExpandedLayout"
+         @toggle="toggleConversationLayout"
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ConversationBasicFilter.vue b/app/javascript/dashboard/components/widgets/conversation/ConversationBasicFilter.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/ConversationBasicFilter.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ConversationBasicFilter.vue
+@@ -8,6 +8,7 @@
+ import wootConstants from 'dashboard/constants/globals';
+ import SelectMenu from 'dashboard/components-next/selectmenu/SelectMenu.vue';
+ import NextButton from 'dashboard/components-next/button/Button.vue';
++import { t as inclamoT } from 'dashboard/inclamo/i18n';
+ 
+ defineProps({
+   isOnExpandedLayout: {
+@@ -146,7 +147,13 @@
+   <div class="relative flex">
+     <NextButton
+       v-tooltip.right="$t('CHAT_LIST.SORT_TOOLTIP_LABEL')"
+-      icon="i-lucide-arrow-up-down"
++      class="reference-sort-control"
++      :label="
++        currentSortBy === 'last_activity_at_desc'
++          ? inclamoT('WORKSPACE.NEWEST')
++          : activeChatSortLabel
++      "
++      icon="i-lucide-arrow-down-wide-narrow"
+       slate
+       faded
+       xs
+@@ -155,11 +162,7 @@
+     <div
+       v-if="showActionsDropdown"
+       v-on-click-outside="() => toggleDropdown()"
+-      class="mt-1 bg-n-alpha-3 backdrop-blur-[100px] border border-n-weak w-72 rounded-xl p-4 absolute z-40 top-full"
+-      :class="{
+-        'ltr:left-0 rtl:right-0': !isOnExpandedLayout,
+-        'ltr:right-0 rtl:left-0': isOnExpandedLayout,
+-      }"
++      class="mt-1 bg-n-alpha-3 backdrop-blur-[100px] border border-n-weak w-72 rounded-xl p-4 absolute z-40 top-full end-0"
+     >
+       <div
+         v-if="showStatusFilter"

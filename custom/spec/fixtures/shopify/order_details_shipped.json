@@ -6,7 +6,7 @@
     "order": {
       "id": "gid://shopify/Order/18985501327518",
       "legacyResourceId": "18985501327518",
-      "statusPageUrl": "https://shop.example.com/orders/fixture-order/status",
+      "statusPageUrl": "https://orders.example.test/orders/18985501327518",
       "name": "#1002",
       "createdAt": "2026-11-05T15:37:14Z",
       "cancelledAt": null,

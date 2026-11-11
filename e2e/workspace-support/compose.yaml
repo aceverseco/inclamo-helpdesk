@@ -1,0 +1,115 @@
+# All application traffic is confined to this synthetic internal network.
+x-env: &environment
+  RAILS_ENV: production
+  NODE_ENV: production
+  RAILS_SERVE_STATIC_FILES: 'true'
+  SECRET_KEY_BASE: support-fixture-only-000000000000000000000000000000000000000000000000
+  ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: support-only-primary-key-000000000
+  ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: support-only-deterministic-0000000
+  ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: support-only-salt-00000000000000000
+  POSTGRES_HOST: postgres
+  POSTGRES_USERNAME: postgres
+  POSTGRES_PASSWORD: support-fixture-only
+  ENABLE_TELEMETRY: 'false'
+  ENABLE_ACCOUNT_SIGNUP: 'false'
+  ENABLE_RACK_ATTACK: 'false'
+  INCLAMO_E2E: '1'
+  INCLAMO_SHOPIFY_BASE_URL: http://shopify-fixture:8080
+  INCLAMO_SUPPORT_TEST_NETWORK: 'true'
+  INCLAMO_SUPPORT_ENDPOINT: http://support-proxy:8080/inclamo/support/v1
+  SMTP_ADDRESS: mail
+  SMTP_PORT: 1025
+  SMTP_ENABLE_STARTTLS_AUTO: 'false'
+  SMTP_OPENSSL_VERIFY_MODE: none
+  MAILER_SENDER_EMAIL: support@example.test
+  RAILS_MAX_THREADS: 3
+  SIDEKIQ_CONCURRENCY: 2
+x-app: &app
+  image: ${HELPDESK_IMAGE:?Set the image to test}
+  depends_on:
+    - postgres
+    - redis
+    - mail
+    - shopify-fixture
+    - support-proxy
+x-client: &client
+  <<: *app
+  environment: &client-env
+    <<: *environment
+    POSTGRES_DATABASE: support_client
+    REDIS_URL: redis://redis:6379/0
+    FRONTEND_URL: http://client:3000
+  volumes:
+    - client-storage:/app/storage
+x-hosted: &hosted
+  <<: *app
+  environment: &hosted-env
+    <<: *environment
+    POSTGRES_DATABASE: support_hosted
+    REDIS_URL: redis://redis:6379/1
+    FRONTEND_URL: http://hosted:3000
+  volumes:
+    - hosted-storage:/app/storage
+x-central: &central
+  <<: *app
+  environment: &central-env
+    <<: *environment
+    POSTGRES_DATABASE: support_central
+    REDIS_URL: redis://redis:6379/2
+    FRONTEND_URL: http://central:3000
+    INCLAMO_SUPPORT_CENTRAL: 'true'
+    INCLAMO_SUPPORT_ACCOUNT_ID: '1'
+    INCLAMO_SUPPORT_INBOX_ID: '1'
+  volumes:
+    - central-storage:/app/storage
+services:
+  client:
+    <<: *client
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
+    ports: ['127.0.0.1:3295:3000']
+  client-worker:
+    <<: *client
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+  hosted:
+    <<: *hosted
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
+  hosted-worker:
+    <<: *hosted
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+  central:
+    <<: *central
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
+  central-worker:
+    <<: *central
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: support-fixture-only
+    volumes: ['postgres:/var/lib/postgresql/data']
+  redis:
+    image: redis:alpine
+  mail:
+    image: node:24-alpine
+    command: node /fixture/mail.mjs
+    volumes: ['.:/fixture:ro']
+  support-proxy:
+    image: node:24-alpine
+    command: node /fixture/proxy.mjs
+    volumes: ['.:/fixture:ro']
+  shopify-fixture:
+    image: node:24-alpine
+    command: node /repo/e2e/theme/shopify.mjs
+    volumes: ['../..:/repo:ro']
+networks:
+  default:
+    internal: true
+volumes:
+  postgres:
+  client-storage:
+  hosted-storage:
+  central-storage:

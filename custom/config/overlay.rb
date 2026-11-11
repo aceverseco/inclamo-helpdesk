@@ -33,6 +33,12 @@ if overlay_lib.exist?
   loader.ignore(overlay_lib.join('tasks').to_s)
 end
 
+# Middleware lives for the process lifetime, outside the reloadable loader.
+body_limit = overlay_lib.join('inclamo_support_body_limit.rb')
+loader.ignore(body_limit.to_s)
+require body_limit
+Rails.application.config.middleware.insert_before(0, InclamoSupportBodyLimit)
+
 # Routes: drawn before Chatwoot's own on every (re)load of the route set.
 overlay_routes = overlay_root.join('config/routes.rb')
 if overlay_routes.exist?
@@ -47,10 +53,13 @@ end
 # after every reload of the code.
 Rails.application.config.to_prepare do
   AutomationRuleListener.prepend(Inclamo::StoreFactsBeforeRules)
+  Message.include(Inclamo::Support::NativeEvents)
+  Conversation.include(Inclamo::Support::NativeEvents)
 end
 
 # Credentials of a store connection never reach the request log.
 Rails.application.config.filter_parameters |= [:client_secret, :access_token]
+Rails.application.config.filter_parameters |= [:private_key, :signature, :verification_digest, :code, :bytes]
 
 # Locales of the overlay's backend messages.
 I18n.load_path += Dir[overlay_root.join('config/locales/**/*.yml').to_s]

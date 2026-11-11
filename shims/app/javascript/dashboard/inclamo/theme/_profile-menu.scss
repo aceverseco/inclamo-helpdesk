@@ -1,0 +1,60 @@
+body.inclamo-app-theme {
+  .inclamo-profile-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-width: 0;
+    padding: 0.375rem;
+    border-radius: var(--inclamo-control-radius);
+    color: rgb(var(--ui-foreground));
+    text-align: start;
+    &:hover, &[data-state="open"] { background: rgb(var(--ui-accent)); }
+    &:focus-visible { outline: 2px solid rgb(var(--ui-ring)); outline-offset: 2px; }
+    &.collapsed { width: auto; }
+    > svg { color: rgb(var(--ui-muted-foreground)); }
+  }
+  .inclamo-profile-identity {
+    display: grid;
+    gap: 0.125rem;
+    flex: 1;
+    min-width: 0;
+    strong, small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    strong { font-size: 0.8125rem; font-weight: 600; line-height: 1.25rem; }
+    small { font-size: 0.6875rem; color: rgb(var(--ui-muted-foreground)); line-height: 1rem; }
+  }
+  .inclamo-profile-menu, .inclamo-profile-status-menu {
+    border-color: rgb(var(--ui-border));
+    border-radius: var(--inclamo-panel-radius);
+    max-width: calc(100vw - 1rem);
+    max-height: var(--reka-dropdown-menu-content-available-height);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    [role^="menuitem"] {
+      min-height: 2.25rem;
+      font-size: 0.8125rem;
+      line-height: 1.25rem;
+      border-radius: var(--inclamo-control-radius);
+    }
+    [role="menuitemradio"], [role="menuitemcheckbox"] {
+      padding-inline: 2rem 0.5rem;
+      > span:first-child { left: auto; right: auto; inset-inline-start: 0.5rem; }
+    }
+  }
+  .inclamo-profile-menu { width: 16.5rem; padding: 0.375rem; }
+  .inclamo-profile-action { width: 100%; gap: 0.625rem; text-align: start; }
+  .inclamo-profile-status {
+    gap: 0.5rem;
+    > svg { margin-left: 0; margin-inline-start: 0; flex-shrink: 0; }
+    &[data-state="open"] { background: rgb(var(--ui-accent)); }
+  }
+  .inclamo-profile-menu[dir="rtl"] .inclamo-profile-status > svg { transform: rotate(180deg); }
+  .inclamo-profile-current-status {
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-inline-start: auto;
+    border-radius: 100%;
+    flex-shrink: 0;
+  }
+  .inclamo-profile-status-menu { min-width: 9rem; }
+}

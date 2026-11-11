@@ -1,4 +1,4 @@
-// Scenarios of openspec capability `store-data-rules`: what the store knows
+// Scenarios of behavior contract `store-data-rules`: what the store knows
 // about the customer as conditions of Chatwoot's automation rules, and the
 // preset rules. Each describe is a requirement, each test one of its scenarios.
 import { test, expect } from '@playwright/test';

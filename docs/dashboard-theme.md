@@ -6,8 +6,6 @@ The account workspace uses one Twenty-inspired theme with Chatwoot's existing li
 
 ## Implementation source
 
-Work began from helpdesk commit `2052c2718a777dcc1748cf4462ca9b2c53198640`, preserving all 285 tracked/nonignored working files, including the existing uncommitted feature work. The isolated snapshot is commit `7197974` on `feat/twenty-inspired-dashboard`. The original working tree is not reset by assembly.
-
 Chatwoot CE is pinned to **v4.19.1**, commit `caab07a8f00032d5205b5a5d7e2eb0ba2f3d2d82`. Paired local production builds use Node **26.7.0**, pnpm **10.2.0** and Vite **6.4.2**, with the same lockfile. The ordinary product Docker build uses the upstream-pinned Node **24.22.1** and Ruby **3.4.4**. These are separate records: the asset comparison uses the identical local toolchain for both builds; installation acceptance uses the usual image.
 
 ## Frozen visual reference
@@ -74,13 +72,13 @@ The order action buttons reuse the existing native Button with slate/outline/xs 
 
 `e2e/theme/run.sh` runs the assembled product against an isolated fixture-only Shopify service. The Docker network is internal: server and browser cannot reach a live store. Credentials are disposable examples. The normal live-store suite excludes this file and retains its existing screenshot/trace restrictions.
 
-The theme configuration pins Chromium through Playwright **1.56.0** and its matching Noble image. It covers all twelve `helpdesk-visual-theme` scenarios. Screenshots use synthetic identities, 1440x900 light/dark workspace, dialog and settings views, plus 1024x768, 390x844 and RTL checks. Newly recorded snapshots must be inspected against the table above before being accepted. The [acceptance record](../openspec/changes/twenty-inspired-dashboard/verification.md) contains before/after images and measurements. Visual review is required alongside snapshot regression checks.
+The theme configuration pins Chromium through Playwright **1.56.0** and its matching Noble image. It covers all twelve `helpdesk-visual-theme` scenarios. Screenshots use synthetic identities, 1440x900 light/dark workspace, dialog and settings views, plus 1024x768, 390x844 and RTL checks. Newly recorded snapshots must be inspected against the table above before being accepted. Visual review is required alongside snapshot regression checks.
 
 The narrow-screen checks use the native contact drawer: inspect the customer, close it, then compose a reply. They verify the send button can receive a click. Pane widths, the drawer breakpoint, message bubbles, status colors, icons, shadows and the native sidebar layout intentionally remain Chatwoot's.
 
 For an upstream upgrade: assemble the new pinned CE source, resolve each documented presentation patch explicitly, run the overlay and affected native component tests, build the normal image, then run the synthetic theme suite. Review any snapshot differences and check that no font, runtime or remote theme dependency appeared. Compare production gzip assets including lazy dialog/settings chunks: CSS growth must stay within 20 KiB and JavaScript within 10 KiB. The acceptance experiment records five warm conversation and dialog openings; investigate a median increase over the larger of 10% or 50ms.
 
-Deployment uses the existing CE-plus-overlay image process. No database migration or preference reset is introduced. Rollback means redeploying the previously validated image. This change does not authorize a production deployment.
+Deployment uses the existing CE-plus-overlay image process. No database migration or preference reset is introduced. Rollback means redeploying the previously validated image.
 
 ## Future mobile clients
 

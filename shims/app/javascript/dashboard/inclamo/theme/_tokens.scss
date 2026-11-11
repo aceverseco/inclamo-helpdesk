@@ -1,6 +1,34 @@
+@font-face {
+  font-family: "Inclamo Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/brand-assets/inter-latin-variable.woff2") format("woff2");
+}
+
 // The approved Inclamo identity. Channel lists follow Chatwoot's token contract.
 @mixin inclamo-light {
-  --inclamo-font-family: Inter;
+  --inclamo-font-family: "Inclamo Inter", Inter, sans-serif;
+  --inclamo-white: 255 255 255;
+  --ui-primary: var(--inclamo-brand);
+  --ui-primary-foreground: var(--inclamo-action-text);
+  --ui-secondary: var(--inclamo-field);
+  --ui-secondary-foreground: var(--slate-12);
+  --ui-destructive: var(--ruby-9);
+  --ui-destructive-foreground: var(--inclamo-white);
+  --ui-accent: var(--inclamo-selection);
+  --ui-accent-foreground: var(--slate-12);
+  --ui-popover: var(--surface-1);
+  --ui-popover-foreground: var(--slate-12);
+  --ui-card: var(--surface-1);
+  --ui-card-foreground: var(--slate-12);
+  --ui-muted: var(--solid-2);
+  --ui-muted-foreground: var(--slate-10);
+  --ui-background: var(--background-color);
+  --ui-foreground: var(--slate-12);
+  --ui-border: var(--border-weak);
+  --ui-input: var(--border-strong);
+  --ui-ring: var(--inclamo-focus);
   --inclamo-control-radius: 0.375rem;
   --inclamo-panel-radius: 0.625rem;
   --inclamo-dialog-radius: 0.875rem;
@@ -14,6 +42,7 @@
   --inclamo-focus: 50 111 168;
   --inclamo-control-border: 107 137 166;
   --inclamo-field: 238 247 255;
+  --inclamo-field-alpha: 238, 247, 255, 1;
   --inclamo-selection: 225 241 255;
   --inclamo-accent-bg: 255 243 233;
   --inclamo-accent-text: 170 70 0;
@@ -75,6 +104,7 @@
   --inclamo-focus: 145 200 245;
   --inclamo-control-border: 119 147 179;
   --inclamo-field: 26 43 70;
+  --inclamo-field-alpha: 26, 43, 70, 1;
   --inclamo-selection: 32 58 88;
   --inclamo-accent-bg: 57 36 29;
   --inclamo-accent-text: 255 177 124;

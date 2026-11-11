@@ -1,0 +1,64 @@
+.inclamo-page-hidden {
+  display: none !important;
+}
+#cw-bubble-holder .inclamo-launcher-image {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+#cw-bubble-holder .woot-widget-bubble:not(.woot--close) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#cw-bubble-holder .woot-widget--expanded .inclamo-launcher-image {
+  margin: 0 8px 0 16px;
+}
+#cw-bubble-holder #woot-widget--expanded__text {
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#cw-bubble-holder button:focus-visible {
+  outline: 3px solid #111b3d;
+  outline-offset: 4px;
+}
+#cw-bubble-holder .woot-widget-bubble {
+  bottom: max(
+    env(safe-area-inset-bottom, 0px),
+    min(var(--inclamo-widget-y, 20px), calc(100dvh - 80px))
+  );
+  max-width: calc(
+    100vw - max(16px, min(var(--inclamo-widget-x, 20px), calc(100vw - 200px))) -
+      16px
+  );
+}
+#cw-bubble-holder .woot-elements--right {
+  right: max(
+    env(safe-area-inset-right, 0px),
+    min(var(--inclamo-widget-x, 20px), calc(100vw - 200px))
+  );
+}
+#cw-bubble-holder .woot-elements--left {
+  left: max(
+    env(safe-area-inset-left, 0px),
+    min(var(--inclamo-widget-x, 20px), calc(100vw - 200px))
+  );
+}
+@media (min-width: 668px) {
+  #cw-widget-holder.woot-elements--right {
+    right: min(var(--inclamo-widget-x, 20px), calc(100vw - 416px));
+  }
+  #cw-widget-holder.woot-elements--left {
+    left: min(var(--inclamo-widget-x, 20px), calc(100vw - 416px));
+  }
+  #cw-widget-holder {
+    bottom: calc(
+      min(var(--inclamo-widget-y, 20px), calc(100dvh - 350px)) + 84px
+    );
+    max-height: calc(100dvh - var(--inclamo-widget-y, 20px) - 100px) !important;
+  }
+}

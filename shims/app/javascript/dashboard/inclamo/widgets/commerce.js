@@ -1,0 +1,60 @@
+import { computed, reactive, ref, watch, onUnmounted } from 'vue';
+import InclamoAPI from '../api';
+import { notePanel, invalidateKnownOrder } from '../orderState';
+
+const entries = new Map();
+const currentContexts = new Map();
+const epoch = ref(0);
+const FRESHNESS_MS = 60000;
+export function commerceEntry(account, conversationId, contactId) {
+  const contextEpoch = epoch.value;
+  const key = `${account}:${conversationId}:${contactId ?? ''}`;
+  const conversationKey = `${account}:${conversationId}`;
+  if (currentContexts.get(conversationKey) !== key) {
+    currentContexts.set(conversationKey, key);
+    invalidateKnownOrder(conversationId, account);
+  }
+  if (!entries.has(key)) entries.set(key, reactive({
+    key, account, conversationId, contactId, contextEpoch, panel: null, loading: false, failed: false, updatedAt: 0, generation: 0, pending: null,
+  }));
+  // Bound memory; currently displayed entries stay referenced by their owners.
+  if (entries.size > 100) entries.delete(entries.keys().next().value);
+  return entries.get(key);
+}
+export function acceptPanel(entry, data) {
+  entry.panel = data;
+  entry.updatedAt = Date.now();
+  entry.failed = false;
+  if (entry.contextEpoch === epoch.value && currentContexts.get(`${entry.account}:${entry.conversationId}`) === entry.key) {
+    notePanel(entry.conversationId, data, entry.account);
+  }
+}
+export async function readCommerce(entry, force = false) {
+  if (entry.pending) return entry.pending;
+  if (!force && entry.panel && Date.now() - entry.updatedAt < FRESHNESS_MS) return entry.panel;
+  const generation = ++entry.generation;
+  entry.loading = entry.panel === null;
+  entry.failed = false;
+  // Capture the account URL before awaiting. An account switch cannot retarget it.
+  const request = InclamoAPI.getPanel(entry.conversationId, undefined, entry.account);
+  entry.pending = Promise.resolve(request).then(({ data }) => {
+    if (generation === entry.generation) acceptPanel(entry, data);
+    return data;
+  }).catch(() => { if (generation === entry.generation) entry.failed = true; }).finally(() => {
+    if (generation === entry.generation) { entry.loading = false; entry.pending = null; }
+  });
+  return entry.pending;
+}
+export function useCommerce(context) {
+  const entry = computed(() => {
+    const value = context();
+    return commerceEntry(InclamoAPI.url || '', value.conversationId, value.contactId);
+  });
+  watch(entry, current => { if (current.conversationId) readCommerce(current); }, { immediate: true });
+  const timer = setInterval(() => {
+    if (!document.hidden && entry.value.conversationId) readCommerce(entry.value);
+  }, FRESHNESS_MS);
+  onUnmounted(() => clearInterval(timer));
+  return { entry, panel: computed(() => entry.value.panel), load: () => readCommerce(entry.value, true) };
+}
+export function clearCommerce() { entries.clear(); currentContexts.clear(); epoch.value += 1; }

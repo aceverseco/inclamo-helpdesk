@@ -1,7 +1,9 @@
-import { mount } from '@vue/test-utils';
+import { mount, enableAutoUnmount } from '@vue/test-utils';
 import OrdersSection from '../components/OrdersSection.vue';
 import InclamoAPI from '../api';
+import { clearCommerce } from '../widgets/commerce';
 import { stubs, order, connection, agent, admin, allowedAgent, flush } from './helpers';
+enableAutoUnmount(afterEach);
 
 vi.mock('../api', () => ({
   default: {
@@ -31,6 +33,7 @@ const matched = (overrides = {}) => ({
 });
 
 const show = async data => {
+  clearCommerce();
   InclamoAPI.getPanel.mockResolvedValue({ data });
   const wrapper = mount(OrdersSection, { props: { conversationId: 7 }, global: { stubs } });
   await flush();
@@ -39,6 +42,7 @@ const show = async data => {
 const has = (wrapper, id) => wrapper.find(`[data-testid="${id}"]`).exists();
 
 describe('OrdersSection', () => {
+  beforeEach(() => clearCommerce());
   it('tells an agent that no store is connected, without a connect action', async () => {
     const wrapper = await show({ state: 'not_connected', viewer: agent, connection: { connected: false, encryption_configured: true } });
 
@@ -169,7 +173,7 @@ describe('OrdersSection', () => {
     const wrapper = await show(matched({ page: { has_more: true, cursor: 'next' } }));
 
     expect(wrapper.find('[data-testid="inclamo-customer-name"]').text()).toBe('Maya Example');
-    expect(wrapper.find('[data-testid="inclamo-customer-summary"]').text()).toContain('3 orders');
+    expect(wrapper.find('[data-testid="inclamo-customer-summary"]').findAll('strong').map(metric => metric.text())).toEqual(['3', '€120.00']);
     expect(has(wrapper, 'inclamo-order-#1001')).toBe(true);
     expect(has(wrapper, 'inclamo-order-#1002')).toBe(true);
 
@@ -177,7 +181,7 @@ describe('OrdersSection', () => {
     await wrapper.find('[data-testid="inclamo-orders-more"]').trigger('click');
     await flush();
 
-    expect(InclamoAPI.getPanel).toHaveBeenLastCalledWith(7, 'next');
+    expect(InclamoAPI.getPanel).toHaveBeenLastCalledWith(7, 'next', '');
     expect(has(wrapper, 'inclamo-order-#1000')).toBe(true);
     expect(has(wrapper, 'inclamo-order-#1001')).toBe(true);
     expect(has(wrapper, 'inclamo-orders-more')).toBe(false);

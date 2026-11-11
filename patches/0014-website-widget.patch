@@ -1,0 +1,357 @@
+diff --git a/app/views/widgets/show.html.erb b/app/views/widgets/show.html.erb
+--- a/app/views/widgets/show.html.erb
++++ b/app/views/widgets/show.html.erb
+@@ -6,14 +6,15 @@
+     <meta name="robots" content="noindex">
+     <script>
+       window.chatwootWebChannel = {
+-        avatarUrl: '<%= @web_widget.inbox.avatar_url %>',
++        avatarUrl: <%= raw ERB::Util.json_escape(@web_widget.inbox.avatar_url.to_json) %>,
+         hasAConnectedAgentBot: '<%= @web_widget.inbox.agent_bot&.name %>',
+         locale: '<%= @web_widget.account.locale %>',
+-        websiteName: '<%= @web_widget.inbox.name %>',
++        websiteName: <%= raw ERB::Util.json_escape(@web_widget.inbox.name.to_json) %>,
+         websiteToken: '<%= @web_widget.website_token %>',
+-        welcomeTagline: <%= @web_widget.welcome_tagline.to_json.html_safe %>,
+-        welcomeTitle: '<%= @web_widget.welcome_title %>',
++        welcomeTagline: <%= raw ERB::Util.json_escape(@web_widget.welcome_tagline.to_json) %>,
++        welcomeTitle: <%= raw ERB::Util.json_escape(@web_widget.welcome_title.to_json) %>,
+         widgetColor: '<%= @web_widget.widget_color %>',
++        inclamoWidget: <%= raw ERB::Util.json_escape(Inclamo::WebsiteWidget.for_public(@web_widget.inbox).to_json) %>,
+         portal: <%= @web_widget.inbox.portal.to_json.html_safe %>,
+         enabledFeatures: <%= @web_widget.selected_feature_flags.to_json.html_safe %>,
+         enabledLanguages: <%= available_locales_with_name.to_json.html_safe %>,
+diff --git a/app/javascript/sdk/IFrameHelper.js b/app/javascript/sdk/IFrameHelper.js
+--- a/app/javascript/sdk/IFrameHelper.js
++++ b/app/javascript/sdk/IFrameHelper.js
+@@ -1,4 +1,9 @@
+ import Cookies from 'js-cookie';
++import {
++  applySettings,
++  decorateLauncher,
++  updatePageVisibility,
++} from './inclamoWidget';
+ import {
+   addClasses,
+   loadCSS,
+@@ -153,11 +158,14 @@
+ 
+   events: {
+     loaded: message => {
++      applySettings(message.config.channelConfig);
++      updatePageVisibility();
+       updateAuthCookie(message.config.authToken, window.$chatwoot.baseDomain);
+       window.$chatwoot.hasLoaded = true;
+       const campaignsSnoozedTill = Cookies.get('cw_snooze_campaigns_till');
+       IFrameHelper.sendMessage('config-set', {
+         locale: window.$chatwoot.locale,
++        inclamoPageAllowed: window.$chatwoot.inclamoPageAllowed,
+         position: window.$chatwoot.position,
+         hideMessageBubble: window.$chatwoot.hideMessageBubble,
+         showPopoutButton: window.$chatwoot.showPopoutButton,
+@@ -176,6 +184,7 @@
+       IFrameHelper.onLoad({
+         widgetColor: message.config.channelConfig.widgetColor,
+       });
++      decorateLauncher();
+       IFrameHelper.toggleCloseButton();
+ 
+       if (window.$chatwoot.user) {
+@@ -224,6 +233,7 @@
+     toggleBubble: state => {
+       let bubbleState = {};
+       if (state === 'open') {
++        updatePageVisibility(window.location.href, true);
+         bubbleState.toggleValue = true;
+       } else if (state === 'close') {
+         bubbleState.toggleValue = false;
+@@ -244,13 +254,17 @@
+     },
+ 
+     onBubbleToggle: isOpen => {
++      if (!isOpen) updatePageVisibility();
+       IFrameHelper.sendMessage('toggle-open', { isOpen });
+       if (isOpen) {
+         IFrameHelper.pushEvent('webwidget.triggered');
+       }
+     },
+     onLocationChange: ({ referrerURL, referrerHost }) => {
++      const inclamoPageAllowed = updatePageVisibility(referrerURL);
++      if (!inclamoPageAllowed) onBubbleClick({ toggleValue: false });
+       IFrameHelper.sendMessage('change-url', {
++        inclamoPageAllowed,
+         referrerURL,
+         referrerHost,
+       });
+@@ -262,6 +276,7 @@
+     },
+ 
+     setUnreadMode: () => {
++      if (window.$chatwoot.inclamoPageAllowed === false) return;
+       addUnreadClass();
+       onBubbleClick({ toggleValue: true });
+     },
+diff --git a/app/javascript/widget/App.vue b/app/javascript/widget/App.vue
+--- a/app/javascript/widget/App.vue
++++ b/app/javascript/widget/App.vue
+@@ -4,6 +4,7 @@
+ import addHours from 'date-fns/addHours';
+ import { IFrameHelper, RNHelper } from 'widget/helpers/utils';
+ import configMixin from './mixins/configMixin';
++import campaignTimer from './helpers/campaignTimer';
+ import { getLocale } from './helpers/urlParamsHelper';
+ import { getLanguageDirection } from 'dashboard/components/widgets/conversation/advancedFilterItems/languages';
+ import { isEmptyObject } from 'widget/helpers/utils';
+@@ -39,6 +40,7 @@
+   data() {
+     return {
+       isMobile: false,
++      inclamoPageAllowed: true,
+       campaignsSnoozedTill: undefined,
+     };
+   },
+@@ -94,6 +96,7 @@
+     this.setLocale(locale);
+     this.setWidgetColor(widgetColor);
+     this.setWidgetColorVariable(widgetColor);
++    if (window.inclamoWidgetPreview) return;
+     setHeader(window.authToken);
+     if (this.isIFrame) {
+       this.registerListeners();
+@@ -209,6 +212,7 @@
+       });
+     },
+     setCampaignView() {
++      if (!this.inclamoPageAllowed) return;
+       const { messageCount, activeCampaign } = this;
+       const shouldSnoozeCampaign =
+         this.campaignsSnoozedTill && this.campaignsSnoozedTill > Date.now();
+@@ -224,6 +228,7 @@
+       }
+     },
+     setUnreadView() {
++      if (!this.inclamoPageAllowed) return;
+       const { unreadMessageCount } = this;
+       if (!this.showUnreadMessagesDialog || !this.isIFrame) return;
+ 
+@@ -275,6 +280,7 @@
+         }
+         const message = IFrameHelper.getMessage(e);
+         if (message.event === 'config-set') {
++          this.inclamoPageAllowed = message.inclamoPageAllowed !== false;
+           this.setLocale(message.locale);
+           this.setBubbleLabel();
+           this.fetchOldConversations().then(() => this.setUnreadView());
+@@ -285,6 +291,13 @@
+         } else if (message.event === 'widget-visible') {
+           this.scrollConversationToBottom();
+         } else if (message.event === 'change-url') {
++          this.inclamoPageAllowed = message.inclamoPageAllowed !== false;
++          if (!this.inclamoPageAllowed) {
++            campaignTimer.clearTimers();
++            this.resetCampaign();
++            if (this.isUnreadOrCampaignView) this.router.replace({ name: 'home' });
++            return;
++          }
+           const { referrerURL, referrerHost } = message;
+           this.initCampaigns({
+             currentURL: referrerURL,
+diff --git a/app/javascript/widget/views/Home.vue b/app/javascript/widget/views/Home.vue
+--- a/app/javascript/widget/views/Home.vue
++++ b/app/javascript/widget/views/Home.vue
+@@ -1,4 +1,5 @@
+ <script>
++import HomeActions from 'widget/inclamo/HomeActions.vue';
+ import TeamAvailability from 'widget/components/TeamAvailability.vue';
+ import { mapGetters } from 'vuex';
+ import { useRouter } from 'vue-router';
+@@ -8,6 +9,7 @@
+   name: 'Home',
+   components: {
+     ArticleContainer,
++    HomeActions,
+     TeamAvailability,
+   },
+   mixins: [configMixin],
+@@ -42,6 +44,7 @@
+       @start-conversation="startConversation"
+     />
+ 
++    <HomeActions />
+     <ArticleContainer />
+   </div>
+ </template>
+diff --git a/app/javascript/widget/components/PreChat/Form.vue b/app/javascript/widget/components/PreChat/Form.vue
+--- a/app/javascript/widget/components/PreChat/Form.vue
++++ b/app/javascript/widget/components/PreChat/Form.vue
+@@ -1,4 +1,5 @@
+ <script>
++import { takeStarter } from 'widget/inclamo/starters';
+ import CustomButton from 'shared/components/Button.vue';
+ import Spinner from 'shared/components/Spinner.vue';
+ import { mapGetters } from 'vuex';
+@@ -37,7 +38,7 @@
+       locale: this.$root.$i18n.locale,
+       hasErrorInPhoneInput: false,
+       message: '',
+-      formValues: {},
++      formValues: { message: takeStarter() },
+       labels: {
+         emailAddress: 'EMAIL_ADDRESS',
+         fullName: 'FULL_NAME',
+diff --git a/app/javascript/widget/store/modules/conversation/actions.js b/app/javascript/widget/store/modules/conversation/actions.js
+--- a/app/javascript/widget/store/modules/conversation/actions.js
++++ b/app/javascript/widget/store/modules/conversation/actions.js
+@@ -24,8 +24,9 @@
+       dispatch('conversationAttributes/getAttributes', {}, { root: true });
+       // Emit event to notify that conversation is created and show the chat screen
+       emitter.emit(ON_CONVERSATION_CREATED);
+-    } catch (error) {
+-      // Ignore error
++      return true;
++    } catch (error) {
++      return false;
+     } finally {
+       commit('setConversationUIFlag', { isCreating: false });
+     }
+@@ -34,7 +35,7 @@
+     const { content, replyTo } = params;
+     const message = createTemporaryMessage({ content, replyTo });
+     const { pendingCustomAttributes, pendingLabels } = conversationState;
+-    dispatch('sendMessageWithData', {
++    return dispatch('sendMessageWithData', {
+       message,
+       pendingCustomAttributes,
+       pendingLabels,
+@@ -65,12 +66,14 @@
+       // [VITE] Don't delete this manually, since `pushMessageToConversation` does the replacement for us anyway
+       // commit('deleteMessage', message.id);
+       commit('pushMessageToConversation', { ...data, status: 'sent' });
++      return true;
+     } catch (error) {
+       commit('pushMessageToConversation', { ...message, status: 'failed' });
+       commit('updateMessageMeta', {
+         id,
+         meta: { ...meta, error: '' },
+       });
++      return false;
+     }
+   },
+ 
+diff --git a/app/javascript/dashboard/routes/dashboard/settings/inbox/Settings.vue b/app/javascript/dashboard/routes/dashboard/settings/inbox/Settings.vue
+--- a/app/javascript/dashboard/routes/dashboard/settings/inbox/Settings.vue
++++ b/app/javascript/dashboard/routes/dashboard/settings/inbox/Settings.vue
+@@ -1070,6 +1070,8 @@
+               </template>
+             </SettingsFieldSection>
+ 
++            <router-link v-if="isAWebWidgetInbox" :to="`/app/accounts/${$route.params.accountId}/settings/website-widget?inbox=${inbox.id}`" class="inline-block my-4 text-n-blue-11 underline">Website widget →</router-link>
++
+             <SettingsAccordion
+               v-if="isAWebWidgetInbox"
+               :title="$t('INBOX_MGMT.WIDGET_FEATURES')"
+diff --git a/app/javascript/widget/views/PreChatForm.vue b/app/javascript/widget/views/PreChatForm.vue
+--- a/app/javascript/widget/views/PreChatForm.vue
++++ b/app/javascript/widget/views/PreChatForm.vue
+@@ -11,6 +11,9 @@
+     PreChatForm,
+   },
+   mixins: [configMixin],
++  data() {
++    return { hasDeliveryError: false };
++  },
+   setup() {
+     const router = useRouter();
+     return { router };
+@@ -32,7 +35,7 @@
+       // See issue: https://github.com/chatwoot/chatwoot/issues/10736
+     },
+ 
+-    onSubmit({
++    async onSubmit({
+       fullName,
+       emailAddress,
+       message,
+@@ -41,6 +44,7 @@
+       contactCustomAttributes,
+       conversationCustomAttributes,
+     }) {
++      this.hasDeliveryError = false;
+       // Contact custom attributes are sent within the same request that
+       // identifies the contact. A separate update call would race the contact
+       // merge on the server (matching email/phone) and write the values to
+@@ -61,14 +65,18 @@
+       } else {
+         this.clearConversations();
+         this.clearConversationAttributes();
+-        this.$store.dispatch('conversation/createConversation', {
+-          fullName: fullName,
+-          emailAddress: emailAddress,
+-          message: message,
+-          phoneNumber: phoneNumber,
+-          customAttributes: conversationCustomAttributes,
+-          contactCustomAttributes: contactCustomAttributes,
+-        });
++        const sent = await this.$store.dispatch(
++          'conversation/createConversation',
++          {
++            fullName: fullName,
++            emailAddress: emailAddress,
++            message: message,
++            phoneNumber: phoneNumber,
++            customAttributes: conversationCustomAttributes,
++            contactCustomAttributes: contactCustomAttributes,
++          }
++        );
++        this.hasDeliveryError = sent === false;
+       }
+     },
+   },
+@@ -76,7 +84,14 @@
+ </script>
+ 
+ <template>
+-  <div class="flex flex-1 overflow-auto">
++  <div class="flex flex-col flex-1 overflow-auto">
++    <p
++      v-if="hasDeliveryError"
++      role="alert"
++      class="px-6 pt-3 text-sm text-n-ruby-10"
++    >
++      {{ $t('COMPONENTS.MESSAGE_BUBBLE.ERROR_MESSAGE') }}
++    </p>
+     <PreChatForm :options="preChatFormOptions" @submit-pre-chat="onSubmit" />
+   </div>
+ </template>
+diff --git a/app/javascript/widget/router.js b/app/javascript/widget/router.js
+--- a/app/javascript/widget/router.js
++++ b/app/javascript/widget/router.js
+@@ -1,9 +1,15 @@
+-import { createRouter, createWebHashHistory } from 'vue-router';
++import {
++  createRouter,
++  createWebHashHistory,
++  createMemoryHistory,
++} from 'vue-router';
+ import ViewWithHeader from './components/layouts/ViewWithHeader.vue';
+ import store from './store';
+ 
+ const router = createRouter({
+-  history: createWebHashHistory(),
++  history: window.inclamoWidgetPreview
++    ? createMemoryHistory()
++    : createWebHashHistory(),
+   routes: [
+     {
+       path: '/unread-messages',
+diff --git a/app/javascript/widget/components/HeaderActions.vue b/app/javascript/widget/components/HeaderActions.vue
+--- a/app/javascript/widget/components/HeaderActions.vue
++++ b/app/javascript/widget/components/HeaderActions.vue
+@@ -102,6 +102,7 @@
+     </button>
+     <button
+       class="button transparent compact close-button"
++      :aria-label="$t('UNREAD_VIEW.CLOSE_MESSAGES_BUTTON')"
+       :class="{
+         'rn-close-button': isRNWebView,
+       }"

@@ -17,6 +17,11 @@ html.dark body.inclamo-app-theme,
   width: auto;
   height: 3.25rem;
 }
+.inclamo-auth-root .inclamo-auth-logo {
+  width: 6rem;
+  height: 6rem;
+  object-fit: contain;
+}
 .inclamo-auth-root button[type="submit"] {
   background: rgb(var(--inclamo-brand));
   color: rgb(var(--inclamo-action-text));

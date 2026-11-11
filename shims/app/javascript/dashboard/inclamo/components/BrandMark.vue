@@ -1,18 +1,19 @@
 <script setup>
-import { t } from "../i18n";
+import { t } from '../i18n';
 defineProps({ compact: Boolean });
 </script>
 
 <template>
   <div class="inclamo-brand-mark" :class="{ 'is-compact': compact }">
     <img
-      :src="'/brand-assets/inclamo-mark.svg'"
-      :alt="compact ? t('BRAND.NAME') : ''"
-      width="36"
-      height="36"
+      :src="
+        compact
+          ? '/brand-assets/inclamo-mark.svg'
+          : '/brand-assets/inclamo-logo-combined.jpg'
+      "
+      :alt="t('BRAND.NAME')"
+      :width="compact ? 36 : 64"
+      :height="compact ? 36 : 64"
     />
-    <span v-if="!compact"
-      >{{ t("BRAND.WORDMARK") }}<span class="inclamo-brand-dot">.</span></span
-    >
   </div>
 </template>
