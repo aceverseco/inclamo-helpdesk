@@ -6,12 +6,16 @@ without forking it.
 
 Status: **development build with integrated tests**. [Behavior contracts](docs/behavior/README.md)
 ship with the source. Validate real-model quality and external email delivery
-with the services configured for your installation.
+with the services configured for your installation. See [Shopify setup](docs/connect-shopify.md)
+and [workspace widgets and support](docs/workspace-widgets-and-support.md) for configuration.
 
 ## What it is
 
 - Chatwoot CE v4.19.1, assembled with our backend overlay, dashboard components
   and small versioned patches at the integration points.
+- An Inclamo-branded workspace: the conversation list, thread and customer pane,
+  personal workspace widgets, in-product support with screenshots and a
+  configurable website chat widget.
 - A Shopify order panel with address/item changes, cancellation, refunds,
   replacements, new orders, payment links, discounts, tags and notes.
 - Separate staff rights per operation, reviewed AI proposals and explicitly

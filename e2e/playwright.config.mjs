@@ -5,6 +5,8 @@ import { join } from 'node:path';
 // store. They change real data in that store, so they run one at a time.
 export default defineConfig({
   testDir: './tests',
+  // Synthetic theme snapshots have a separate installation and retention policy.
+  testIgnore: 'dashboard-theme.spec.mjs',
   fullyParallel: false,
   workers: 1,
   retries: 0,

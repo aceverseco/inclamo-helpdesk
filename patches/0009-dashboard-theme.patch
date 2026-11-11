@@ -1,0 +1,188 @@
+diff --git a/app/javascript/dashboard/App.vue b/app/javascript/dashboard/App.vue
+--- a/app/javascript/dashboard/App.vue
++++ b/app/javascript/dashboard/App.vue
+@@ -166,6 +166,7 @@
+ 
+ <style lang="scss">
+ @import './assets/scss/app';
++@import './inclamo/theme/dashboard';
+ 
+ .v-popper--theme-tooltip .v-popper__inner {
+   background: black !important;
+diff --git a/app/javascript/dashboard/routes/dashboard/Dashboard.vue b/app/javascript/dashboard/routes/dashboard/Dashboard.vue
+--- a/app/javascript/dashboard/routes/dashboard/Dashboard.vue
++++ b/app/javascript/dashboard/routes/dashboard/Dashboard.vue
+@@ -25,6 +25,7 @@
+ import CopilotContainer from 'dashboard/components/copilot/CopilotContainer.vue';
+ 
+ import MobileSidebarLauncher from 'dashboard/components-next/sidebar/MobileSidebarLauncher.vue';
++import { useDashboardTheme } from 'dashboard/inclamo/theme/useDashboardTheme';
+ import { useCallsStore } from 'dashboard/stores/calls';
+ 
+ export default {
+@@ -40,6 +41,7 @@
+     MobileSidebarLauncher,
+   },
+   setup() {
++    useDashboardTheme();
+     const upgradePageRef = ref(null);
+     const { uiSettings, updateUISettings } = useUISettings();
+     const { accountId } = useAccount();
+diff --git a/theme/colors.js b/theme/colors.js
+--- a/theme/colors.js
++++ b/theme/colors.js
+@@ -226,7 +226,7 @@
+     },
+ 
+     black: '#000000',
+-    brand: '#2781F6',
++    brand: 'rgb(var(--inclamo-brand, 39 129 246) / <alpha-value>)',
+     portal: 'var(--dynamic-portal-color)',
+     'portal-soft': 'var(--dynamic-portal-color-soft)',
+     'portal-faint': 'var(--dynamic-portal-color-faint)',
+diff --git a/tailwind.config.js b/tailwind.config.js
+--- a/tailwind.config.js
++++ b/tailwind.config.js
+@@ -9,7 +9,7 @@
+ } = require('@egoist/tailwindcss-icons');
+ 
+ const defaultSansFonts = [
+-  '-apple-system',
++  'var(--inclamo-font-family, -apple-system)',
+   'system-ui',
+   'BlinkMacSystemFont',
+   '"Segoe UI"',
+@@ -41,5 +41,10 @@ const tailwindConfig = {
+   theme: {
+     extend: {
++      textColor: {
++        n: {
++          brand: 'rgb(var(--inclamo-brand-text, 39 129 246) / <alpha-value>)',
++        },
++      },
+       fontFamily: {
+         sans: defaultSansFonts,
+         inter: ['Inter', ...defaultSansFonts],
+diff --git a/app/javascript/dashboard/components-next/button/Button.vue b/app/javascript/dashboard/components-next/button/Button.vue
+--- a/app/javascript/dashboard/components-next/button/Button.vue
++++ b/app/javascript/dashboard/components-next/button/Button.vue
+@@ -191,7 +191,7 @@
+     center: 'justify-center',
+     end: 'justify-end',
+   },
+-  base: 'inline-flex items-center min-w-0 gap-2 transition-all duration-100 ease-out border-0 rounded-lg outline-1 outline disabled:opacity-50',
++  base: 'inline-flex items-center min-w-0 gap-2 transition-all duration-100 ease-out border-0 rounded-[var(--inclamo-control-radius,0.5rem)] outline-1 outline disabled:opacity-50',
+ };
+ 
+ const variantClasses = computed(() => {
+diff --git a/app/javascript/dashboard/components-next/input/Input.vue b/app/javascript/dashboard/components-next/input/Input.vue
+--- a/app/javascript/dashboard/components-next/input/Input.vue
++++ b/app/javascript/dashboard/components-next/input/Input.vue
+@@ -137,7 +137,7 @@
+           ? max
+           : undefined
+       "
+-      class="block w-full reset-base text-sm !mb-0 outline outline-1 border-none border-0 outline-offset-[-1px] rounded-lg bg-n-alpha-black2 file:border-0 file:bg-transparent file:text-sm file:font-medium text-ellipsis placeholder:text-n-slate-10 dark:placeholder:text-n-slate-10 disabled:cursor-not-allowed disabled:opacity-50 text-n-slate-12 transition-all duration-500 ease-in-out [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
++      class="block w-full reset-base text-sm !mb-0 outline outline-1 border-none border-0 outline-offset-[-1px] rounded-[var(--inclamo-control-radius,0.5rem)] bg-n-alpha-black2 file:border-0 file:bg-transparent file:text-sm file:font-medium text-ellipsis placeholder:text-n-slate-10 dark:placeholder:text-n-slate-10 disabled:cursor-not-allowed disabled:opacity-50 text-n-slate-12 transition-all duration-500 ease-in-out [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+       @input="handleInput"
+       @focus="handleFocus"
+       @blur="handleBlur"
+diff --git a/app/javascript/dashboard/components-next/tabbar/TabBar.vue b/app/javascript/dashboard/components-next/tabbar/TabBar.vue
+--- a/app/javascript/dashboard/components-next/tabbar/TabBar.vue
++++ b/app/javascript/dashboard/components-next/tabbar/TabBar.vue
+@@ -70,10 +70,10 @@
+ 
+ <template>
+   <div
+-    class="relative flex items-center h-8 rounded-lg bg-n-alpha-1 dark:bg-n-solid-1 w-fit transition-all duration-200 ease-out has-[button:active]:scale-[1.01]"
++    class="relative flex items-center h-8 rounded-[var(--inclamo-control-radius,0.5rem)] bg-n-alpha-1 dark:bg-n-solid-1 w-fit transition-all duration-200 ease-out has-[button:active]:scale-[1.01]"
+   >
+     <div
+-      class="absolute rounded-lg bg-n-solid-active shadow-sm pointer-events-none h-8 outline-1 outline outline-n-container inset-y-0"
++      class="absolute rounded-[var(--inclamo-control-radius,0.5rem)] bg-n-solid-active shadow-sm pointer-events-none h-8 outline-1 outline outline-n-container inset-y-0"
+       :class="{ 'transition-all duration-300 ease-out': enableTransition }"
+       :style="indicatorStyle"
+     />
+@@ -82,7 +82,7 @@
+       <button
+         :ref="el => (tabRefs[index] = el)"
+         type="button"
+-        class="relative z-10 inline-flex items-center min-w-0 gap-1.5 px-4 py-1.5 text-sm border-0 outline-1 outline-transparent rounded-lg transition-all duration-200 ease-out hover:text-n-brand active:scale-[1.02]"
++        class="relative z-10 inline-flex items-center min-w-0 gap-1.5 px-4 py-1.5 text-sm border-0 outline-1 outline-transparent rounded-[var(--inclamo-control-radius,0.5rem)] transition-all duration-200 ease-out hover:text-n-brand active:scale-[1.02]"
+         :class="[
+           activeTab === index
+             ? 'text-n-blue-11 scale-100'
+diff --git a/app/javascript/dashboard/components-next/dropdown-menu/base/DropdownItem.vue b/app/javascript/dashboard/components-next/dropdown-menu/base/DropdownItem.vue
+--- a/app/javascript/dashboard/components-next/dropdown-menu/base/DropdownItem.vue
++++ b/app/javascript/dashboard/components-next/dropdown-menu/base/DropdownItem.vue
+@@ -46,7 +46,7 @@
+       v-bind="$attrs"
+       class="flex text-left rtl:text-right items-center p-2 reset-base text-sm text-n-slate-12 w-full border-0"
+       :class="{
+-        'hover:bg-n-alpha-2 rounded-lg w-full gap-3': !$slots.default,
++        'hover:bg-n-alpha-2 rounded-[var(--inclamo-control-radius,0.5rem)] w-full gap-3': !$slots.default,
+       }"
+       :href="componentIs === 'a' ? props.link : null"
+       :to="componentIs === 'router-link' ? props.link : null"
+diff --git a/app/javascript/dashboard/components-next/dialog/Dialog.vue b/app/javascript/dashboard/components-next/dialog/Dialog.vue
+--- a/app/javascript/dashboard/components-next/dialog/Dialog.vue
++++ b/app/javascript/dashboard/components-next/dialog/Dialog.vue
+@@ -121,7 +121,7 @@
+   <TeleportWithDirection to="body">
+     <dialog
+       ref="dialogRef"
+-      class="w-full transition-all duration-300 ease-in-out shadow-xl rounded-xl"
++      class="w-full transition-all duration-300 ease-in-out shadow-xl rounded-[var(--inclamo-dialog-radius,0.75rem)]"
+       :class="[
+         maxWidthClass,
+         positionClass,
+@@ -132,7 +132,7 @@
+       <OnClickOutside @trigger="handleClickOutside">
+         <form
+           ref="dialogContentRef"
+-          class="flex flex-col w-full h-auto gap-6 p-6 overflow-visible text-start align-middle transition-all duration-300 ease-in-out transform bg-n-alpha-3 backdrop-blur-[100px] shadow-xl rounded-xl"
++          class="flex flex-col w-full h-auto gap-6 p-6 overflow-visible text-start align-middle transition-all duration-300 ease-in-out transform bg-n-alpha-3 backdrop-blur-[100px] shadow-xl rounded-[var(--inclamo-dialog-radius,0.75rem)]"
+           @submit.prevent="confirm"
+           @click.stop
+         >
+diff --git a/app/javascript/dashboard/components-next/dropdown-menu/base/DropdownBody.vue b/app/javascript/dashboard/components-next/dropdown-menu/base/DropdownBody.vue
+--- a/app/javascript/dashboard/components-next/dropdown-menu/base/DropdownBody.vue
++++ b/app/javascript/dashboard/components-next/dropdown-menu/base/DropdownBody.vue
+@@ -19,14 +19,14 @@
+ 
+   // Add extra blur layer only when strong prop is true, as a hack for Chrome's stacked backdrop-blur limitation
+   // https://issues.chromium.org/issues/40835530
+-  return "before:content-['\x00A0'] before:absolute before:bottom-0 before:left-0 before:w-full before:h-full before:rounded-xl before:backdrop-contrast-70 before:backdrop-blur-sm before:z-0 [&>*]:relative";
++  return "before:content-['\x00A0'] before:absolute before:bottom-0 before:left-0 before:w-full before:h-full before:rounded-[var(--inclamo-panel-radius,0.75rem)] before:backdrop-contrast-70 before:backdrop-blur-sm before:z-0 [&>*]:relative";
+ });
+ </script>
+ 
+ <template>
+   <div class="absolute">
+     <ul
+-      class="text-sm bg-n-alpha-3 backdrop-blur-[100px] border rounded-xl shadow-sm py-2 n-dropdown-body gap-2 grid list-none px-2 reset-base relative"
++      class="text-sm bg-n-alpha-3 backdrop-blur-[100px] border rounded-[var(--inclamo-panel-radius,0.75rem)] shadow-sm py-2 n-dropdown-body gap-2 grid list-none px-2 reset-base relative"
+       :class="[borderClass, beforeClass]"
+     >
+       <slot />
+diff --git a/app/javascript/dashboard/assets/scss/_base.scss b/app/javascript/dashboard/assets/scss/_base.scss
+--- a/app/javascript/dashboard/assets/scss/_base.scss
++++ b/app/javascript/dashboard/assets/scss/_base.scss
+@@ -43,7 +43,7 @@
+ // Button base
+ button {
+   font-family: inherit;
+-  @apply inline-block text-center align-middle cursor-pointer text-sm m-0 py-1 px-2.5 transition-all duration-200 ease-in-out border-0 border-none rounded-lg disabled:opacity-50;
++  @apply inline-block text-center align-middle cursor-pointer text-sm m-0 py-1 px-2.5 transition-all duration-200 ease-in-out border-0 border-none rounded-[var(--inclamo-control-radius,0.5rem)] disabled:opacity-50;
+ }
+ 
+ // Form elements
+@@ -66,7 +66,7 @@
+ // Field base styles (Input, TextArea, Select)
+ @layer components {
+   .field-base {
+-    @apply block box-border w-full transition-colors duration-[0.25s] ease-[ease-in-out] focus:outline-n-brand dark:focus:outline-n-brand appearance-none mx-0 mt-0 mb-4 py-2 px-3 rounded-lg text-sm font-normal bg-n-alpha-black2 placeholder:text-n-slate-10 dark:placeholder:text-n-slate-10 text-n-slate-12 border-none outline outline-1 outline-n-weak dark:outline-n-weak hover:outline-n-slate-6 dark:hover:outline-n-slate-6;
++    @apply block box-border w-full transition-colors duration-[0.25s] ease-[ease-in-out] focus:outline-n-brand dark:focus:outline-n-brand appearance-none mx-0 mt-0 mb-4 py-2 px-3 rounded-[var(--inclamo-control-radius,0.5rem)] text-sm font-normal bg-n-alpha-black2 placeholder:text-n-slate-10 dark:placeholder:text-n-slate-10 text-n-slate-12 border-none outline outline-1 outline-n-weak dark:outline-n-weak hover:outline-n-slate-6 dark:hover:outline-n-slate-6;
+   }
+ 
+   .field-disabled {

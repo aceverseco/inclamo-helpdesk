@@ -1,0 +1,58 @@
+# Isolated synthetic installation. Internal networking prevents calls to Shopify.
+x-app: &app
+  image: ${HELPDESK_IMAGE:?Set the image to test}
+  env_file: stack.env
+  environment:
+    RAILS_ENV: production
+    NODE_ENV: production
+    INSTALLATION_ENV: docker
+    INCLAMO_E2E: '1'
+    INCLAMO_SHOPIFY_BASE_URL: http://shopify-fixture:8080
+    ENABLE_RACK_ATTACK: 'false'
+    RAILS_SERVE_STATIC_FILES: 'true'
+    ENABLE_ACCOUNT_SIGNUP: 'false'
+    ENABLE_TELEMETRY: 'false'
+    FRONTEND_URL: http://rails:3000
+    POSTGRES_HOST: postgres
+    POSTGRES_USERNAME: postgres
+    POSTGRES_PASSWORD: theme-test-only
+    REDIS_URL: redis://redis:6379
+  volumes:
+    - storage:/app/storage
+  depends_on:
+    - postgres
+    - redis
+    - shopify-fixture
+
+services:
+  rails:
+    <<: *app
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
+    ports:
+      - '127.0.0.1:${THEME_PORT:-3193}:3000'
+  sidekiq:
+    <<: *app
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: chatwoot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: theme-test-only
+    volumes:
+      - postgres:/var/lib/postgresql/data
+  redis:
+    image: redis:alpine
+  shopify-fixture:
+    image: node:24-alpine
+    command: node /repo/e2e/theme/shopify.mjs
+    volumes:
+      - ../..:/repo:ro
+
+networks:
+  default:
+    internal: true
+volumes:
+  postgres:
+  storage:

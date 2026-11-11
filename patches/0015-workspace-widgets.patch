@@ -1,0 +1,37 @@
+--- a/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
++++ b/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
+@@ -151,26 +151,18 @@
+ 
+ <template>
+   <div class="inclamo-contact-panel w-full">
+-    <CustomerPane @close="closeContactPanel">
++    <CustomerPane :conversation-id="conversationId" :contact-id="contactId" @close="closeContactPanel">
+       <template #profile>
+         <ContactInfo :contact="contact" :channel-type="channelType" />
+       </template>
+       <template #commerce>
+-        <OrdersSection
+-          :conversation-id="conversationId"
+-          :contact-id="contactId"
+-        >
+-          <template #labels>
+-            <section class="reference-customer-tags">
+-              <div class="section-title">
+-                <h4>
+-                  {{ $t('CONVERSATION_SIDEBAR.ACCORDION.CONVERSATION_LABELS') }}
+-                </h4>
+-              </div>
+-              <ConversationLabels />
+-            </section>
+-          </template>
+-        </OrdersSection>
++        <OrdersSection :conversation-id="conversationId" :contact-id="contactId" :account-id="$route.params.accountId" />
++      </template>
++      <template #labels>
++        <section class="reference-customer-tags">
++          <div class="section-title"><h4>{{ $t('CONVERSATION_SIDEBAR.ACCORDION.CONVERSATION_LABELS') }}</h4></div>
++          <ConversationLabels />
++        </section>
+       </template>
+       <template #manage>
+         <div class="px-2 pb-8 list-group">

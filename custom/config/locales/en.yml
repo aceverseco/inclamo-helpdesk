@@ -5,6 +5,8 @@ en:
       otp_code: Authenticator code (if two-factor authentication is enabled)
       backup_code: Or a recovery code
       mfa_setup: If your organization requires two-factor authentication, finish setup in the dashboard before signing in here.
+    brand:
+      welcome: Welcome to Inclamo
     shopify_connection:
       errors:
         forbidden: Only an administrator can manage the store connection.

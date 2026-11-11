@@ -1,0 +1,15 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <base href="<%= request.base_url %>/">
+  <title>Widget preview</title>
+  <script>
+    window.inclamoWidgetPreview = true;
+    window.chatwootWebChannel = <%= raw ERB::Util.json_escape(@channel_preview.to_json) %>;
+    window.globalConfig = <%= raw ERB::Util.json_escape(@preview_branding.to_json) %>;
+  </script>
+  <%= vite_javascript_tag 'inclamo-widget-preview' %>
+</head>
+<body><div id="app" class="h-full"></div></body>
+</html>

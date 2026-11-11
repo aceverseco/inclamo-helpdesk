@@ -1,0 +1,1289 @@
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -37,6 +37,7 @@
+     "@amplitude/analytics-browser": "^2.11.10",
+     "@breezystack/lamejs": "^1.2.7",
+     "@chatwoot/ninja-keys": "1.2.3",
++    "@chatwoot/pico-search": "0.6.2",
+     "@chatwoot/prosemirror-schema": "1.4.6",
+     "@chatwoot/utils": "^0.0.57",
+     "@chatwoot/viz": "^0.1.6",
+@@ -51,7 +52,6 @@
+     "@radix-ui/colors": "^3.0.0",
+     "@rails/actioncable": "6.1.3",
+     "@rails/ujs": "^7.1.400",
+-    "@chatwoot/pico-search": "0.6.2",
+     "@sentry/vue": "^8.55.0",
+     "@sindresorhus/slugify": "2.2.1",
+     "@tailwindcss/typography": "^0.5.19",
+@@ -66,6 +66,8 @@
+     "activestorage": "^5.2.6",
+     "axios": "^1.20.0",
+     "camelcase-keys": "^9.1.3",
++    "class-variance-authority": "0.7.1",
++    "clsx": "2.1.1",
+     "color2k": "^2.0.2",
+     "company-email-validator": "^1.1.0",
+     "core-js": "3.38.1",
+@@ -83,14 +85,17 @@
+     "json-logic-js": "^2.0.5",
+     "lettersanitizer": "^1.0.8",
+     "libphonenumber-js": "^1.11.9",
++    "lucide-vue-next": "0.468.0",
+     "markdown-it": "^14.3.2",
+     "markdown-it-link-attributes": "^4.0.1",
+     "mitt": "^3.0.1",
+     "opus-recorder": "^8.0.5",
+     "pinia": "^3.0.4",
+     "qrcode": "^1.5.4",
++    "reka-ui": "2.11.0",
+     "semver": "7.6.3",
+     "snakecase-keys": "^8.0.1",
++    "tailwind-merge": "2.6.0",
+     "timezone-phone-codes": "^0.0.2",
+     "tinykeys": "^3.0.0",
+     "urlpattern-polyfill": "^10.0.0",
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -111,6 +111,12 @@
+       camelcase-keys:
+         specifier: ^9.1.3
+         version: 9.1.3
++      class-variance-authority:
++        specifier: 0.7.1
++        version: 0.7.1
++      clsx:
++        specifier: 2.1.1
++        version: 2.1.1
+       color2k:
+         specifier: ^2.0.2
+         version: 2.0.3
+@@ -162,6 +168,9 @@
+       libphonenumber-js:
+         specifier: ^1.11.9
+         version: 1.11.9
++      lucide-vue-next:
++        specifier: 0.468.0
++        version: 0.468.0(vue@3.5.12(typescript@5.6.2))
+       markdown-it:
+         specifier: ^14.3.2
+         version: 14.3.2
+@@ -180,12 +189,18 @@
+       qrcode:
+         specifier: ^1.5.4
+         version: 1.5.4
++      reka-ui:
++        specifier: 2.11.0
++        version: 2.11.0(vue@3.5.12(typescript@5.6.2))
+       semver:
+         specifier: 7.6.3
+         version: 7.6.3
+       snakecase-keys:
+         specifier: ^8.0.1
+         version: 8.0.1
++      tailwind-merge:
++        specifier: 2.6.0
++        version: 2.6.0
+       timezone-phone-codes:
+         specifier: ^0.0.2
+         version: 0.0.2
+@@ -890,11 +905,25 @@
+   '@floating-ui/core@1.6.7':
+     resolution: {integrity: sha512-yDzVT/Lm101nQ5TCVeK65LtdN7Tj4Qpr9RTXJ2vPFLqtLxwOrpoxAHAJI8J3yYWUc40J0BDBheaitK5SJmno2g==}
+ 
++  '@floating-ui/core@1.8.0':
++    resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
++
+   '@floating-ui/dom@1.1.1':
+     resolution: {integrity: sha512-TpIO93+DIujg3g7SykEAGZMDtbJRrmnYRCNYSjJlvIbGhBjRSNTLVbNeDQBrzy9qDgUbiWdc7KA0uZHZ2tJmiw==}
+ 
++  '@floating-ui/dom@1.8.0':
++    resolution: {integrity: sha512-yXSrzeHZBTZadLOlfyhCkJHNeLJnHRnRInwdZ40L7ZiaAtrBwoYlsDrX3v5zB1Utk7CLfzcOVnVVWoXEky7Ceg==}
++
++  '@floating-ui/utils@0.2.12':
++    resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
++
+   '@floating-ui/utils@0.2.7':
+     resolution: {integrity: sha512-X8R8Oj771YRl/w+c1HqAC1szL8zWQRwFvgDwT129k9ACdBoud/+/rX9V0qiMl6LWUdP9voC2nDVZYPMQQsb6eA==}
++
++  '@floating-ui/vue@2.0.1':
++    resolution: {integrity: sha512-043dyEKD9TDSfz080YH2vobubgg+NIo/9Fw4RAl7sEMpD8Am1DNrrSTl/GpMBjyGHoD/FbJY2QLawY+HSQsEIA==}
++    peerDependencies:
++      vue: '>=3.3.0'
+ 
+   '@formkit/core@1.7.2':
+     resolution: {integrity: sha512-XDRVqkDtOziU3z44hdvgWEqGpiv6nTNeCmP8cnESKkr24a4keQuEwmfDVvibYV0ywyTMg6ylp2lyklCYeRHykQ==}
+@@ -1005,6 +1034,12 @@
+ 
+   '@iconify/utils@3.1.0':
+     resolution: {integrity: sha512-Zlzem1ZXhI1iHeeERabLNzBHdOa4VhQbqAcOQaMKuTuyZCpwKbC2R4Dd0Zo3g9EAc+Y4fiarO8HIHRAth7+skw==}
++
++  '@internationalized/date@3.12.4':
++    resolution: {integrity: sha512-M1dEn4c1U1HsSlaVR8upZtSqvXrTkHDfv18H01uCSJyjVLDxnBR38v/fMxecmlwXKR4i9HeZcmgQAPE6A+aGJQ==}
++
++  '@internationalized/number@3.6.9':
++    resolution: {integrity: sha512-GgWy2caO/+hV9sT/oCTWGHvbjmJMPT9kkXzoKRLnkEq7adghhR7UprhvY9sXrKfrp3NcDfhF6QQHXR1KfQbB8g==}
+ 
+   '@intlify/core-base@9.14.2':
+     resolution: {integrity: sha512-DZyQ4Hk22sC81MP4qiCDuU+LdaYW91A6lCjq8AWPvY3+mGMzhGDfOCzvyR6YBQxtlPjFqMoFk9ylnNYRAQwXtQ==}
+@@ -1339,6 +1374,9 @@
+     peerDependencies:
+       size-limit: 8.2.6
+ 
++  '@swc/helpers@0.5.24':
++    resolution: {integrity: sha512-6tcXo4kA8HgGO7AVmawB57RYi/piBPYVHVcO6dXjX+SZw8GoHmi262sp4v2Ha2kNP9Cx84qei27yT+fjS1lxgg==}
++
+   '@tailwindcss/typography@0.5.19':
+     resolution: {integrity: sha512-w31dd8HOx3k9vPtcQh5QHP9GwKcgbMp87j58qi6xgiBnFFtKEAgCWnDw4qUT8aHwkCp8bKvb/KGKWWHedP0AAg==}
+     peerDependencies:
+@@ -1348,12 +1386,20 @@
+     resolution: {integrity: sha512-P9dF7XbibHph2PFRz8gfBKEXEY/HJPOhym8CHmjF8y3q5mWpKx9xtZapXQUWCgkqvsK0R46Azuz+VaxD4Xl+Tg==}
+     engines: {node: '>=12'}
+ 
++  '@tanstack/virtual-core@3.19.11':
++    resolution: {integrity: sha512-/5iHb0RHBvj8Di59FDs4ESNm45jls33aZAi4zccVXZjc/6ZvwQP6nzEYeT6weXjTf9E6/vrp2JhYWRyO+ZP13A==}
++
+   '@tanstack/vue-table@8.20.5':
+     resolution: {integrity: sha512-2xixT3BEgSDw+jOSqPt6ylO/eutDI107t2WdFMVYIZZ45UmTHLySqNriNs0+dMaKR56K5z3t+97P6VuVnI2L+Q==}
+     engines: {node: '>=12'}
+     peerDependencies:
+       vue: '>=3.2'
+ 
++  '@tanstack/vue-virtual@3.13.52':
++    resolution: {integrity: sha512-qTwG7HNr5o+FPd/u+T05N73A8howtkB9FgQI71VcBzx6J2KsYzlVugRz/0ji17kl26D8SAdKux1Wmk3yhTI1Kw==}
++    peerDependencies:
++      vue: ^2.7.0 || ^3.0.0
++
+   '@tootallnate/once@2.0.0':
+     resolution: {integrity: sha512-XCuKFP5PS55gnMVu3dty8KPatLqUoy/ZYzDzAGCQ8JNFCkLXzmI7vNHCR+XpbZaMWQK/vQubr7PkYq8g470J/A==}
+     engines: {node: '>= 10'}
+@@ -1397,6 +1443,9 @@
+ 
+   '@types/web-bluetooth@0.0.20':
+     resolution: {integrity: sha512-g9gZnnXVq7gM7v3tJCWV/qw7w+KeOlSHAhgF9RytFyifW6AF61hdT2ucrYhPq9hLs5JIryeupHV3qGk95dH9ow==}
++
++  '@types/web-bluetooth@0.0.21':
++    resolution: {integrity: sha512-oIQLCGWtcFZy2JW77j9k8nHzAOpqMHLQejDA48XXMWH6tjCQHz5RCFz1bzsmROyL6PUm+LLnUiI4BCn221inxA==}
+ 
+   '@types/zen-observable@0.8.3':
+     resolution: {integrity: sha512-fbF6oTd4sGGy0xjHPKAt+eS2CrxJ3+6gQ3FGcBoIJR2TLAyCkCyI8JqZNy+FeON0AhVgNJoUumVoZQjBFUqHkw==}
+@@ -1578,11 +1627,24 @@
+   '@vueuse/core@12.0.0':
+     resolution: {integrity: sha512-C12RukhXiJCbx4MGhjmd/gH52TjJsc3G0E0kQj/kb19H3Nt6n1CA4DRWuTdWWcaFRdlTe0npWDS942mvacvNBw==}
+ 
++  '@vueuse/core@14.4.0':
++    resolution: {integrity: sha512-X4WHz1HlCzCBoYXesUkifzzWBAcZgXG8Fi5iNPQg/epdzOB3gu8Fawj3hvuwYR1nGcXGnvxwYYcUC/71++svtQ==}
++    peerDependencies:
++      vue: ^3.5.0
++
+   '@vueuse/metadata@12.0.0':
+     resolution: {integrity: sha512-Yzimd1D3sjxTDOlF05HekU5aSGdKjxhuhRFHA7gDWLn57PRbBIh+SF5NmjhJ0WRgF3my7T8LBucyxdFJjIfRJQ==}
+ 
++  '@vueuse/metadata@14.4.0':
++    resolution: {integrity: sha512-swx/255R6JyHZFJhx845iz5CRWDZdCfvkZOpACWc5+c5WHcG24mv8gUT1WIdFQaHt6dq79rvILd9QnCWiyVm9g==}
++
+   '@vueuse/shared@12.0.0':
+     resolution: {integrity: sha512-3i6qtcq2PIio5i/vVYidkkcgvmTjCqrf26u+Fd4LhnbBmIT6FN8y6q/GJERp8lfcB9zVEfjdV0Br0443qZuJpw==}
++
++  '@vueuse/shared@14.4.0':
++    resolution: {integrity: sha512-JRgY90Sz8DDtPMsaDflvPMp9xYk69JZAmbuDvAquUVXKr2gEjqtzGNTTthLfckH0BzBqvnu31gb4a8TGLRe79g==}
++    peerDependencies:
++      vue: ^3.5.0
+ 
+   '@xmldom/xmldom@0.8.13':
+     resolution: {integrity: sha512-KRYzxepc14G/CEpEGc3Yn+JKaAeT63smlDr+vjB8jRfgTBBI9wRj/nkQEO+ucV8p8I9bfKLWp37uHgFrbntPvw==}
+@@ -1705,6 +1767,10 @@
+   argparse@2.0.1:
+     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
+ 
++  aria-hidden@1.2.6:
++    resolution: {integrity: sha512-ik3ZgC9dY/lYVVM++OISsaYDeg1tb0VtP5uL3ouh1koGOaUMDPpbFIei4JkFimWUFPn90sbMNMXQAIVOlnYKJA==}
++    engines: {node: '>=10'}
++
+   array-buffer-byte-length@1.0.0:
+     resolution: {integrity: sha512-LPuwb2P+NrQw3XhxGc36+XSvuBPopovXYTR9Ew++Du9Yb/bx5AzBfrIsBoj0EZUifjQU+sHL21sseZ3jerWO/A==}
+ 
+@@ -1902,6 +1968,9 @@
+     resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
+     engines: {node: '>= 14.16.0'}
+ 
++  class-variance-authority@0.7.1:
++    resolution: {integrity: sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==}
++
+   cli-boxes@3.0.0:
+     resolution: {integrity: sha512-/lzGpEWL/8PfI0BmBOPRwp0c/wFNX1RdUML3jK/RcSBA9T8mZDdQpqYBKtCFTOfQbwPqWEOpjqW+Fnayc0969g==}
+     engines: {node: '>=10'}
+@@ -1928,6 +1997,10 @@
+   cliui@9.0.1:
+     resolution: {integrity: sha512-k7ndgKhwoQveBL+/1tqGJYNz097I7WOvwbmmU2AR5+magtbjPWQTS1C5vzGkBC8Ym8UWRzfKUzUUqFLypY4Q+w==}
+     engines: {node: '>=20'}
++
++  clsx@2.1.1:
++    resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
++    engines: {node: '>=6'}
+ 
+   color-convert@2.0.1:
+     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
+@@ -2180,6 +2253,9 @@
+ 
+   defu@6.1.4:
+     resolution: {integrity: sha512-mEQCMmwJu317oSz8CwdIOdwf3xMif1ttiM8LTufzc3g6kR+9Pe236twL8j3IYT1F7GfRgGcW6MWxzZjLIkuHIg==}
++
++  defu@6.1.7:
++    resolution: {integrity: sha512-7z22QmUWiQ/2d0KkdYmANbRUVABpZ9SNYyH5vx6PZ+nE5bcC0l7uFvEfHlyld/HcGBFTL536ClDt3DEcSlEJAQ==}
+ 
+   delayed-stream@1.0.0:
+     resolution: {integrity: sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ==}
+@@ -3335,6 +3411,12 @@
+     resolution: {integrity: sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA==}
+     engines: {node: '>=10'}
+ 
++  lucide-vue-next@0.468.0:
++    resolution: {integrity: sha512-quV/6T8YB1XK0VOEnebg3Byd8Rsan5/m95cvjnuHV4vcS3qEnLAybkrSh0hk3ppavx+V7R1PjNW+mGDvcBdz4A==}
++    deprecated: Package deprecated. Please use @lucide/vue instead.
++    peerDependencies:
++      vue: '>=3.0.1'
++
+   m3u8-parser@4.8.0:
+     resolution: {integrity: sha512-UqA2a/Pw3liR6Df3gwxrqghCP17OpPlQj6RBPLYygf/ZSQ4MoSgvdvhvt35qV+3NaaA0FSZx93Ix+2brT1U7cA==}
+ 
+@@ -3565,6 +3647,9 @@
+ 
+   obug@2.1.1:
+     resolution: {integrity: sha512-uTqF9MuPraAQ+IsnPf366RG4cP9RtUi7MLO1N3KEc+wb0a6yKpeL0lmk2IB1jY5KHPAlTc6T/JRdC/YqxHNwkQ==}
++
++  ohash@2.0.12:
++    resolution: {integrity: sha512-65S/5gk9YSsaRjcyf7Nfa6h/d3E8/1gslpXfI4W7Dxn/oap8IKRuNT5VXkLQ1YFKIEg4apRY4Pj6aiwFzrDdmw==}
+ 
+   on-finished@2.3.0:
+     resolution: {integrity: sha512-ikqdkGAAyf/X/gPhXGvfgAytDZtDbr+bkNUJ0N9h5MI/dmdgCs3l6hoHrcUv41sRKew3jIwrp4qQDXiK99Utww==}
+@@ -4087,6 +4172,11 @@
+     resolution: {integrity: sha512-NcDiDkTLuPR+++OCKB0nWafEmhg/Da8aUPLPMQbK+bxKKCm1/S5he+AqYa4PlMCVBalb4/yxIRub6qkEx5yJbw==}
+     engines: {node: '>= 0.4'}
+ 
++  reka-ui@2.11.0:
++    resolution: {integrity: sha512-ilkpm4bIAol4jwzm4tpm3WVcffyGOpqksNZL1k1qO9QmIwAA+q8jroxjkUGLEn/GddfdExFfvofWfQiKZszUeQ==}
++    peerDependencies:
++      vue: '>= 3.4.0'
++
+   require-directory@2.1.1:
+     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
+     engines: {node: '>=0.10.0'}
+@@ -4435,6 +4525,9 @@
+   table@6.8.2:
+     resolution: {integrity: sha512-w2sfv80nrAh2VCbqR5AK27wswXhqcck2AhfnNW76beQXskGZ1V12GwS//yYVa3d3fcvAip2OUnbDAjW2k3v9fA==}
+     engines: {node: '>=10.0.0'}
++
++  tailwind-merge@2.6.0:
++    resolution: {integrity: sha512-P+Vu1qXfzediirmHOC3xKGAYeZtPcV9g76X+xg2FD4tYgR71ewMA35Y3sCz3zhiN/dwefRpJX0yBcgwi1fXNQA==}
+ 
+   tailwindcss@3.4.19:
+     resolution: {integrity: sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ==}
+@@ -5583,11 +5676,28 @@
+     dependencies:
+       '@floating-ui/utils': 0.2.7
+ 
++  '@floating-ui/core@1.8.0':
++    dependencies:
++      '@floating-ui/utils': 0.2.12
++
+   '@floating-ui/dom@1.1.1':
+     dependencies:
+       '@floating-ui/core': 1.6.7
+ 
++  '@floating-ui/dom@1.8.0':
++    dependencies:
++      '@floating-ui/core': 1.8.0
++      '@floating-ui/utils': 0.2.12
++
++  '@floating-ui/utils@0.2.12': {}
++
+   '@floating-ui/utils@0.2.7': {}
++
++  '@floating-ui/vue@2.0.1(vue@3.5.12(typescript@5.6.2))':
++    dependencies:
++      '@floating-ui/dom': 1.8.0
++      '@floating-ui/utils': 0.2.12
++      vue: 3.5.12(typescript@5.6.2)
+ 
+   '@formkit/core@1.7.2':
+     dependencies:
+@@ -5759,6 +5869,14 @@
+       '@antfu/install-pkg': 1.1.0
+       '@iconify/types': 2.0.0
+       mlly: 1.8.1
++
++  '@internationalized/date@3.12.4':
++    dependencies:
++      '@swc/helpers': 0.5.24
++
++  '@internationalized/number@3.6.9':
++    dependencies:
++      '@swc/helpers': 0.5.24
+ 
+   '@intlify/core-base@9.14.2':
+     dependencies:
+@@ -6068,6 +6186,8 @@
+       semver: 7.5.3
+       size-limit: 8.2.6
+ 
++  '@swc/helpers@0.5.24': {}
++
+   '@tailwindcss/typography@0.5.19(tailwindcss@3.4.19)':
+     dependencies:
+       postcss-selector-parser: 6.0.10
+@@ -6075,9 +6195,16 @@
+ 
+   '@tanstack/table-core@8.20.5': {}
+ 
++  '@tanstack/virtual-core@3.19.11': {}
++
+   '@tanstack/vue-table@8.20.5(vue@3.5.12(typescript@5.6.2))':
+     dependencies:
+       '@tanstack/table-core': 8.20.5
++      vue: 3.5.12(typescript@5.6.2)
++
++  '@tanstack/vue-virtual@3.13.52(vue@3.5.12(typescript@5.6.2))':
++    dependencies:
++      '@tanstack/virtual-core': 3.19.11
+       vue: 3.5.12(typescript@5.6.2)
+ 
+   '@tootallnate/once@2.0.0': {}
+@@ -6120,6 +6247,8 @@
+   '@types/trusted-types@2.0.7': {}
+ 
+   '@types/web-bluetooth@0.0.20': {}
++
++  '@types/web-bluetooth@0.0.21': {}
+ 
+   '@types/zen-observable@0.8.3': {}
+ 
+@@ -6405,13 +6534,26 @@
+     transitivePeerDependencies:
+       - typescript
+ 
++  '@vueuse/core@14.4.0(vue@3.5.12(typescript@5.6.2))':
++    dependencies:
++      '@types/web-bluetooth': 0.0.21
++      '@vueuse/metadata': 14.4.0
++      '@vueuse/shared': 14.4.0(vue@3.5.12(typescript@5.6.2))
++      vue: 3.5.12(typescript@5.6.2)
++
+   '@vueuse/metadata@12.0.0': {}
++
++  '@vueuse/metadata@14.4.0': {}
+ 
+   '@vueuse/shared@12.0.0(typescript@5.6.2)':
+     dependencies:
+       vue: 3.5.13(typescript@5.6.2)
+     transitivePeerDependencies:
+       - typescript
++
++  '@vueuse/shared@14.4.0(vue@3.5.12(typescript@5.6.2))':
++    dependencies:
++      vue: 3.5.12(typescript@5.6.2)
+ 
+   '@xmldom/xmldom@0.8.13': {}
+ 
+@@ -6520,6 +6662,10 @@
+       sprintf-js: 1.0.3
+ 
+   argparse@2.0.1: {}
++
++  aria-hidden@1.2.6:
++    dependencies:
++      tslib: 2.8.1
+ 
+   array-buffer-byte-length@1.0.0:
+     dependencies:
+@@ -6790,6 +6936,10 @@
+       readdirp: 4.1.2
+     optional: true
+ 
++  class-variance-authority@0.7.1:
++    dependencies:
++      clsx: 2.1.1
++
+   cli-boxes@3.0.0: {}
+ 
+   cli-cursor@5.0.0:
+@@ -6820,6 +6970,8 @@
+       string-width: 7.2.0
+       strip-ansi: 7.1.0
+       wrap-ansi: 9.0.0
++
++  clsx@2.1.1: {}
+ 
+   color-convert@2.0.1:
+     dependencies:
+@@ -7037,6 +7189,8 @@
+       object-keys: 1.1.1
+ 
+   defu@6.1.4: {}
++
++  defu@6.1.7: {}
+ 
+   delayed-stream@1.0.0: {}
+ 
+@@ -8402,6 +8556,10 @@
+     dependencies:
+       yallist: 4.0.0
+ 
++  lucide-vue-next@0.468.0(vue@3.5.12(typescript@5.6.2)):
++    dependencies:
++      vue: 3.5.12(typescript@5.6.2)
++
+   m3u8-parser@4.8.0:
+     dependencies:
+       '@babel/runtime': 7.26.7
+@@ -8623,6 +8781,8 @@
+       es-object-atoms: 1.0.0
+ 
+   obug@2.1.1: {}
++
++  ohash@2.0.12: {}
+ 
+   on-finished@2.3.0:
+     dependencies:
+@@ -9192,6 +9352,19 @@
+       es-errors: 1.3.0
+       set-function-name: 2.0.2
+ 
++  reka-ui@2.11.0(vue@3.5.12(typescript@5.6.2)):
++    dependencies:
++      '@floating-ui/vue': 2.0.1(vue@3.5.12(typescript@5.6.2))
++      '@internationalized/date': 3.12.4
++      '@internationalized/number': 3.6.9
++      '@tanstack/vue-virtual': 3.13.52(vue@3.5.12(typescript@5.6.2))
++      '@vueuse/core': 14.4.0(vue@3.5.12(typescript@5.6.2))
++      '@vueuse/shared': 14.4.0(vue@3.5.12(typescript@5.6.2))
++      aria-hidden: 1.2.6
++      defu: 6.1.7
++      ohash: 2.0.12
++      vue: 3.5.12(typescript@5.6.2)
++
+   require-directory@2.1.1: {}
+ 
+   require-from-string@2.0.2: {}
+@@ -9583,6 +9756,8 @@
+       slice-ansi: 4.0.0
+       string-width: 4.2.3
+       strip-ansi: 6.0.1
++
++  tailwind-merge@2.6.0: {}
+ 
+   tailwindcss@3.4.19:
+     dependencies:
+diff --git a/tailwind.config.js b/tailwind.config.js
+--- a/tailwind.config.js
++++ b/tailwind.config.js
+@@ -1,5 +1,6 @@
+ const { slateDark } = require('@radix-ui/colors');
+ import { colors } from './theme/colors';
++import { inclamoColors } from './app/javascript/dashboard/inclamo/ui/theme.js';
+ import { icons } from './theme/icons';
+ const defaultTheme = require('tailwindcss/defaultTheme');
+ const plugin = require('tailwindcss/plugin');
+@@ -27,6 +28,7 @@
+     './app/javascript/widget/**/*.vue',
+     './app/javascript/v3/**/*.vue',
+     './app/javascript/dashboard/**/*.vue',
++    './app/javascript/dashboard/inclamo/**/*.{js,ts}',
+     './app/javascript/portal/**/*.vue',
+     './app/javascript/shared/**/*.vue',
+     './app/javascript/survey/**/*.vue',
+@@ -220,6 +222,7 @@
+       'modal-backdrop-dark': 'rgba(0, 0, 0, 0.6)',
+       current: 'currentColor',
+       ...colors,
++      ...inclamoColors,
+       body: slateDark.slate7,
+     },
+     keyframes: {
+diff --git a/app/javascript/dashboard/components-next/button/Button.vue b/app/javascript/dashboard/components-next/button/Button.vue
+--- a/app/javascript/dashboard/components-next/button/Button.vue
++++ b/app/javascript/dashboard/components-next/button/Button.vue
+@@ -1,5 +1,6 @@
+ <script setup>
+ import { computed, useSlots, useAttrs } from 'vue';
++import { Button as InclamoButton } from 'dashboard/inclamo/ui/button';
+ 
+ import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
+ import Icon from 'dashboard/components-next/icon/Icon.vue';
+@@ -237,7 +238,9 @@
+ </script>
+ 
+ <template>
+-  <button
++  <InclamoButton
++    :variant="computedVariant === 'solid' ? (computedColor === 'ruby' ? 'destructive' : 'default') : computedVariant === 'faded' ? 'secondary' : computedVariant"
++    :size="computedSize === 'md' ? 'default' : computedSize"
+     v-bind="filteredAttrs"
+     data-inclamo-control="button"
+     :data-inclamo-color="computedColor"
+@@ -260,5 +263,5 @@
+     <slot v-if="label || $slots.default" name="default">
+       <span v-if="label" class="min-w-0 truncate">{{ label }}</span>
+     </slot>
+-  </button>
++  </InclamoButton>
+ </template>
+diff --git a/app/javascript/dashboard/components-next/input/Input.vue b/app/javascript/dashboard/components-next/input/Input.vue
+--- a/app/javascript/dashboard/components-next/input/Input.vue
++++ b/app/javascript/dashboard/components-next/input/Input.vue
+@@ -1,5 +1,6 @@
+ <script setup>
+ import { computed, ref, onMounted, nextTick, getCurrentInstance } from 'vue';
++import { Input as InclamoInput } from 'dashboard/inclamo/ui/input';
+ const props = defineProps({
+   modelValue: { type: [String, Number], default: '' },
+   type: { type: String, default: 'text' },
+@@ -59,13 +60,13 @@
+   }
+ });
+ 
++const handleValueChange = value => {
++  // Preserve the native numeric contract while the shadcn primitive owns the input.
++  const nextValue = props.type === 'number' && value !== '' ? Number(value) : value;
++  emit('update:modelValue', nextValue);
++};
++
+ const handleInput = event => {
+-  let value = event.target.value;
+-  // Convert to number if type is number and value is not empty
+-  if (props.type === 'number' && value !== '') {
+-    value = Number(value);
+-  }
+-  emit('update:modelValue', value);
+   emit('input', event);
+ };
+ 
+@@ -114,12 +115,12 @@
+     </label>
+     <!-- Added prefix slot to allow adding icons to the input -->
+     <slot name="prefix" />
+-    <input
++    <InclamoInput
+       data-inclamo-control="input"
+       :id="uniqueId"
+       v-bind="$attrs"
+       ref="inputRef"
+-      :value="modelValue"
++      :model-value="modelValue"
+       :class="[
+         customInputClass,
+         inputOutlineClass,
+@@ -139,6 +140,7 @@
+           : undefined
+       "
+       class="block w-full reset-base text-sm !mb-0 outline outline-1 border-none border-0 outline-offset-[-1px] rounded-[var(--inclamo-control-radius,0.5rem)] bg-n-alpha-black2 file:border-0 file:bg-transparent file:text-sm file:font-medium text-ellipsis placeholder:text-n-slate-10 dark:placeholder:text-n-slate-10 disabled:cursor-not-allowed disabled:opacity-50 text-n-slate-12 transition-all duration-500 ease-in-out [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
++      @update:model-value="handleValueChange"
+       @input="handleInput"
+       @focus="handleFocus"
+       @blur="handleBlur"
+diff --git a/app/javascript/dashboard/components/ChatList.vue b/app/javascript/dashboard/components/ChatList.vue
+--- a/app/javascript/dashboard/components/ChatList.vue
++++ b/app/javascript/dashboard/components/ChatList.vue
+@@ -8,6 +8,7 @@
+ } from 'dashboard/composables/store.js';
+ 
+ import ChatListHeader from './ChatListHeader.vue';
++import InboxTools from 'dashboard/inclamo/components/InboxTools.vue';
+ import ConversationList from './ConversationList.vue';
+ import Dialog from 'dashboard/components-next/dialog/Dialog.vue';
+ import ConversationFilter from 'next/filter/ConversationFilter.vue';
+@@ -928,6 +929,8 @@
+       @reset-filters="resetFilters"
+       @basic-filter-change="onBasicFilterChange"
+     />
++
++    <InboxTools :status="activeStatus" :show-status="!hasAppliedFiltersOrActiveFolders" @status-change="onBasicFilterChange" />
+ 
+     <TeleportWithDirection
+       v-if="showAddFoldersModal"
+diff --git a/app/javascript/dashboard/components/ChatListHeader.vue b/app/javascript/dashboard/components/ChatListHeader.vue
+--- a/app/javascript/dashboard/components/ChatListHeader.vue
++++ b/app/javascript/dashboard/components/ChatListHeader.vue
+@@ -1,5 +1,7 @@
+ <script setup>
+ import { computed } from 'vue';
++import { t as inclamoT } from 'dashboard/inclamo/i18n';
++import { useI18n } from 'vue-i18n';
+ import { useUISettings } from 'dashboard/composables/useUISettings';
+ import { formatNumber } from '@chatwoot/utils';
+ import wootConstants from 'dashboard/constants/globals';
+@@ -28,6 +30,7 @@
+ ]);
+ 
+ const { uiSettings, updateUISettings } = useUISettings();
++const { t } = useI18n();
+ 
+ const onBasicFilterChange = (value, type) => {
+   emit('basicFilterChange', value, type);
+@@ -51,7 +54,7 @@
+ );
+ 
+ const title = computed(
+-  () => (isContactScoped.value && props.contactFilter.name) || props.pageTitle
++  () => (isContactScoped.value && props.contactFilter.name) || (props.pageTitle === t('CHAT_LIST.TAB_HEADING') ? inclamoT('WORKSPACE.INBOX') : props.pageTitle)
+ );
+ 
+ const toggleConversationLayout = () => {
+@@ -94,19 +97,14 @@
+       </h1>
+       <span
+         v-if="
+-          allCount > 0 && hasAppliedFiltersOrActiveFolders && !isListLoading
++          allCount > 0 && !isListLoading
+         "
+         class="px-2 py-1 my-0.5 mx-1 rounded-md capitalize bg-n-slate-3 text-xxs text-n-slate-12 shrink-0"
+         :title="allCount"
+       >
+         {{ formattedAllCount }}
+       </span>
+-      <span
+-        v-if="!hasAppliedFiltersOrActiveFolders"
+-        class="px-2 py-1 my-0.5 mx-1 rounded-md capitalize bg-n-slate-3 text-xxs text-n-slate-12 shrink-0"
+-      >
+-        {{ $t(`CHAT_LIST.CHAT_STATUS_FILTER_ITEMS.${activeStatus}.TEXT`) }}
+-      </span>
++
+     </div>
+     <div class="flex items-center gap-1">
+       <template v-if="hasAppliedFilters && !hasActiveFolders">
+diff --git a/app/javascript/dashboard/components/widgets/ChatTypeTabs.vue b/app/javascript/dashboard/components/widgets/ChatTypeTabs.vue
+--- a/app/javascript/dashboard/components/widgets/ChatTypeTabs.vue
++++ b/app/javascript/dashboard/components/widgets/ChatTypeTabs.vue
+@@ -1,5 +1,6 @@
+ <script setup>
+ import { computed } from 'vue';
++import QueueMenu from 'dashboard/inclamo/components/QueueMenu.vue';
+ import { useKeyboardEvents } from 'dashboard/composables/useKeyboardEvents';
+ import wootConstants from 'dashboard/constants/globals';
+ 
+@@ -46,19 +47,5 @@
+ </script>
+ 
+ <template>
+-  <woot-tabs
+-    :index="activeTabIndex"
+-    class="w-full px-3 -mt-1 py-0 [&_ul]:p-0 h-10"
+-    @change="onTabChange"
+-  >
+-    <woot-tabs-item
+-      v-for="(item, index) in items"
+-      :key="item.key"
+-      class="text-sm [&_a]:font-medium"
+-      :index="index"
+-      :name="item.name"
+-      :count="item.count"
+-      is-compact
+-    />
+-  </woot-tabs>
++  <QueueMenu :items="items" :active-tab="activeTab" @change="onTabChange" />
+ </template>
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue b/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
+@@ -126,6 +126,7 @@
+       @mouseleave="onThumbnailLeave"
+     >
+       <Avatar
++        class="inclamo-list-avatar"
+           rounded-full
+         v-if="!hideThumbnail"
+         :name="currentContact.name"
+@@ -150,7 +151,7 @@
+     <div class="inclamo-conversation-card-content px-0 py-3 flex-1 min-w-0 border-line">
+       <div
+         v-if="showMetaSection"
+-        class="flex items-center min-w-0 gap-1"
++        class="inclamo-card-meta flex items-center min-w-0 gap-1"
+         :class="{
+           'ltr:ml-2 rtl:mr-2': !compact,
+           'mx-2': compact,
+@@ -185,6 +186,7 @@
+       >
+         {{ currentContact.name }}
+       </h4>
++      <p v-if="chat.additional_attributes?.mail_subject" class="inclamo-card-subject">{{ chat.additional_attributes.mail_subject }}</p>
+       <VoiceCallStatus
+         v-if="voiceCallData.status"
+         key="voice-status-row"
+@@ -215,7 +217,7 @@
+         </span>
+       </p>
+       <div
+-        class="absolute flex flex-col ltr:right-3 rtl:left-3"
++        class="inclamo-card-time absolute flex flex-col ltr:right-3 rtl:left-3"
+         :class="showMetaSection ? 'top-8' : 'top-4'"
+       >
+         <span class="ml-auto font-normal leading-4 text-xxs">
+diff --git a/app/javascript/dashboard/components-next/sidebar/Sidebar.vue b/app/javascript/dashboard/components-next/sidebar/Sidebar.vue
+--- a/app/javascript/dashboard/components-next/sidebar/Sidebar.vue
++++ b/app/javascript/dashboard/components-next/sidebar/Sidebar.vue
+@@ -3,7 +3,6 @@
+ import { provideSidebarContext, useSidebarResize } from './provider';
+ import { useAccount } from 'dashboard/composables/useAccount';
+ import { useConfig } from 'dashboard/composables/useConfig';
+-import { useKbd } from 'dashboard/composables/utils/useKbd';
+ import { useMapGetter } from 'dashboard/composables/store';
+ import { useStore } from 'vuex';
+ import { useI18n } from 'vue-i18n';
+@@ -13,7 +12,6 @@
+ import extensionSettingsPages from 'dashboard/extensions/settingsPages';
+ import { useWindowSize, useEventListener } from '@vueuse/core';
+ 
+-import Button from 'dashboard/components-next/button/Button.vue';
+ import SidebarGroup from './SidebarGroup.vue';
+ import SidebarProfileMenu from './SidebarProfileMenu.vue';
+ import SidebarChangelogCard from './SidebarChangelogCard.vue';
+@@ -23,7 +21,7 @@
+ import EmojiIcon from 'next/emoji-icon-picker/EmojiIcon.vue';
+ import SidebarAccountSwitcher from './SidebarAccountSwitcher.vue';
+ import BrandMark from 'dashboard/inclamo/components/BrandMark.vue';
+-import ComposeConversation from 'dashboard/components-next/NewConversation/ComposeConversation.vue';
++import { t as inclamoT } from 'dashboard/inclamo/i18n';
+ import {
+   SIDEBAR_SORT_SECTIONS,
+   getSidebarSortOptions,
+@@ -54,7 +52,6 @@
+ const isCallsAvailable = computed(
+   () => isOnChatwootCloud.value || isEnterprise
+ );
+-const searchShortcut = useKbd([`$mod`, 'k']);
+ const { t } = useI18n();
+ 
+ const isACustomBrandedInstance = useMapGetter(
+@@ -1024,51 +1021,9 @@
+           />
+         </template>
+       </div>
+-      <div
+-        class="flex gap-2"
+-        :class="isEffectivelyCollapsed ? 'flex-col items-center' : 'px-2'"
+-      >
+-        <RouterLink
+-          v-if="!isEffectivelyCollapsed"
+-          :to="{ name: 'search' }"
+-          class="flex gap-2 items-center px-2 py-1 w-full h-7 rounded-lg outline outline-1 outline-n-weak bg-n-button-color transition-all duration-100 ease-out"
+-        >
+-          <span class="flex-shrink-0 i-lucide-search size-4 text-n-slate-10" />
+-          <span class="flex-grow text-start text-n-slate-10">
+-            {{ t('COMBOBOX.SEARCH_PLACEHOLDER') }}
+-          </span>
+-          <span
+-            class="hidden tracking-wide pointer-events-none select-none text-n-slate-10"
+-          >
+-            {{ searchShortcut }}
+-          </span>
+-        </RouterLink>
+-        <RouterLink
+-          v-else
+-          :to="{ name: 'search' }"
+-          class="flex items-center justify-center size-8 rounded-lg outline outline-1 outline-n-weak bg-n-button-color transition-all duration-100 ease-out hover:bg-n-alpha-2 dark:hover:bg-n-slate-9/30"
+-          :title="t('COMBOBOX.SEARCH_PLACEHOLDER')"
+-        >
+-          <span class="i-lucide-search size-4 text-n-slate-11" />
+-        </RouterLink>
+-        <ComposeConversation align="start">
+-          <template #trigger="{ isOpen }">
+-            <Button
+-              icon="i-lucide-pen-line"
+-              color="slate"
+-              size="sm"
+-              class="dark:hover:!bg-n-slate-9/30"
+-              :class="[
+-                isEffectivelyCollapsed
+-                  ? '!size-8 !outline-n-weak !text-n-slate-11'
+-                  : '!h-7 !outline-n-weak !text-n-slate-11',
+-                { '!bg-n-alpha-2 dark:!bg-n-slate-9/30': isOpen },
+-              ]"
+-            />
+-          </template>
+-        </ComposeConversation>
+-      </div>
++
+     </section>
++    <div v-if="!isEffectivelyCollapsed" class="inclamo-nav-heading">{{ inclamoT('WORKSPACE.HEADING') }}</div>
+     <nav
+       class="grid overflow-y-scroll flex-grow gap-2 pb-5 no-scrollbar min-w-0"
+       :class="isEffectivelyCollapsed ? 'px-1' : 'px-2'"
+diff --git a/app/javascript/dashboard/components-next/sidebar/SidebarGroup.vue b/app/javascript/dashboard/components-next/sidebar/SidebarGroup.vue
+--- a/app/javascript/dashboard/components-next/sidebar/SidebarGroup.vue
++++ b/app/javascript/dashboard/components-next/sidebar/SidebarGroup.vue
+@@ -247,6 +247,7 @@
+     :permissions="resolvePermissions(to)"
+     :feature-flag="resolveFeatureFlag(to)"
+     as="li"
++    :data-inclamo-nav="name"
+     class="grid gap-1 text-sm cursor-pointer select-none min-w-0"
+   >
+     <!-- Collapsed State -->
+diff --git a/app/javascript/dashboard/components-next/sidebar/SidebarGroupLeaf.vue b/app/javascript/dashboard/components-next/sidebar/SidebarGroupLeaf.vue
+--- a/app/javascript/dashboard/components-next/sidebar/SidebarGroupLeaf.vue
++++ b/app/javascript/dashboard/components-next/sidebar/SidebarGroupLeaf.vue
+@@ -33,7 +33,7 @@
+     :permissions="resolvePermissions(to)"
+     :feature-flag="resolveFeatureFlag(to)"
+     as="li"
+-    class="py-0.5 ps-2 ms-3 relative text-n-slate-11 min-w-0"
++    class="inclamo-nav-tree py-0.5 ps-2 ms-3 relative text-n-slate-11 min-w-0"
+     :class="{
+       [TREE_CONNECTOR]: !hideTreeLine,
+       'before:!w-px last:after:!border-b last:after:!border-s':
+diff --git a/app/javascript/dashboard/components-next/sidebar/SidebarAccountSwitcher.vue b/app/javascript/dashboard/components-next/sidebar/SidebarAccountSwitcher.vue
+--- a/app/javascript/dashboard/components-next/sidebar/SidebarAccountSwitcher.vue
++++ b/app/javascript/dashboard/components-next/sidebar/SidebarAccountSwitcher.vue
+@@ -1,5 +1,6 @@
+ <script setup>
+ import { computed } from 'vue';
++import { t as inclamoT } from 'dashboard/inclamo/i18n';
+ import { useAccount } from 'dashboard/composables/useAccount';
+ import { useMapGetter } from 'dashboard/composables/store';
+ import { useI18n } from 'vue-i18n';
+@@ -79,11 +80,15 @@
+         ]"
+         @click="() => showAccountSwitcher && toggle()"
+       >
++        <span class="inclamo-account-mark" aria-hidden="true">{{ currentAccount.name?.slice(0, 1).toLowerCase() }}</span>
++        <span class="inclamo-account-label">
+         <span
+           class="text-sm font-medium leading-5 text-n-slate-12 truncate"
+           aria-live="polite"
+         >
+           {{ currentAccount.name }}
++        </span>
++        <small>{{ inclamoT('WORKSPACE.SUPPORT') }}</small>
+         </span>
+ 
+         <span
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ResizableEditorWrapper.vue b/app/javascript/dashboard/components/widgets/conversation/ResizableEditorWrapper.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/ResizableEditorWrapper.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ResizableEditorWrapper.vue
+@@ -17,8 +17,8 @@
+ 
+ const emit = defineEmits(['collapse']);
+ 
+-const DEFAULT_HEIGHT = 120;
+-const MIN_HEIGHT = 80;
++const DEFAULT_HEIGHT = 68;
++const MIN_HEIGHT = 64;
+ const MIN_MESSAGES_HEIGHT = 200;
+ const EXPAND_RATIO = 0.5;
+ const RESET_DELAY_MS = 120;
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue b/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue
+@@ -6,6 +6,7 @@
+ import BackButton from '../BackButton.vue';
+ import InboxName from '../InboxName.vue';
+ import MoreActions from './MoreActions.vue';
++import SidepanelSwitch from 'dashboard/components-next/Conversation/SidepanelSwitch.vue';
+ import Avatar from 'next/avatar/Avatar.vue';
+ import SLACardLabel from './components/SLACardLabel.vue';
+ import ConversationCallButton from './ConversationCallButton.vue';
+@@ -149,7 +150,9 @@
+           />
+         </div>
+ 
++        <div v-if="currentContact.email" class="inclamo-conversation-email"><span class="i-lucide-mail" aria-hidden="true" />{{ currentContact.email }}</div>
+         <div
++          v-else
+           class="flex items-center max-w-full gap-1 overflow-hidden text-xs conversation--header--actions text-n-slate-11 text-ellipsis whitespace-nowrap"
+         >
+           <button
+@@ -191,6 +194,7 @@
+       />
+       <ConversationCallButton :inbox="inbox" :chat="currentChat" />
+       <MoreActions :conversation-id="currentChat.id" />
++      <SidepanelSwitch v-if="currentChat.id" />
+     </div>
+   </div>
+ </template>
+diff --git a/app/javascript/dashboard/components-next/message/Message.vue b/app/javascript/dashboard/components-next/message/Message.vue
+--- a/app/javascript/dashboard/components-next/message/Message.vue
++++ b/app/javascript/dashboard/components-next/message/Message.vue
+@@ -23,6 +23,7 @@
+   CONTENT_TYPES,
+ } from './constants';
+ 
++import MessageHeading from 'dashboard/inclamo/components/MessageHeading.vue';
+ import Avatar from 'next/avatar/Avatar.vue';
+ 
+ import TextBubble from './bubbles/Text/Index.vue';
+@@ -285,7 +286,7 @@
+ 
+ const gridClass = computed(() => {
+   const map = {
+-    [ORIENTATION.LEFT]: 'grid grid-cols-1fr',
++    [ORIENTATION.LEFT]: 'grid grid-cols-[24px_1fr]',
+     [ORIENTATION.RIGHT]: 'grid grid-cols-[1fr_24px]',
+   };
+ 
+@@ -295,8 +296,8 @@
+ const gridTemplate = computed(() => {
+   const map = {
+     [ORIENTATION.LEFT]: `
+-      "bubble"
+-      "meta"
++      "avatar bubble"
++      "spacer meta"
+     `,
+     [ORIENTATION.RIGHT]: `
+       "bubble avatar"
+@@ -315,7 +316,7 @@
+ 
+ const shouldShowAvatar = computed(() => {
+   if (props.messageType === MESSAGE_TYPES.ACTIVITY) return false;
+-  if (orientation.value === ORIENTATION.LEFT) return false;
++  if (props.private) return false;
+ 
+   return true;
+ });
+@@ -600,6 +601,8 @@
+     :id="`message${props.id}`"
+     class="inclamo-message flex w-full mb-2 message-bubble-container"
+     :data-message-id="props.id"
++    :data-inclamo-message-variant="variant"
++    :data-inclamo-orientation="orientation"
+     :class="[
+       flexOrientationClass,
+       {
+@@ -630,7 +633,7 @@
+         v-tooltip.left-end="avatarTooltip"
+         class="[grid-area:avatar] flex items-end"
+       >
+-        <Avatar v-bind="avatarInfo" :size="24" />
++        <Avatar v-bind="avatarInfo" :size="24" rounded-full />
+       </div>
+       <div
+         class="[grid-area:bubble] flex min-w-0"
+@@ -647,7 +650,10 @@
+           :referral="contentAttributes.referral"
+         />
+         <ForwardedEmailBanner v-if="isForwardedEmail" />
+-        <Component :is="componentToRender" />
++        <div class="inclamo-message-content">
++          <MessageHeading v-if="avatarInfo.name && !props.private" :name="avatarInfo.name" :created-at="createdAt" />
++          <Component :is="componentToRender" />
++        </div>
+       </div>
+       <MessageError
+         v-if="contentAttributes.externalError"
+diff --git a/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue b/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
+--- a/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
++++ b/app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
+@@ -14,6 +14,7 @@
+ import ConversationAction from './ConversationAction.vue';
+ import ConversationParticipant from './ConversationParticipant.vue';
+ import ContactInfo from './contact/ContactInfo.vue';
++import { t as inclamoT } from 'dashboard/inclamo/i18n';
+ import ContactNotes from './contact/ContactNotes.vue';
+ import ConversationInfo from './ConversationInfo.vue';
+ import CustomAttributes from './customAttributes/CustomAttributes.vue';
+@@ -150,7 +151,8 @@
+ <template>
+   <div class="inclamo-contact-panel w-full">
+     <SidebarActionsHeader
+-      :title="$t('CONVERSATION.SIDEBAR.CONTACT')"
++      class="inclamo-details-header"
++      :title="inclamoT('WORKSPACE.DETAILS')"
+       @close="closeContactPanel"
+     />
+     <ContactInfo :contact="contact" :channel-type="channelType" />
+diff --git a/app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue b/app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue
+--- a/app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue
++++ b/app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue
+@@ -1,5 +1,6 @@
+ <script>
+ import { mapGetters } from 'vuex';
++import { t as inclamoT } from 'dashboard/inclamo/i18n';
+ import { FEATURE_FLAGS } from 'dashboard/featureFlags';
+ import { useAlert } from 'dashboard/composables';
+ import {
+@@ -49,6 +50,7 @@
+     const { isAdmin } = useAdmin();
+     return {
+       isAdmin,
++      inclamoT,
+       exactTimestamp: useExactTimestamp(),
+     };
+   },
+@@ -275,6 +277,7 @@
+           </div>
+         </div>
+ 
++        <p v-if="contact.created_at && showAvatar" class="inclamo-customer-since">{{ inclamoT('WORKSPACE.CUSTOMER_SINCE', { date: new Intl.DateTimeFormat($i18n.locale, { month: 'long', year: 'numeric' }).format(new Date(contact.created_at * 1000)) }) }}</p>
+         <p v-if="additionalAttributes.description" class="break-words mb-0.5">
+           {{ additionalAttributes.description }}
+         </p>
+@@ -346,7 +349,7 @@
+           <template #trigger>
+             <NextButton
+               v-tooltip.top-end="$t('CONTACT_PANEL.NEW_MESSAGE')"
+-              icon="i-ph-chat-circle-dots"
++              icon="i-lucide-message-circle"
+               slate
+               faded
+               sm
+@@ -358,7 +361,7 @@
+           :phone="contact.phone_number"
+           :contact-id="contact.id"
+           :conversation-id="currentChat?.id"
+-          icon="i-ph-phone"
++          icon="i-lucide-phone"
+           sm
+           faded
+           slate
+@@ -366,7 +369,7 @@
+         />
+         <NextButton
+           v-tooltip.top-end="$t('EDIT_CONTACT.BUTTON_LABEL')"
+-          icon="i-ph-pencil-simple"
++          icon="i-lucide-pencil"
+           slate
+           faded
+           sm
+diff --git a/app/javascript/dashboard/components/widgets/WootWriter/ReplyTopPanel.vue b/app/javascript/dashboard/components/widgets/WootWriter/ReplyTopPanel.vue
+--- a/app/javascript/dashboard/components/widgets/WootWriter/ReplyTopPanel.vue
++++ b/app/javascript/dashboard/components/widgets/WootWriter/ReplyTopPanel.vue
+@@ -7,7 +7,7 @@
+ import { REPLY_EDITOR_MODES, CHAR_LENGTH_WARNING } from './constants';
+ import { CAPTAIN_EVENTS } from 'dashboard/helper/AnalyticsHelper/events';
+ import NextButton from 'dashboard/components-next/button/Button.vue';
+-import EditorModeToggle from './EditorModeToggle.vue';
++import EditorModeToggle from 'dashboard/inclamo/components/ReplyModeTabs.vue';
+ import CopilotMenuBar from './CopilotMenuBar.vue';
+ 
+ export default {
+@@ -152,7 +152,7 @@
+ 
+ <template>
+   <div
+-    class="flex justify-between gap-2 h-[3.25rem] items-center ltr:pl-3 ltr:pr-2 rtl:pr-3 rtl:pl-2"
++    class="inclamo-composer-heading flex justify-between gap-2 h-[3.25rem] items-center ltr:pl-3 ltr:pr-2 rtl:pr-3 rtl:pl-2"
+   >
+     <EditorModeToggle
+       :mode="mode"
+diff --git a/app/javascript/dashboard/components-next/Conversation/SidepanelSwitch.vue b/app/javascript/dashboard/components-next/Conversation/SidepanelSwitch.vue
+--- a/app/javascript/dashboard/components-next/Conversation/SidepanelSwitch.vue
++++ b/app/javascript/dashboard/components-next/Conversation/SidepanelSwitch.vue
+@@ -50,18 +50,20 @@
+ 
+ <template>
+   <ButtonGroup
+-    class="flex flex-col justify-center items-center absolute top-36 xl:top-24 ltr:right-2 rtl:left-2 bg-n-solid-2/90 backdrop-blur-lg border border-n-weak/50 rounded-full gap-1.5 p-1.5 shadow-sm transition-shadow duration-200 hover:shadow !z-20"
++    class="inclamo-panel-switch flex items-center gap-1"
+   >
+     <Button
+       v-tooltip.top="$t('CONVERSATION.SIDEBAR.CONTACT')"
+       ghost
+       slate
+       sm
+-      class="!rounded-full transition-all duration-[250ms] ease-out active:!scale-95 active:!brightness-105 active:duration-75"
++      class="rounded-md transition-all duration-[250ms] ease-out active:!scale-95 active:!brightness-105 active:duration-75"
+       :class="{
+         'bg-n-alpha-2 active:shadow-sm': isContactSidebarOpen,
+       }"
+-      icon="i-ph-user-bold"
++      icon="i-lucide-panel-right"
++      :aria-label="$t('CONVERSATION.SIDEBAR.CONTACT')"
++      data-testid="inclamo-toggle-customer"
+       @click="handleConversationSidebarToggle"
+     />
+     <Button
+@@ -70,7 +72,7 @@
+       ghost
+       slate
+       sm
+-      class="!rounded-full transition-all duration-[250ms] ease-out active:!scale-95 active:duration-75"
++      class="rounded-md transition-all duration-[250ms] ease-out active:!scale-95 active:duration-75"
+       :class="{
+         'bg-n-alpha-2 !text-n-iris-9 active:!brightness-105 active:shadow-sm':
+           isCopilotPanelOpen,
+diff --git a/app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue b/app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue
+--- a/app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue
++++ b/app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue
+@@ -13,7 +13,6 @@
+ import { BUS_EVENTS } from 'shared/constants/busEvents';
+ import CmdBarConversationSnooze from 'dashboard/routes/dashboard/commands/CmdBarConversationSnooze.vue';
+ import { emitter } from 'shared/helpers/mitt';
+-import SidepanelSwitch from 'dashboard/components-next/Conversation/SidepanelSwitch.vue';
+ import ConversationSidebar from 'dashboard/components/widgets/conversation/ConversationSidebar.vue';
+ 
+ export default {
+@@ -21,7 +20,6 @@
+     ChatList,
+     ConversationBox,
+     CmdBarConversationSnooze,
+-    SidepanelSwitch,
+     ConversationSidebar,
+   },
+   beforeRouteLeave(to, from, next) {
+@@ -213,7 +211,6 @@
+       :inbox-id="inboxId"
+       :is-on-expanded-layout="isOnExpandedLayout"
+     >
+-      <SidepanelSwitch v-if="currentChat.id" />
+     </ConversationBox>
+     <ConversationSidebar v-if="shouldShowSidebar" :current-chat="currentChat" />
+     <CmdBarConversationSnooze />
+diff --git a/app/javascript/dashboard/routes/dashboard/inbox/InboxView.vue b/app/javascript/dashboard/routes/dashboard/inbox/InboxView.vue
+--- a/app/javascript/dashboard/routes/dashboard/inbox/InboxView.vue
++++ b/app/javascript/dashboard/routes/dashboard/inbox/InboxView.vue
+@@ -11,7 +11,6 @@
+ import { BUS_EVENTS } from 'shared/constants/busEvents';
+ import { INBOX_EVENTS } from 'dashboard/helper/AnalyticsHelper/events';
+ import { emitter } from 'shared/helpers/mitt';
+-import SidepanelSwitch from 'dashboard/components-next/Conversation/SidepanelSwitch.vue';
+ 
+ import InboxItemHeader from './components/InboxItemHeader.vue';
+ import ConversationBox from 'dashboard/components/widgets/conversation/ConversationBox.vue';
+@@ -217,8 +216,7 @@
+           :inbox-id="inboxId"
+           :is-on-expanded-layout="false"
+         >
+-          <SidepanelSwitch v-if="currentChat.id" />
+-        </ConversationBox>
++            </ConversationBox>
+         <ConversationSidebar
+           v-if="isContactPanelOpen"
+           :current-chat="currentChat"
+diff --git a/app/javascript/dashboard/components/widgets/WootWriter/ReplyBottomPanel.vue b/app/javascript/dashboard/components/widgets/WootWriter/ReplyBottomPanel.vue
+--- a/app/javascript/dashboard/components/widgets/WootWriter/ReplyBottomPanel.vue
++++ b/app/javascript/dashboard/components/widgets/WootWriter/ReplyBottomPanel.vue
+@@ -269,12 +269,12 @@
+ </script>
+ 
+ <template>
+-  <div class="flex justify-between p-3" :class="wrapClass">
++  <div class="inclamo-composer-footer flex justify-between p-3" :class="wrapClass">
+     <div class="left-wrap">
+       <NextButton
+         v-if="!isEditorDisabled"
+         v-tooltip.top-end="$t('CONVERSATION.REPLYBOX.TIP_EMOJI_ICON')"
+-        icon="i-ph-smiley-sticker"
++        icon="i-lucide-smile"
+         slate
+         faded
+         sm
+@@ -299,7 +299,7 @@
+         <NextButton
+           v-if="showAttachButton"
+           v-tooltip.top-end="$t('CONVERSATION.REPLYBOX.TIP_ATTACH_ICON')"
+-          icon="i-ph-paperclip"
++          icon="i-lucide-paperclip"
+           slate
+           faded
+           sm
+@@ -308,7 +308,7 @@
+       <NextButton
+         v-if="showAudioRecorderButton"
+         v-tooltip.top-end="$t('CONVERSATION.REPLYBOX.TIP_AUDIORECORDER_ICON')"
+-        :icon="!isRecordingAudio ? 'i-ph-microphone' : 'i-ph-microphone-slash'"
++        :icon="!isRecordingAudio ? 'i-lucide-mic' : 'i-lucide-mic-slash'"
+         slate
+         faded
+         sm
+@@ -326,7 +326,7 @@
+       <NextButton
+         v-if="showMessageSignatureButton"
+         v-tooltip.top-end="signatureToggleTooltip"
+-        icon="i-ph-signature"
++        icon="i-lucide-signature"
+         slate
+         faded
+         sm
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ConversationBox.vue b/app/javascript/dashboard/components/widgets/conversation/ConversationBox.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/ConversationBox.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ConversationBox.vue
+@@ -1,6 +1,7 @@
+ <script>
+ import { mapGetters } from 'vuex';
+ import ConversationHeader from './ConversationHeader.vue';
++import ConversationContext from 'dashboard/inclamo/components/ConversationContext.vue';
+ import DashboardAppFrame from '../DashboardApp/Frame.vue';
+ import EmptyState from './EmptyState/EmptyState.vue';
+ import MessagesView from './MessagesView.vue';
+@@ -8,6 +9,7 @@
+ export default {
+   components: {
+     ConversationHeader,
++    ConversationContext,
+     DashboardAppFrame,
+     EmptyState,
+     MessagesView,
+@@ -107,6 +109,7 @@
+         'border-b border-b-n-weak !pt-2': !dashboardApps.length,
+       }"
+     />
++    <ConversationContext v-if="currentChat.id" :chat="currentChat" />
+     <woot-tabs
+       v-if="dashboardApps.length && currentChat.id"
+       :index="activeIndex"
+diff --git a/app/javascript/dashboard/components-next/message/MessageMeta.vue b/app/javascript/dashboard/components-next/message/MessageMeta.vue
+--- a/app/javascript/dashboard/components-next/message/MessageMeta.vue
++++ b/app/javascript/dashboard/components-next/message/MessageMeta.vue
+@@ -144,7 +144,7 @@
+           content: exactTime,
+           delay: { show: 500, hide: 0 },
+         }"
+-        class="inline"
++        class="inclamo-native-message-time inline"
+       >
+         {{ readableTime }}
+       </time>
+diff --git a/app/javascript/dashboard/components-next/avatar/Avatar.vue b/app/javascript/dashboard/components-next/avatar/Avatar.vue
+--- a/app/javascript/dashboard/components-next/avatar/Avatar.vue
++++ b/app/javascript/dashboard/components-next/avatar/Avatar.vue
+@@ -1,5 +1,6 @@
+ <script setup>
+ import { computed, ref, watch } from 'vue';
++import { inclamoAvatarColors } from 'dashboard/inclamo/ui/avatarColors';
+ import { useI18n } from 'vue-i18n';
+ import { removeEmoji } from 'shared/helpers/emoji';
+ 
+@@ -55,25 +56,7 @@
+ const isImageValid = ref(true);
+ const fileInput = ref(null);
+ 
+-const AVATAR_COLORS = {
+-  dark: [
+-    ['#4B143D', '#FF8DCC'],
+-    ['#3F220D', '#FFA366'],
+-    ['#2A2A2A', '#ADB1B8'],
+-    ['#023B37', '#0BD8B6'],
+-    ['#27264D', '#A19EFF'],
+-    ['#1D2E62', '#9EB1FF'],
+-  ],
+-  light: [
+-    ['#FBDCEF', '#C2298A'],
+-    ['#FFE0BB', '#99543A'],
+-    ['#E8E8E8', '#60646C'],
+-    ['#CCF3EA', '#008573'],
+-    ['#EBEBFE', '#4747C2'],
+-    ['#E1E9FF', '#3A5BC7'],
+-  ],
+-  default: { bg: '#E8E8E8', text: '#60646C' },
+-};
++const AVATAR_COLORS = inclamoAvatarColors;
+ 
+ const STATUS_CLASSES = computed(() => ({
+   online: 'bg-n-teal-10',
+diff --git a/app/javascript/dashboard/components/widgets/conversation/specs/ResizableEditorWrapper.spec.js b/app/javascript/dashboard/components/widgets/conversation/specs/ResizableEditorWrapper.spec.js
+--- a/app/javascript/dashboard/components/widgets/conversation/specs/ResizableEditorWrapper.spec.js
++++ b/app/javascript/dashboard/components/widgets/conversation/specs/ResizableEditorWrapper.spec.js
+@@ -8,8 +8,8 @@
+ }));
+ 
+ const CONTAINER_HEIGHT = 800;
+-const DEFAULT_HEIGHT = 120;
+-const MIN_HEIGHT = 80;
++const DEFAULT_HEIGHT = 68;
++const MIN_HEIGHT = 64;
+ const COLLAPSE_DISTANCE = 48;
+ const START_Y = 500;
+ 

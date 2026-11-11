@@ -1,0 +1,12 @@
+--- a/config/schedule.yml
++++ b/config/schedule.yml
+@@ -92,3 +92,9 @@
+   cron: '0 */12 * * *'
+   class: 'Internal::RemoveOrphanConversationsJob'
+   queue: housekeeping
++
++# Owned support outbox recovery, public event reconciliation and notification retry.
++inclamo_support_dispatch:
++  cron: '* * * * *'
++  class: 'Inclamo::Support::DispatchJob'
++  queue: scheduled_jobs

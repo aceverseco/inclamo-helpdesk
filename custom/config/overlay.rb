@@ -33,6 +33,12 @@ if overlay_lib.exist?
   loader.ignore(overlay_lib.join('tasks').to_s)
 end
 
+# Middleware lives for the process lifetime, outside the reloadable loader.
+body_limit = overlay_lib.join('inclamo_support_body_limit.rb')
+loader.ignore(body_limit.to_s)
+require body_limit
+Rails.application.config.middleware.insert_before(0, InclamoSupportBodyLimit)
+
 # Routes: drawn before Chatwoot's own on every (re)load of the route set.
 overlay_routes = overlay_root.join('config/routes.rb')
 if overlay_routes.exist?
@@ -49,6 +55,8 @@ Rails.application.config.to_prepare do
   AutomationRuleListener.prepend(Inclamo::StoreFactsBeforeRules)
   Public::Api::V1::Portals::ArticlesController.prepend(Inclamo::ArticlePreview::PublicGuard)
   SuperAdmin::Devise::SessionsController.prepend(Inclamo::Authentication::SuperAdminSession)
+  Message.include(Inclamo::Support::NativeEvents)
+  Conversation.include(Inclamo::Support::NativeEvents)
 end
 
 # Order steps in macros (see Inclamo::Shopify::MacroSteps). Chatwoot's hook
@@ -61,9 +69,10 @@ Rails.application.config.to_prepare do
   Api::V1::Accounts::MacrosController.prepend(Inclamo::Shopify::MacroSteps::ExecutionGuard)
 end
 
-# Credentials of a store connection and the AI agent's connection code never
-# reach the request log.
+# Credentials of a store connection, the AI agent's connection code and the
+# in-product support's signed material never reach the request log.
 Rails.application.config.filter_parameters |= [:client_secret, :access_token, :connection_code, :address, :note]
+Rails.application.config.filter_parameters |= [:private_key, :signature, :verification_digest, :code, :bytes]
 
 # Deliveries to the AI service are recorded (Inclamo::Ai::DeliveryRecorder).
 # Chatwoot's webhook sender has no extension hook, so it is prepended here,

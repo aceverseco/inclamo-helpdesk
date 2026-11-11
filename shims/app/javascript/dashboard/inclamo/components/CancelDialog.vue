@@ -62,7 +62,7 @@ defineExpose({ open: () => frame.value.open() });
     <p v-else-if="preview" class="font-medium" data-testid="inclamo-cancel-amount">{{ form.refund && preview.amount ? t('DIALOG.CANCEL.AMOUNT', { amount: money(preview.amount, preview.currency) }) : t('DIALOG.CANCEL.NO_REFUND') }}</p>
     <label class="flex flex-col gap-1">
       <span>{{ t('DIALOG.CANCEL.REASON') }}</span>
-      <select v-model="form.reason" class="rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-cancel-reason">
+      <select v-model="form.reason" class="rounded-[var(--inclamo-control-radius,0.375rem)] border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-cancel-reason">
         <option v-for="reason in REASONS" :key="reason" :value="reason">{{ t(`DIALOG.CANCEL.REASONS.${reason}`) }}</option>
       </select>
     </label>

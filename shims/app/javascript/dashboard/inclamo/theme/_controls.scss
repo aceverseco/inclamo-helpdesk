@@ -1,0 +1,83 @@
+@mixin inclamo-controls {
+  font-family: "Inclamo Inter", Inter, sans-serif;
+  color: rgb(var(--slate-12));
+  background-color: rgb(var(--background-color));
+
+  :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid rgb(var(--inclamo-focus));
+    outline-offset: 2px;
+  }
+
+  // Legacy brand-fill consumers need navy text on the sky background too.
+  .bg-n-brand,
+  .bg-n-blue-9,
+  .ProseMirror-prompt .ProseMirror-prompt-buttons button[type="submit"] {
+    color: rgb(var(--inclamo-action-text));
+  }
+  input[type="checkbox"]:checked::after {
+    color: rgb(var(--inclamo-action-text));
+  }
+  [data-inclamo-control="context-menu-item"]:hover {
+    color: rgb(var(--inclamo-action-text));
+    .text-n-brand {
+      color: inherit;
+    }
+  }
+
+  [data-inclamo-control="button"],
+  .button {
+    font-weight: 500;
+  }
+  .button {
+    border-radius: var(--inclamo-control-radius);
+  }
+  [data-inclamo-color="blue"][data-inclamo-variant="solid"],
+  .button:not(.clear):not(.hollow):not(.secondary):not(.alert):not(
+      .success
+    ):not(.warning) {
+    background-color: rgb(var(--inclamo-brand));
+    color: rgb(var(--inclamo-action-text));
+    &:hover:not(:disabled) {
+      background-color: rgb(var(--inclamo-action-hover));
+    }
+  }
+  [data-inclamo-color="blue"][data-inclamo-variant="outline"],
+  [data-inclamo-color="blue"][data-inclamo-variant="faded"] {
+    background-color: rgb(var(--inclamo-field));
+    color: rgb(var(--inclamo-brand-text));
+  }
+  :is(input, select, textarea):where(
+      :not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"])
+    ) {
+    // Native legacy field-base has a highly specific selector; theme its token.
+    --black-alpha-2: var(--inclamo-field-alpha);
+    --border-weak: var(--inclamo-control-border);
+    --slate-6: var(--inclamo-control-border);
+    --ruby-8: var(--ruby-11);
+    border-radius: var(--inclamo-control-radius);
+    background-color: rgb(var(--inclamo-field));
+    color: rgb(var(--slate-12));
+  }
+  :where(input[type="checkbox"], input[type="radio"]) {
+    accent-color: rgb(var(--inclamo-focus));
+  }
+  :where(input, textarea)::placeholder {
+    color: rgb(var(--slate-10));
+  }
+  :where(thead) {
+    background-color: rgb(var(--solid-2));
+  }
+  :where(th) {
+    font-weight: 500;
+    color: rgb(var(--slate-11));
+  }
+  :where(tbody tr:hover) {
+    background-color: rgb(var(--alpha-1));
+  }
+  :where(dialog) {
+    border-radius: var(--inclamo-dialog-radius);
+  }
+  :where(dialog)::backdrop {
+    background-color: rgba(var(--overlay));
+  }
+}

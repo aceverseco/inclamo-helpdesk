@@ -52,7 +52,7 @@ export async function openOrders(page, accountId, conversationId) {
   if (await appeared(section, 5_000)) return section;
   // The contact sidebar may be closed: Chatwoot's round button at the top
   // right of the conversation opens it.
-  if (!(await appeared(header, 3_000))) await page.locator('button[class*="!rounded-full"]').first().click();
+  if (!(await appeared(header, 3_000))) await page.getByTestId('inclamo-toggle-customer').or(page.locator('button[class*="!rounded-full"]')).first().click();
   if (!(await appeared(section, 3_000))) await header.first().click();
   await section.waitFor({ state: 'attached', timeout: 45_000 });
   return section;
@@ -189,7 +189,11 @@ export async function orderCard(section, number) {
     await more.click();
   }
   await card.waitFor({ state: 'visible', timeout: 30_000 });
-  if (!(await card.getByTestId('inclamo-action-cancel').isVisible())) await card.locator('button').first().click();
+  const heading = card.locator('button').first();
+  const expanded = await heading.getAttribute('aria-expanded');
+  if (expanded === 'false' || (expanded === null && !(await card.getByTestId('inclamo-action-cancel').isVisible()))) await heading.click();
+  const actions = card.locator('details.reference-order-actions');
+  if (await actions.count() && (await actions.getAttribute('open')) === null) await actions.locator('summary').click();
   await card.getByTestId('inclamo-action-cancel').waitFor({ state: 'visible' });
   return card;
 }

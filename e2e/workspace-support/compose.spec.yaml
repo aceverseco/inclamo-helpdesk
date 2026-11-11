@@ -1,0 +1,42 @@
+# Separate database/network: does not use the stand's shared spec/dev stacks.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    tmpfs: /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  redis:
+    image: redis:alpine
+  specs:
+    image: spec-ruby:latest
+    working_dir: /app
+    volumes:
+      - ${WIDGET_SUPPORT_APP:?Set the isolated assembled app directory}:/app
+      - spec-bundle:/usr/local/bundle:ro
+    environment:
+      RAILS_ENV: test
+      POSTGRES_HOST: postgres
+      POSTGRES_USERNAME: postgres
+      REDIS_URL: redis://redis:6379
+      ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: ci-only-primary-key-0000000000000000
+      ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: ci-only-deterministic-key-000000000
+      ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: ci-only-key-derivation-salt-0000000
+      ENABLE_TELEMETRY: 'false'
+      INCLAMO_SUPPORT_ENDPOINT: http://central:3000/inclamo/support/v1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+networks:
+  default:
+    internal: true
+volumes:
+  spec-bundle:
+    external: true

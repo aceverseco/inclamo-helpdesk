@@ -1,0 +1,64 @@
+import {writeFile,readFile} from 'node:fs/promises';
+import {chromium,expect,base,login,api,visitor,publish,accountPath,fixtureCommand} from './helpers.mjs';
+const headers=await login();const browser=await chromium.launch({channel:'chrome',headless:true});
+const evidence={base,checks:[],errors:[]};const ok=name=>{evidence.checks.push(name);console.log('PASS',name)};
+const open=async v=>{v.page.on('pageerror',e=>evidence.errors.push(e.message));await v.page.locator('#custom-open').click()};
+const native=body=>api(headers,`${accountPath}/inboxes/2`,'PATCH',body);
+const createResponse=p=>p.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/widget/conversations'&&r.request().method()==='POST');
+const back=async v=>v.widget.locator('header button').first().click();
+try{
+ await native({channel:{pre_chat_form_enabled:true,pre_chat_form_options:{pre_chat_message:'Tell us how to reach you.',pre_chat_fields:[{name:'emailAddress',type:'email',label:'Email address',placeholder:'you@example.test',enabled:true,required:true}]}},allow_messages_after_resolved:false});
+ await publish(headers,v=>Object.assign(v.settings,{locale:'en',language_mode:'fixed',theme:'light',position:'right',offset_x:20,offset_y:20}));
+ const pre=await visitor(browser);await open(pre);let creates=0;pre.page.on('request',r=>{if(new URL(r.url()).pathname==='/api/v1/widget/conversations'&&r.method()==='POST')creates++});
+ await pre.widget.getByRole('button',{name:'Where is my order?',exact:false}).click();await expect(pre.widget.locator('textarea')).toHaveValue('Please help me track my order.');
+ await pre.widget.getByRole('button',{name:'Start Conversation',exact:true}).click();await expect(pre.widget.getByText('Required',{exact:false})).toBeVisible();expect(creates).toBe(0);
+ await back(pre);expect(creates).toBe(0);await pre.widget.getByRole('button',{name:'Start Conversation',exact:true}).click();await expect(pre.widget.locator('textarea')).toHaveValue('');
+ await back(pre);await pre.widget.getByRole('button',{name:'Where is my order?',exact:false}).click();await pre.widget.getByLabel('Email address',{exact:false}).fill('prechat-widget@example.test');await pre.widget.locator('textarea').fill('Edited first message');
+ // A deliberately refused transport shows an error without retry or loss of input.
+ await pre.page.route('**/api/v1/widget/conversations?**',route=>route.request().method()==='POST'?route.fulfill({status:503,contentType:'application/json',body:'{"error":"Synthetic refusal"}'}):route.continue());
+ await pre.widget.getByRole('button',{name:'Start Conversation',exact:true}).click();await expect(pre.widget.getByRole('alert')).toBeVisible();await expect(pre.widget.locator('textarea')).toHaveValue('Edited first message');expect(creates).toBe(1);
+ await pre.page.unroute('**/api/v1/widget/conversations?**');const created=createResponse(pre.page);await pre.widget.getByRole('button',{name:'Start Conversation',exact:true}).click();const conversation=await(await created).json();
+ await expect(pre.widget.getByText('Edited first message',{exact:true})).toBeVisible();expect(conversation.messages.filter(m=>m.content==='Edited first message')).toHaveLength(1);
+ ok('pre-chat validation, editable prefill, cancellation, visible error and explicit retry');
+ const attachment=pre.page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/widget/messages'&&r.request().method()==='POST');
+ await pre.widget.locator('input[type=file]').setInputFiles({name:'synthetic-receipt.txt',mimeType:'text/plain',buffer:Buffer.from('Synthetic receipt for widget acceptance')});
+ const uploaded=await(await attachment).json();expect(uploaded.attachments).toHaveLength(1);
+ const messages=await api(headers,`${accountPath}/conversations/${conversation.id}/messages`);expect(messages.payload.some(m=>m.attachments?.some(a=>a.id===uploaded.attachments[0].id))).toBe(true);
+ ok('native visitor upload reaches the existing conversation');await pre.context.close();
+ await native({channel:{pre_chat_form_enabled:false}});
+ await publish(headers,v=>Object.assign(v.settings,{position:'right',theme:'dark',locale:'fr',language_mode:'fixed'}));
+ const legacy=await visitor(browser,{explicit:{position:'left',darkMode:'light',locale:'en',hideMessageBubble:true,type:'standard'}});await open(legacy);
+ expect(await legacy.page.evaluate(()=>[window.$chatwoot.position,window.$chatwoot.darkMode,window.$chatwoot.locale])).toEqual(['left','light','en']);await expect(legacy.page.locator('#cw-bubble-holder')).toHaveClass(/woot-hidden/);
+ await expect(legacy.page.locator('.woot-widget-bubble:not(.woot--close)')).not.toBeVisible();await expect(legacy.widget.getByRole('button',{name:'Start Conversation',exact:true})).toBeVisible();
+ ok('legacy explicit SDK settings and hidden/custom launcher override shared settings');await legacy.context.close();
+ await publish(headers,v=>Object.assign(v.settings,{language_mode:'browser',theme:'auto'}));
+ const browserLocale=await visitor(browser,{locale:'zz-ZZ',colorScheme:'dark'});await open(browserLocale);await expect(browserLocale.widget.getByRole('button',{name:'Start Conversation',exact:true})).toBeVisible();expect(await browserLocale.page.evaluate(()=>window.$chatwoot.locale)).toBe('en');await expect(browserLocale.widget.locator('#app > div')).toHaveClass(/dark/);
+ ok('unsupported browser locale falls back to account language; automatic theme follows device');await browserLocale.context.close();
+ await publish(headers,v=>Object.assign(v.settings,{locale:'ar',language_mode:'fixed',theme:'light',offset_x:160,offset_y:160,position:'left',launcher_title:'A very long launcher label that must fit on a narrow screen'}));
+ const mobile=await visitor(browser,{viewport:{width:320,height:640}});await open(mobile);await expect(mobile.widget.locator('html')).toHaveAttribute('dir','rtl');await expect(mobile.widget.getByRole('button',{name:'Where is my order?',exact:false})).toBeVisible();
+ expect(await mobile.widget.locator('html').evaluate(el=>el.scrollWidth<=320)).toBe(true);
+ await mobile.widget.getByRole('button',{name:'Where is my order?',exact:false}).click();await mobile.widget.locator('#chat-input').fill('320 px message');await mobile.widget.locator('#chat-input').press('Enter');await expect(mobile.widget.getByText('320 px message',{exact:true})).toBeVisible();
+ await mobile.page.screenshot({path:'build/evidence/website-widget/widget-320-rtl.png'});
+ const close=mobile.widget.locator('.close-button');await expect(close).toHaveAttribute('aria-label',/.+/);await expect(close).toBeInViewport();await close.click();await expect(mobile.page.locator('#cw-widget-holder')).not.toBeVisible();
+ const launcher=mobile.page.locator('.woot-widget-bubble:not(.woot--close)');await expect(launcher).toBeInViewport();expect(await mobile.page.locator('html').evaluate(el=>el.scrollWidth<=320)).toBe(true);
+ ok('320 px RTL: maximum offsets, translated UI, unchanged merchant labels, sending and closing');await mobile.context.close();
+ await publish(headers,v=>Object.assign(v.settings,{locale:'en',language_mode:'fixed',theme:'light',offset_x:24,offset_y:24,position:'right',launcher_title:'Talk to us'}));
+ // An unavailable custom icon falls back to the native SVG, without blocking chat.
+ const broken=await visitor(browser);await broken.page.route('**/inclamo/widget-images/**',r=>r.abort());await broken.page.reload();await broken.page.waitForFunction(()=>window.$chatwoot?.hasLoaded);await open(broken);await expect(broken.page.locator('.inclamo-launcher-image')).toHaveCount(0);await expect(broken.widget.getByRole('button',{name:'Start Conversation',exact:true})).toBeVisible();
+ ok('missing launcher image restores the default usable icon');await broken.context.close();
+ await api(headers,`${accountPath}/inboxes/2/set_agent_bot`,'POST',{agent_bot:1});
+ const bot=await visitor(browser);await open(bot);const botCreated=createResponse(bot.page);await bot.widget.getByRole('button',{name:'Where is my order?',exact:false}).click();const assigned=await(await botCreated).json();expect(assigned.status).toBe('pending');
+ await expect.poll(async()=>{const raw=fixtureCommand(['docker','exec',process.env.WIDGET_BOT_CONTAINER || 'inclamo-website-bot-fixture-1','wget','-qO-','http://127.0.0.1:8080/requests']);return JSON.parse(raw).some(e=>e.event==='message_created'&&e.content==='Please help me track my order.'&&e.conversation_id===assigned.id)},{timeout:20000}).toBe(true);
+ const agentBot=await api(headers,`${accountPath}/agent_bots/1`);const token=typeof agentBot.access_token==='string'?agentBot.access_token:agentBot.access_token.token;
+ await api({'api_access_token':token},`${accountPath}/conversations/${assigned.id}/messages`,'POST',{content:'Synthetic assistant: I will connect you to our team.',message_type:'outgoing'});
+ await expect(bot.widget.getByText('Synthetic assistant: I will connect you to our team.',{exact:true})).toBeVisible();
+ await api({'api_access_token':token},`${accountPath}/conversations/${assigned.id}/toggle_status`,'POST',{status:'open'});
+ await api(headers,`${accountPath}/conversations/${assigned.id}/messages`,'POST',{content:'An operator is here to help.',message_type:'outgoing'});await expect(bot.widget.getByText('An operator is here to help.',{exact:true})).toBeVisible();
+ expect((await api(headers,`${accountPath}/conversations/${assigned.id}`)).status).toBe('open');await bot.page.screenshot({path:'build/evidence/website-widget/widget-bot-handoff.png'});
+ ok('native bot receives starter, replies, hands off pending → open and operator replies in same conversation');await bot.context.close();
+ expect(evidence.errors).toEqual([]);
+}finally{
+ await api(headers,`${accountPath}/inboxes/2/set_agent_bot`,'POST',{agent_bot:null});
+ await native({channel:{pre_chat_form_enabled:false}});
+ await writeFile('build/evidence/website-widget/native-flows.json',JSON.stringify(evidence,null,2)+'\n');await browser.close();
+}

@@ -1,0 +1,16 @@
+import { chromium, request } from '@playwright/test';
+import { api, workspace, openSupport } from './helpers.mjs';
+const browser = await chromium.launch({ headless: true, args: ['--unsafely-treat-insecure-origin-as-secure=http://client:3000'] });
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+page.on('pageerror', error => console.log('PAGE ERROR', error.message));
+page.on('console', message => { if (message.type() === 'error') console.log('CONSOLE ERROR', message.text().slice(0, 250)); });
+const context = await request.newContext();
+const session = await api(context);
+await workspace(page, session);
+console.log('WIDGETS', await page.locator('[data-widget]').count());
+await page.screenshot({ path: '/out/workspace.png' });
+await openSupport(page);
+await page.screenshot({ path: '/out/support.png' });
+console.log('SUPPORT', await page.getByTestId('inclamo-support').innerText());
+await browser.close();
+await context.dispose();
