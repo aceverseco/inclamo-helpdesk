@@ -4,13 +4,17 @@
 //   - issues connection codes and answers the registration and removal calls;
 //   - checks each delivery's signature, refuses a timestamp older than five
 //     minutes, drops a delivery id it has seen, answers 200 at once and then
-//     takes its turn through the helpdesk's API with the bot's token;
+//     takes its turn through the helpdesk's API with the bot's token,
+//     replying through the protected reply (§5.4) and ending the turn when it
+//     is refused with 409 conversation_not_pending;
 //   - a control API under /__e2e lets a test read what it received and make
 //     it answer 503.
 // Rules on the shopper's text: "person" or "human" hands over with a note and
 // inclamo_handover; "urgent" raises the priority, adds inclamo_urgent and
 // hands over; "resolve" replies and resolves; "intent" adds
-// inclamo_intent_test; a message with files gets a reply naming the files it
+// inclamo_intent_test; "slow" holds its reply until a test calls
+// /__e2e/release (or for 60 s, or what /__e2e/slow set), as a model that is
+// still thinking; a message with files gets a reply naming the files it
 // received and the shopper's files in the conversation; anything else a reply.
 //
 // It never logs or answers a token or a secret. No dependencies: node >= 20.
@@ -29,6 +33,8 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
     // Whole bodies of the last deliveries, for docs/ai-connector.md's samples.
     raw: [],
     failWith: null,
+    slowMs: 60_000,
+    held: [],
     sequence: 0,
     queues: new Map(),
   };
@@ -63,13 +69,24 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
     return result;
   }
 
+  // The protected reply was refused: the team has the conversation, and the
+  // turn ends without another call (docs/ai-connector.md §5.4).
+  class TurnEnded extends Error {}
+
   // One turn for one shopper's message, by the rules above.
   async function turn(connection, event) {
     const id = event.conversation.id;
     const conv = `/conversations/${id}`;
     const text = String(event.content || '').toLowerCase();
     const files = (event.attachments || []).length;
-    const reply = content => act(connection, id, 'reply', () => helpdesk(connection, 'POST', `${conv}/messages`, { content }));
+    const reply = async content => {
+      const result = await act(connection, id, 'reply', () => helpdesk(connection, 'POST', `/inclamo/ai/conversations/${id}/reply`, { content }));
+      if (result.status === 409 && result.body?.error === 'conversation_not_pending') {
+        record({ kind: 'turn_ended', conversation_id: id, reason: 'conversation_not_pending', status: result.body.status });
+        throw new TurnEnded();
+      }
+      return result;
+    };
     const note = content => act(connection, id, 'note', () => helpdesk(connection, 'POST', `${conv}/messages`, { content, private: true }));
     const label = names => act(connection, id, 'labels', () => helpdesk(connection, 'POST', `/inclamo/ai/conversations/${id}/labels`, { add: names }));
     const status = value => act(connection, id, `status_${value}`, () => helpdesk(connection, 'POST', `${conv}/toggle_status`, { status: value }));
@@ -90,6 +107,15 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
     } else if (/\bintent\b/.test(text)) {
       await label(['inclamo_intent_test']);
       await reply('Noted the type of your request.');
+    } else if (/\bslow\b/.test(text)) {
+      await new Promise(resolve => {
+        const timer = setTimeout(resolve, state.slowMs);
+        state.held.push(() => {
+          clearTimeout(timer);
+          resolve();
+        });
+      });
+      await reply('A slow answer, composed before anyone took the conversation.');
     } else if (files > 0) {
       const history = await act(connection, id, 'history', () => helpdesk(connection, 'GET', `/inclamo/ai/conversations/${id}/messages`));
       const shopperFiles = history.body?.shopper_files ?? 0;
@@ -105,6 +131,7 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
     const key = `${connection.id}:${event.conversation.id}`;
     const previous = state.queues.get(key) || Promise.resolve();
     const next = previous.then(() => turn(connection, event)).catch(error => {
+      if (error instanceof TurnEnded) return;
       record({ kind: 'turn_failed', conversation_id: event.conversation.id, error: error.name });
       say(`a turn failed: ${error.name}`);
     });
@@ -213,6 +240,16 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
       state.log = [];
       return send(response, 204);
     }
+    if (request.method === 'POST' && path === '/__e2e/slow') {
+      state.slowMs = Number.isInteger(data.ms) && data.ms >= 0 ? data.ms : 60_000;
+      return send(response, 200, { slow_ms: state.slowMs });
+    }
+    // Lets every held "slow" turn send its reply now.
+    if (request.method === 'POST' && path === '/__e2e/release') {
+      const held = state.held.splice(0);
+      held.forEach(release => release());
+      return send(response, 200, { released: held.length });
+    }
     if (request.method === 'POST' && path === '/__e2e/fail') {
       state.failWith = data.status ? Number(data.status) : null;
       return send(response, 200, { fail_with: state.failWith });
@@ -240,12 +277,15 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
       const route = data.tool === 'context' ? `${root}/orders` : data.tool === 'propose' ? `${root}/proposals` : `${root}/proposals/${data.proposal_id}/execute`;
       return send(response, 200, await helpdesk(connection, data.tool === 'context' ? 'GET' : 'POST', route, data.payload));
     }
-    // A reply with the latest connection's token, even after it was removed.
+    // A reply with the latest connection's token, even after it was removed:
+    // through Chatwoot's message call, or the protected reply with `protected`.
     if (request.method === 'POST' && path === '/__e2e/reply') {
       const connection = latest();
       if (!connection) return send(response, 404, {});
-      const result = await helpdesk(connection, 'POST', `/conversations/${data.conversation_id}/messages`, { content: data.content || 'A reply of the stand-in.' });
-      return send(response, 200, { status: result.status });
+      const content = typeof data.content === 'string' ? data.content : 'A reply of the stand-in.';
+      const route = data.protected ? `/inclamo/ai/conversations/${data.conversation_id}/reply` : `/conversations/${data.conversation_id}/messages`;
+      const result = await helpdesk(connection, 'POST', route, { content });
+      return send(response, 200, { status: result.status, body: result.body });
     }
     return send(response, 404, { error: 'not_found' });
   }

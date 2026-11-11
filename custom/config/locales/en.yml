@@ -184,3 +184,5 @@ en:
         no_labels: Name at least one label to add.
         too_many_labels: Add at most 20 labels at a time.
         invalid_label: Labels of the AI agent start with inclamo_ and hold only lower case letters, digits, _ and -.
+        conversation_not_pending: The conversation is no longer the AI agent's. Nothing was posted; do not send this reply again.
+        empty_reply: A reply needs text.

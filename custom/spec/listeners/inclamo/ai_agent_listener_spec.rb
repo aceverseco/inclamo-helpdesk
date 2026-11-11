@@ -25,6 +25,14 @@ RSpec.describe Inclamo::AiAgentListener do
     listener.assignee_changed(Events::Base.new('assignee.changed', Time.zone.now, conversation: conv.reload))
   end
 
+  # The take-over in the person's own transaction (Custom::Concerns::Message,
+  # Custom::Concerns::Conversation) is bypassed here, so these examples show the
+  # listener doing the hand-over itself, as it does for writes that skip them.
+  before do
+    allow_any_instance_of(Message).to receive(:inclamo_take_over_for_person) # rubocop:disable RSpec/AnyInstance
+    allow_any_instance_of(Conversation).to receive(:inclamo_open_on_person_assignment) # rubocop:disable RSpec/AnyInstance
+  end
+
   it 'starts a conversation of a connected inbox as pending, handled by the bot' do
     expect(conversation).to have_attributes(status: 'pending', assignee_agent_bot_id: bot.id)
   end
@@ -76,6 +84,17 @@ RSpec.describe Inclamo::AiAgentListener do
     message_by(agent, conv: pending)
 
     expect(pending.reload.status).to eq('pending')
+  end
+
+  it 'stays a fallback: after the take-over in the transaction it hands over nothing a second time' do
+    allow_any_instance_of(Message).to receive(:inclamo_take_over_for_person).and_call_original # rubocop:disable RSpec/AnyInstance
+    allow(Rails.configuration.dispatcher).to receive(:dispatch).and_call_original
+    message_by(agent)
+    message_by(agent)
+
+    expect(conversation.reload.status).to eq('open')
+    expect(Rails.configuration.dispatcher).to have_received(:dispatch)
+      .with(Events::Types::CONVERSATION_BOT_HANDOFF, anything, hash_including(conversation: conversation)).once
   end
 
   it 'is one of the listeners of Chatwoot dispatcher' do

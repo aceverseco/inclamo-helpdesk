@@ -42,8 +42,13 @@ export const standIn = {
   orderTool: (conversationId, tool, payload, proposalId) => control('POST', 'order-tool', { conversation_id: Number(conversationId), tool, payload, proposal_id: proposalId }),
   // What the agent reads of a conversation, through the helpdesk's endpoint.
   read: (conversationId, limit) => control('POST', 'read', { conversation_id: conversationId, limit }),
-  // A reply with the credentials the stand-in holds, even after a disconnection.
-  reply: conversationId => control('POST', 'reply', { conversation_id: conversationId }),
+  // A reply with the credentials the stand-in holds, even after a disconnection:
+  // through Chatwoot's message call, or the protected reply with `protected`.
+  reply: (conversationId, { content, protected: isProtected = false } = {}) =>
+    control('POST', 'reply', { conversation_id: conversationId, content, protected: isProtected }),
+  // How long a "slow" turn holds its reply at most, and releasing it now.
+  slow: ms => control('POST', 'slow', { ms }),
+  release: () => control('POST', 'release', {}),
   deliveries: async (conversationId, filter = () => true) =>
     (await standIn.log()).filter(entry => entry.kind === 'delivery' && entry.conversation_id === conversationId && filter(entry)),
 };

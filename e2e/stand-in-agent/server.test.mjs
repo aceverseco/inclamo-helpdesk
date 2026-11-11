@@ -22,6 +22,12 @@ before(async () => {
     request.on('data', chunk => (body += chunk));
     request.on('end', () => {
       calls.push({ method: request.method, url: request.url, token: request.headers.api_access_token, body: body ? JSON.parse(body) : null });
+      // The protected reply of a conversation the team took is refused.
+      if (request.url.endsWith('/inclamo/ai/conversations/88/reply')) {
+        response.writeHead(409, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify({ error: 'conversation_not_pending', status: 'open' }));
+        return;
+      }
       response.writeHead(200, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify({ shopper_files: 1 }));
     });
@@ -152,9 +158,24 @@ test('takes a repeated delivery once, and replies once through the helpdesk with
   assert.equal(first.body.outcome, 'accepted');
   assert.equal(again.status, 200);
   assert.equal(again.body.outcome, 'duplicate');
-  const replies = calls.filter(call => call.url === '/api/v1/accounts/1/conversations/77/messages');
+  const replies = calls.filter(call => call.url === '/api/v1/accounts/1/inclamo/ai/conversations/77/reply');
   assert.equal(replies.length, 1);
   assert.equal(replies[0].token, token);
+  assert.equal(calls.filter(call => call.url.endsWith('/conversations/77/messages')).length, 0);
+});
+
+test('ends the turn when its protected reply is refused: no retry, no hand-over, no other call', async () => {
+  const { connection_id: id } = await connect();
+  calls.length = 0;
+  const raw = JSON.stringify(event({ content: 'please resolve this', conversation: { id: 88, inbox_id: 3, status: 'pending' } }));
+
+  assert.equal((await post(`/webhooks/${id}`, raw, signed(raw))).status, 200);
+  await agent.idle();
+
+  assert.deepEqual(calls.map(call => call.url), ['/api/v1/accounts/1/inclamo/ai/conversations/88/reply']);
+  const log = (await (await fetch(`${agentUrl}/__e2e/log`)).json()).log;
+  assert.ok(log.some(entry => entry.kind === 'turn_ended' && entry.conversation_id === 88 && entry.reason === 'conversation_not_pending'));
+  assert.ok(!log.some(entry => entry.kind === 'turn_failed' && entry.conversation_id === 88));
 });
 
 test('takes no turn for its own replies, private notes, other inboxes or a conversation that is not pending', async () => {

@@ -77,6 +77,7 @@ namespace :api, defaults: { format: 'json' } do
             resource :connection, only: [:show, :create, :destroy], controller: '/api/v1/accounts/inclamo/ai_connections'
             scope 'conversations/:conversation_id', controller: '/api/v1/accounts/inclamo/ai_conversations' do
               get 'messages', action: :messages
+              post 'reply', action: :reply
               post 'labels', action: :labels
               get 'orders', action: :orders
               post 'proposals', action: :propose
