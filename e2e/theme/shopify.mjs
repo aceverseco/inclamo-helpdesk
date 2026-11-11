@@ -23,6 +23,27 @@ createServer(async (request, response) => {
     if (operation === 'order_details') data = { order: orders.customer.orders.nodes.find(order => order.id === variables.id) || null };
     if (operation === 'orders_by_number') data = { orders: { nodes: orders.customer.orders.nodes.filter(order => variables.query?.includes(order.name)) } };
     if (operation === 'customer_data_probe') data = { customers: { nodes: [] } };
+    // What a full refund would return: everything received less what was
+    // refunded, through one synthetic payment. The cancel dialog asks it first.
+    if (operation === 'refund_suggestion') {
+      const order = orders.customer.orders.nodes.find(node => node.id === variables.id);
+      if (order) {
+        const currencyCode = order.totalReceivedSet.shopMoney.currencyCode;
+        const left = Number(order.totalReceivedSet.shopMoney.amount) - Number(order.totalRefundedSet?.shopMoney?.amount || 0);
+        const money = amount => ({ shopMoney: { amount: amount.toFixed(2), currencyCode } });
+        data = {
+          order: {
+            id: order.id, name: order.name, currencyCode,
+            suggestedRefund: {
+              amountSet: money(left), maximumRefundableSet: money(left),
+              shipping: { amountSet: money(0), maximumRefundableSet: money(0) },
+              refundLineItems: [],
+              suggestedTransactions: [{ gateway: 'manual', formattedGateway: 'Manual', kind: 'SUGGESTED_REFUND', amountSet: money(left), maximumRefundableSet: money(left), parentTransaction: { id: 'gid://shopify/OrderTransaction/1' } }],
+            },
+          },
+        };
+      }
+    }
     if (operation === 'shop_info') data = {
       shop: { name: 'Example Store', myshopifyDomain: 'theme-fixture.myshopify.com', currencyCode: 'UAH', plan: { publicDisplayName: 'Development', partnerDevelopment: true } },
       currentAppInstallation: { accessScopes: scopes.map(handle => ({ handle })) },
