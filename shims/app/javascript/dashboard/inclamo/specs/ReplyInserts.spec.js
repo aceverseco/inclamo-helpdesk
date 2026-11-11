@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils';
 import ReplyInserts from '../components/ReplyInserts.vue';
 import OrdersSection from '../components/OrdersSection.vue';
 import InclamoAPI from '../api';
+import { clearCommerce } from '../widgets/commerce';
 import { insertIntoReply } from '../reply';
 import { stubs, connection, agent, admin, flush } from './helpers';
 
@@ -55,6 +56,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   dashboard.channelType = 'Channel::WebWidget';
 });
+
+// The panel store keeps answers between mounts; every test starts empty.
+beforeEach(() => clearCommerce());
 
 describe('the controls', () => {
   it('offers "Insert product" to any agent and "Discount code" only with the right', () => {
