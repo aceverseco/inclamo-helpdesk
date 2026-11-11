@@ -279,6 +279,7 @@ and never appears after it.
 | `201 {"id": 904, "created_at": "…"}` | posted; the message is the same as one made through Chatwoot's `POST …/messages` and gives the same events |
 | `409 {"error": "conversation_not_pending", "status": "open", "message": "…"}` | the conversation is no longer the agent's (taken, handed over, resolved or snoozed); **nothing was posted** |
 | `422 {"error": "empty_reply", "message": "…"}` | `content` is missing or blank |
+| `422 {"error": "invalid_request"}` | Chatwoot refused the message itself, for example its limit of messages a minute in one conversation; nothing was posted |
 | `401` / `403` | as for every call of §5 |
 
 On `409 conversation_not_pending` **the turn did not happen**: do not send the
@@ -316,7 +317,7 @@ Created at connection; an existing label of the same title is left alone.
 | the agent hands over (`toggle_status open`) | Open, the AI assignee cleared, auto-assignment may give it to a person | stops |
 | a person replies publicly or takes it (assigns; the dashboard's "Take over") | opens it in the same step as the person's action: Chatwoot's assignment service for an assignment while the bot is the AI assignee (`app/services/conversations/assignment_service.rb:16-27`), **our overlay** for a public reply (Chatwoot CE does not, `message.rb:423-433`) and for any other assignment | gets `conversation_status_changed`, stops; a protected reply (§5.4) is refused from that moment |
 | a delivery fails (§2.1) | Open, the bot still its assignee (§10.3) | — |
-| the agent fails after answering `200` | nothing by itself | **hands over with `inclamo_error`** and one message to the shopper |
+| the agent fails after answering `200` | nothing by itself | sends one message to the shopper through §5.4 **first**, then **hands over with `inclamo_error`** (after the hand-over the protected reply is refused) |
 | the shopper writes in a resolved conversation | Pending again (`message.rb:435-444`) | answers |
 | the AI agent is disconnected | every Pending conversation Open | gets no more events |
 
@@ -325,13 +326,19 @@ list; Chatwoot's default list shows Open.
 
 ## 8. Testing against this contract
 
-The helpdesk's end-to-end tests (`e2e/tests/ai-agent-connection.spec.mjs`) run
-a stand-in agent, `e2e/stand-in-agent/server.mjs`, that implements this
-contract by fixed rules on the shopper's text: "person" or "human" hands over
-with a note and `inclamo_handover`; "urgent" sets priority `urgent`, adds
-`inclamo_urgent` and hands over; "resolve" replies and resolves; "intent" adds
-`inclamo_intent_test`; a message with files gets a reply naming the files it
-received and `shopper_files`; anything else gets a reply. Its own tests
+The helpdesk's end-to-end tests (`e2e/tests/ai-agent-connection.spec.mjs`,
+`e2e/tests/ai-reply-ownership.spec.mjs`) run a stand-in agent,
+`e2e/stand-in-agent/server.mjs`, that implements this contract by fixed rules
+on the shopper's text: "person" or "human" hands over with a note and
+`inclamo_handover`; "urgent" sets priority `urgent`, adds `inclamo_urgent` and
+hands over; "resolve" replies and resolves; "intent" adds
+`inclamo_intent_test`; "slow" holds its reply until the test releases it (or
+for a set time), as a model that is still thinking; a message with files gets
+a reply naming the files it received and `shopper_files`; anything else gets
+a reply. Every reply goes through the protected reply (§5.4), and a
+`409 conversation_not_pending` ends the turn without another call. The
+`ai-reply-ownership` tests that need the stand-in's log or its token are
+skipped against the AI service. Its own tests
 (`node --test e2e/stand-in-agent/server.test.mjs`) show that it refuses a wrong
 signature, a timestamp older than five minutes and a repeated delivery.
 

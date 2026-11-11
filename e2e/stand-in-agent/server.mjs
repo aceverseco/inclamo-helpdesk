@@ -12,10 +12,10 @@
 // Rules on the shopper's text: "person" or "human" hands over with a note and
 // inclamo_handover; "urgent" raises the priority, adds inclamo_urgent and
 // hands over; "resolve" replies and resolves; "intent" adds
-// inclamo_intent_test; "slow" waits (6 s, or what /__e2e/slow set) before its
-// reply, as a model would; a message with files gets a reply naming the files
-// it received and the shopper's files in the conversation; anything else a
-// reply.
+// inclamo_intent_test; "slow" holds its reply until a test calls
+// /__e2e/release (or for 60 s, or what /__e2e/slow set), as a model that is
+// still thinking; a message with files gets a reply naming the files it
+// received and the shopper's files in the conversation; anything else a reply.
 //
 // It never logs or answers a token or a secret. No dependencies: node >= 20.
 import { createServer } from 'node:http';
@@ -33,7 +33,8 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
     // Whole bodies of the last deliveries, for docs/ai-connector.md's samples.
     raw: [],
     failWith: null,
-    slowMs: 6000,
+    slowMs: 60_000,
+    held: [],
     sequence: 0,
     queues: new Map(),
   };
@@ -107,7 +108,13 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
       await label(['inclamo_intent_test']);
       await reply('Noted the type of your request.');
     } else if (/\bslow\b/.test(text)) {
-      await new Promise(resolve => setTimeout(resolve, state.slowMs));
+      await new Promise(resolve => {
+        const timer = setTimeout(resolve, state.slowMs);
+        state.held.push(() => {
+          clearTimeout(timer);
+          resolve();
+        });
+      });
       await reply('A slow answer, composed before anyone took the conversation.');
     } else if (files > 0) {
       const history = await act(connection, id, 'history', () => helpdesk(connection, 'GET', `/inclamo/ai/conversations/${id}/messages`));
@@ -234,8 +241,14 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
       return send(response, 204);
     }
     if (request.method === 'POST' && path === '/__e2e/slow') {
-      state.slowMs = Number.isInteger(data.ms) && data.ms >= 0 ? data.ms : 6000;
+      state.slowMs = Number.isInteger(data.ms) && data.ms >= 0 ? data.ms : 60_000;
       return send(response, 200, { slow_ms: state.slowMs });
+    }
+    // Lets every held "slow" turn send its reply now.
+    if (request.method === 'POST' && path === '/__e2e/release') {
+      const held = state.held.splice(0);
+      held.forEach(release => release());
+      return send(response, 200, { released: held.length });
     }
     if (request.method === 'POST' && path === '/__e2e/fail') {
       state.failWith = data.status ? Number(data.status) : null;

@@ -46,8 +46,9 @@ export const standIn = {
   // through Chatwoot's message call, or the protected reply with `protected`.
   reply: (conversationId, { content, protected: isProtected = false } = {}) =>
     control('POST', 'reply', { conversation_id: conversationId, content, protected: isProtected }),
-  // How long a "slow" turn waits before its reply.
+  // How long a "slow" turn holds its reply at most, and releasing it now.
   slow: ms => control('POST', 'slow', { ms }),
+  release: () => control('POST', 'release', {}),
   deliveries: async (conversationId, filter = () => true) =>
     (await standIn.log()).filter(entry => entry.kind === 'delivery' && entry.conversation_id === conversationId && filter(entry)),
 };

@@ -62,6 +62,16 @@ RSpec.describe 'Inclamo AI agent protected reply', type: :request do
       end
     end
 
+    it 'renders Liquid in the text as a native reply does' do
+      reply('Hello {{contact.name}}')
+      protected_reply = conversation.messages.find(body['id'])
+      post native_path, params: { content: 'Hello {{contact.name}}' }, headers: bot_headers, as: :json
+      native_reply = conversation.messages.where.not(id: protected_reply.id).sole
+
+      expect(protected_reply.content).to eq(native_reply.content)
+      expect(protected_reply.content).to eq("Hello #{contact.name}")
+    end
+
     it 'records when the agent last answered' do
       perform_enqueued_jobs(only: EventDispatcherJob) { reply }
 

@@ -68,6 +68,13 @@ RSpec.describe 'Taking a Pending conversation from the AI agent' do
       expect(conversation.reload.status).to eq('pending')
     end
 
+    it "keeps the person's reply when the conversation cannot be saved, and leaves the hand-over to the listener" do
+      allow_any_instance_of(Conversation).to receive(:bot_handoff!).and_raise(ActiveRecord::RecordInvalid.new(Conversation.new)) # rubocop:disable RSpec/AnyInstance
+
+      expect { message_by(agent) }.to change(Message, :count).by(1)
+      expect(conversation.reload.status).to eq('pending')
+    end
+
     it 'keeps the reply of a person in an Open conversation as it is' do
       conversation.update!(status: :open)
 
@@ -102,6 +109,48 @@ RSpec.describe 'Taking a Pending conversation from the AI agent' do
       conversation.update!(assignee: agent)
 
       expect(conversation.reload).to have_attributes(status: 'open', assignee_id: agent.id)
+    end
+
+    it "announces Chatwoot's hand-over once committed when it opens the conversation itself" do
+      conversation.update!(assignee: agent)
+
+      expect(Rails.configuration.dispatcher).to dispatched(Events::Types::CONVERSATION_BOT_HANDOFF)
+    end
+
+    it "opens a Pending conversation given to a person by a team's auto-assignment" do
+      team = create(:team, account: account, allow_auto_assign: true)
+      create(:team_member, team: team, user: agent)
+      conversation.bot_handoff!
+      conversation.update!(status: :pending)
+      expect(conversation.reload).to have_attributes(status: 'pending', assignee_id: nil, assignee_agent_bot_id: nil)
+      # Round robin picks among online agents (Redis); the pick itself is not under test.
+      allow_any_instance_of(AutoAssignment::AgentAssignmentService).to receive(:find_assignee).and_return(agent) # rubocop:disable RSpec/AnyInstance
+
+      conversation.update!(team: team)
+
+      expect(conversation.reload).to have_attributes(status: 'open', assignee_id: agent.id)
+    end
+
+    it 'opens a conversation created with a person assigned' do
+      created = create(:conversation, account: account, inbox: website, assignee: agent)
+
+      expect(created.reload).to have_attributes(status: 'open', assignee_id: agent.id)
+    end
+
+    it 'does not reopen a conversation resolved after the caller loaded it' do
+      loaded = Conversation.find(conversation.id)
+      Conversation.where(id: conversation.id).update_all(status: Conversation.statuses[:resolved]) # rubocop:disable Rails/SkipsModelValidations
+
+      loaded.update!(assignee: agent)
+
+      expect(conversation.reload).to have_attributes(status: 'resolved', assignee_id: agent.id)
+    end
+
+    it 'opens it on an assignment saved without validation' do
+      conversation.assignee = agent
+      conversation.save!(validate: false)
+
+      expect(conversation.reload).to have_attributes(status: 'open', assignee_agent_bot_id: nil)
     end
 
     it 'leaves unassignment, a bot assignee, another inbox and a non-Pending conversation alone' do

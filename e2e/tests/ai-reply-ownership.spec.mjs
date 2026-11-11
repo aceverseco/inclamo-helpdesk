@@ -5,9 +5,10 @@
 //
 // The AI service is the stand-in agent of e2e/stand-in-agent: it replies
 // through the protected reply (docs/ai-connector.md §5.4), ends its turn when
-// that is refused, and on "slow" waits before its reply, the time a person
-// needs to take the conversation. What only the stand-in can show (its log,
-// replies with its token) is skipped against a real AI service.
+// that is refused, and on "slow" holds its reply until the test releases it,
+// once a person has taken the conversation. What only the stand-in can show
+// (its log, holding a reply, replies with its token) is skipped against a
+// real AI service.
 import { test, expect } from '@playwright/test';
 import { signIn, apiAs, users, eventually, runTag } from '../lib/helpdesk.mjs';
 import { standIn, aiService, againstAiService, websiteInbox, conversationWith, messagesOf, fromAgent, shopperOn } from '../lib/agent.mjs';
@@ -16,7 +17,8 @@ const account = process.env.E2E_ACCOUNT_ID || '1';
 const tag = suffix => runTag(`-own-${suffix}`);
 const onlyWithStandIn = () => test.skip(againstAiService, 'shows what only the stand-in agent can show');
 const OUTGOING = 1;
-const SLOW_MS = 20_000;
+// The most a "slow" turn holds its reply if a test never releases it.
+const SLOW_MS = 60_000;
 const SLOW_ANSWER = 'A slow answer';
 
 let admin;
@@ -40,7 +42,10 @@ test.beforeAll(async ({ playwright }) => {
 
 test.afterAll(async () => {
   await Promise.all(shoppers.map(shopper => shopper.close().catch(() => {})));
-  if (!againstAiService) await standIn.slow(null);
+  if (!againstAiService) {
+    await standIn.release();
+    await standIn.slow(null);
+  }
 });
 
 // --- helpers of this file ---------------------------------------------------
@@ -58,7 +63,7 @@ const waitForReplies = id => eventually(() => agentReplies(id), list => list.len
 const actionsOf = async id => (await standIn.log()).filter(entry => entry.kind === 'action' && entry.conversation_id === id);
 const turnEnded = id =>
   eventually(async () => (await standIn.log()).filter(entry => entry.kind === 'turn_ended' && entry.conversation_id === id), list => list.length > 0, {
-    timeout: SLOW_MS + 30_000,
+    timeout: 30_000,
   });
 
 async function shopperStarts(browser, text) {
@@ -92,6 +97,7 @@ test('A person took the conversation before the reply', async ({ browser, page }
   await page.goto(`/app/accounts/${account}/conversations/${id}`);
   await page.getByRole('button', { name: 'Take over' }).click({ timeout: 45_000 });
   await eventually(() => statusOf(id), status => status === 'open', { timeout: 15_000 });
+  await standIn.release();
 
   const [ended] = await turnEnded(id);
   expect(ended).toMatchObject({ reason: 'conversation_not_pending', status: 'open' });
@@ -108,6 +114,7 @@ test('A person replied before the agent', async ({ browser }) => {
   const words = `A person here ${tag('replied')}`;
 
   await agent.post(`/conversations/${id}/messages`, { content: words });
+  await standIn.release();
 
   const [ended] = await turnEnded(id);
   expect(ended.reason).toBe('conversation_not_pending');
@@ -174,6 +181,7 @@ test('An AI service written against the document', async ({ browser }) => {
   const { id } = await shopperStarts(browser, `A slow question ${tag('document')}`);
 
   await agent.post(`/conversations/${id}/assignments`, { assignee_id: agent.userId });
+  await standIn.release();
   await turnEnded(id);
   // Give a retry or a hand-over the time it would take.
   await new Promise(resolve => setTimeout(resolve, 5_000));

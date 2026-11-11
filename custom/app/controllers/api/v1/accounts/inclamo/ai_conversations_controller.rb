@@ -46,7 +46,7 @@ class Api::V1::Accounts::Inclamo::AiConversationsController < Api::V1::Accounts:
   # conversation is Pending, checked and saved under the conversation's lock.
   def reply
     content = params[:content]
-    return refuse(:empty_reply, :unprocessable_entity) unless content.is_a?(String) && content.strip.present?
+    return refuse(:empty_reply, :unprocessable_entity) unless content.is_a?(String) && content.present?
 
     protected_reply = ::Inclamo::Ai::ProtectedReply.new(conversation: @conversation, bot: @resource, content: content)
     message = protected_reply.perform

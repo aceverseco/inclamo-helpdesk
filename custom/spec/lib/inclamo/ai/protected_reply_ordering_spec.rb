@@ -19,7 +19,16 @@ RSpec.describe Inclamo::Ai::ProtectedReply, 'against a concurrent take-over' do
   let(:bot) { AgentBot.find(record.agent_bot_id) }
   let!(:conversation) { create(:conversation, account: account, inbox: website) }
 
-  after { purge }
+  # Threads an example started; released and joined even when it fails, so no
+  # transaction keeps the row locked while purge runs.
+  let(:gates) { [] }
+  let(:threads) { [] }
+
+  after do
+    gates.each { |gate| gate << true }
+    threads.each { |thread| thread.join(5) }
+    purge
+  end
 
   # Everything of the account, by account_id, with foreign keys off for the
   # session; then the users made for it and every access token they held.
@@ -43,7 +52,14 @@ RSpec.describe Inclamo::Ai::ProtectedReply, 'against a concurrent take-over' do
   end
 
   def in_thread(&block)
-    Thread.new { ActiveRecord::Base.connection_pool.with_connection(&block) }.tap { |thread| thread.report_on_exception = false }
+    Thread.new { ActiveRecord::Base.connection_pool.with_connection(&block) }.tap do |thread|
+      thread.report_on_exception = false
+      threads << thread
+    end
+  end
+
+  def gate
+    Queue.new.tap { |queue| gates << queue }
   end
 
   def protected_reply(content)
@@ -57,7 +73,7 @@ RSpec.describe Inclamo::Ai::ProtectedReply, 'against a concurrent take-over' do
 
   it 'refuses a reply that arrives while an assignment is not committed yet' do
     taken = Queue.new
-    release = Queue.new
+    release = gate
     take_over = in_thread do
       Conversation.transaction do
         Conversations::AssignmentService.new(conversation: Conversation.find(conversation.id), assignee_id: agent.id).perform
@@ -79,7 +95,7 @@ RSpec.describe Inclamo::Ai::ProtectedReply, 'against a concurrent take-over' do
 
   it "refuses a reply that arrives while a person's public reply is not committed yet" do
     taken = Queue.new
-    release = Queue.new
+    release = gate
     take_over = in_thread do
       Conversation.transaction do
         Messages::MessageBuilder.new(agent, Conversation.find(conversation.id), ActionController::Parameters.new(content: 'I am here')).perform
@@ -99,9 +115,36 @@ RSpec.describe Inclamo::Ai::ProtectedReply, 'against a concurrent take-over' do
     expect(conversation.reload.status).to eq('open')
   end
 
+  it "makes a person's reply wait, before it is saved, for a reply that holds the conversation" do
+    locked = Queue.new
+    release = gate
+    allow_any_instance_of(Messages::MessageBuilder).to receive(:perform).and_wrap_original do |original, *args| # rubocop:disable RSpec/AnyInstance
+      if original.receiver.instance_variable_get(:@user).is_a?(AgentBot)
+        locked << true
+        release.pop
+      end
+      original.call(*args)
+    end
+
+    replying = protected_reply('In time')
+    locked.pop
+    person = in_thread { Messages::MessageBuilder.new(agent, Conversation.find(conversation.id), ActionController::Parameters.new(content: 'I am here')).perform }
+    expect(waits_for_the_lock(person)).to be(true)
+    # The person's reply is not saved while it waits: it cannot slip in before the agent's.
+    expect(Message.where(conversation_id: conversation.id, content: 'I am here')).to be_empty
+    release << true
+    reply = replying.value
+    persons = person.value
+
+    expect(reply).to be_a(Message)
+    expect(persons.id).to be > reply.id
+    expect(Message.where(conversation_id: conversation.id).reorder(:id).pluck(:content)).to eq(['In time', 'I am here'])
+    expect(conversation.reload.status).to eq('open')
+  end
+
   it 'lets a take-over wait for a reply that holds the conversation; the reply comes first' do
     locked = Queue.new
-    release = Queue.new
+    release = gate
     allow_any_instance_of(Messages::MessageBuilder).to receive(:perform).and_wrap_original do |original, *args| # rubocop:disable RSpec/AnyInstance
       if original.receiver.instance_variable_get(:@user).is_a?(AgentBot)
         locked << true
