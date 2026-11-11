@@ -9,6 +9,15 @@ RSpec.describe 'Website widget configuration', type: :request do
   let(:url) { "/api/v1/accounts/#{account.id}/inclamo/website_widgets/#{inbox.id}" }
   let(:headers) { admin.create_new_auth_token }
 
+  before do
+    # The backend runner has no frontend toolchain; the tag names the entry the
+    # page asks for, and browser acceptance loads the real assets.
+    allow_any_instance_of(ActionView::Base).to receive(:vite_client_tag).and_return(''.html_safe)
+    allow_any_instance_of(ActionView::Base).to receive(:vite_javascript_tag) do |_view, *entries|
+      entries.grep(String).map { |entry| %(<script type="module" src="/vite-test/#{entry}.js"></script>) }.join.html_safe
+    end
+  end
+
   def read_config
     get url, headers: headers
     expect(response).to have_http_status(:ok), response.body
