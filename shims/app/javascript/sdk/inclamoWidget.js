@@ -1,18 +1,36 @@
 // Small presentation adapter; messaging stays in Chatwoot's existing SDK.
 import css from './inclamoWidget.css?inline';
 
+// Values the widget can use; anything else falls back to the native default.
+const isObject = value =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+const SAVED = {
+  position: ['left', 'right'],
+  type: ['standard', 'expanded_bubble'],
+  theme: ['light', 'dark', 'auto'],
+};
+const savedChoice = (saved, key, fallback) =>
+  SAVED[key].includes(saved[key]) ? saved[key] : fallback;
+export const savedWidget = channel =>
+  isObject(channel?.inclamoWidget) ? channel.inclamoWidget : {};
+
 export function pageAllowed(visibility, url) {
-  if (!visibility || visibility.mode === 'all') return true;
+  if (!isObject(visibility) || !['include', 'exclude'].includes(visibility.mode))
+    return true;
   let pathname;
   try {
     pathname = new URL(url, window.location.href).pathname;
   } catch {
     return true;
   }
-  const matches = (visibility.rules || []).some(rule =>
-    rule.match === 'prefix'
-      ? pathname.startsWith(rule.path)
-      : pathname === rule.path
+  const rules = Array.isArray(visibility.rules) ? visibility.rules : [];
+  const matches = rules.some(
+    rule =>
+      isObject(rule) &&
+      typeof rule.path === 'string' &&
+      (rule.match === 'prefix'
+        ? pathname.startsWith(rule.path)
+        : pathname === rule.path)
   );
   return visibility.mode === 'include' ? matches : !matches;
 }
@@ -22,7 +40,7 @@ export function resolveSettings(
   explicit = {},
   browserLanguage = navigator.language
 ) {
-  const saved = channel.inclamoWidget || {};
+  const saved = savedWidget(channel);
   const locales = (channel.enabledLanguages || []).map(l => l.iso_639_1_code);
   const chooseLocale = value => {
     const locale = (typeof value === 'string' ? value : '').replace('-', '_');
@@ -32,10 +50,11 @@ export function resolveSettings(
   };
   const has = key => Object.prototype.hasOwnProperty.call(explicit, key);
   const result = {
-    position: saved.position || 'right',
-    type: saved.type || 'standard',
-    launcherTitle: saved.launcher_title || '',
-    darkMode: saved.theme || 'light',
+    position: savedChoice(saved, 'position', 'right'),
+    type: savedChoice(saved, 'type', 'standard'),
+    launcherTitle:
+      typeof saved.launcher_title === 'string' ? saved.launcher_title : '',
+    darkMode: savedChoice(saved, 'theme', 'light'),
     locale: chooseLocale(
       saved.language_mode === 'browser'
         ? browserLanguage
@@ -67,7 +86,7 @@ export function applySettings(channel) {
     window.$chatwoot,
     resolveSettings(channel, window.chatwootSettings || {})
   );
-  window.$chatwoot.inclamoWidget = channel.inclamoWidget || {};
+  window.$chatwoot.inclamoWidget = savedWidget(channel);
   const holder = document.getElementById('cw-widget-holder');
   holder?.classList.remove('woot-elements--left', 'woot-elements--right');
   holder?.classList.add(`woot-elements--${window.$chatwoot.position}`);
@@ -111,7 +130,7 @@ export function decorateLauncher({ checkVisibility = true } = {}) {
   close?.setAttribute('aria-label', 'Close chat');
   if (paths[saved.icon])
     svg?.querySelector('path')?.setAttribute('d', paths[saved.icon]);
-  if (saved.icon === 'custom' && saved.icon_url && svg) {
+  if (saved.icon === 'custom' && typeof saved.icon_url === 'string' && saved.icon_url && svg) {
     const img = document.createElement('img');
     img.className = 'inclamo-launcher-image';
     img.alt = '';

@@ -14,6 +14,21 @@ account = Account.find_or_create_by!(name: 'E2E')
   AccountUser.find_or_create_by!(account: account, user: user) { |member| member.role = role }
 end
 
+# A second administrator, for what two administrators see of shared settings.
+second_email = ENV.fetch('STAND_SECOND_ADMIN_EMAIL')
+second_password = ENV.fetch('STAND_SECOND_ADMIN_PASSWORD')
+second = User.find_by(email: second_email) || User.new(email: second_email, name: 'E2E Second Admin')
+second.assign_attributes(password: second_password, password_confirmation: second_password, confirmed_at: Time.current)
+second.save!
+AccountUser.find_or_create_by!(account: account, user: second) { |member| member.role = :administrator }
+
+# The installation's super administrator, a member of no account.
+super_email = ENV.fetch('STAND_SUPER_ADMIN_EMAIL')
+super_password = ENV.fetch('STAND_SUPER_ADMIN_PASSWORD')
+super_admin = SuperAdmin.find_by(email: super_email) || SuperAdmin.new(email: super_email, name: 'E2E Super Admin')
+super_admin.assign_attributes(password: super_password, password_confirmation: super_password, confirmed_at: Time.current)
+super_admin.save!
+
 # An empty account for onboarding; no customer channel or conversation exists.
 setup_account = Account.find_or_create_by!(name: 'E2E Setup')
 admin = User.find_by!(email: ENV.fetch('STAND_ADMIN_EMAIL'))

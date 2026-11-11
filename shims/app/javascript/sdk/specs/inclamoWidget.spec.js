@@ -86,4 +86,36 @@ describe('Published website widget configuration', () => {
       )
     ).toBe(false);
   });
+  it('falls back to native defaults for unusable saved values', () => {
+    const unusable = {
+      ...channel,
+      inclamoWidget: {
+        position: 'middle',
+        type: 'giant',
+        theme: 'neon',
+        launcher_title: 42,
+        language_mode: 'browser',
+      },
+    };
+    expect(resolveSettings(unusable, {}, 'zz')).toEqual({
+      position: 'right',
+      type: 'standard',
+      launcherTitle: '',
+      darkMode: 'light',
+      locale: 'en',
+    });
+    expect(
+      resolveSettings({ ...channel, inclamoWidget: 'broken' }, {}, 'en')
+    ).toMatchObject({ position: 'right', type: 'standard' });
+    expect(pageAllowed({ mode: 'sideways' }, 'https://shop.test/a')).toBe(true);
+    expect(
+      pageAllowed({ mode: 'exclude', rules: 'broken' }, 'https://shop.test/a')
+    ).toBe(true);
+    expect(
+      pageAllowed(
+        { mode: 'exclude', rules: [null, { match: 'prefix', path: 7 }] },
+        'https://shop.test/a'
+      )
+    ).toBe(true);
+  });
 });

@@ -8,11 +8,27 @@ import { selectStarter } from './starters';
 const store = useStore();
 const router = useRouter();
 const { t } = useI18n();
-const config = computed(() => window.chatwootWebChannel.inclamoWidget || {});
+const config = computed(() => {
+  const value = window.chatwootWebChannel.inclamoWidget;
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value
+    : {};
+});
+// Only usable entries are shown; anything else leaves the native home screen.
+const usable = (list, fields) =>
+  (Array.isArray(list) ? list : []).filter(
+    entry =>
+      entry &&
+      typeof entry === 'object' &&
+      entry.enabled === true &&
+      fields.every(field => typeof entry[field] === 'string' && entry[field])
+  );
 const starters = computed(() =>
-  (config.value.starters || []).filter(e => e.enabled)
+  usable(config.value.starters, ['id', 'label', 'message'])
 );
-const links = computed(() => (config.value.links || []).filter(e => e.enabled));
+const links = computed(() =>
+  usable(config.value.links, ['id', 'label', 'url'])
+);
 const pending = ref(false);
 const error = ref(false);
 async function start(entry) {

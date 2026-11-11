@@ -2,6 +2,8 @@
 export const users = {
   admin: { email: process.env.STAND_ADMIN_EMAIL, password: process.env.STAND_ADMIN_PASSWORD },
   agent: { email: process.env.STAND_AGENT_EMAIL, password: process.env.STAND_AGENT_PASSWORD },
+  secondAdmin: { email: process.env.STAND_SECOND_ADMIN_EMAIL, password: process.env.STAND_SECOND_ADMIN_PASSWORD },
+  superAdmin: { email: process.env.STAND_SUPER_ADMIN_EMAIL, password: process.env.STAND_SUPER_ADMIN_PASSWORD },
 };
 
 // One session per user for the whole run, shared by the browser and by API
