@@ -1,4 +1,4 @@
-// Scenarios of openspec capability `conversation-order-panel` about acting on
+// Scenarios of behavior contract `conversation-order-panel` about acting on
 // orders. Each describe is a requirement, each test one of its scenarios.
 import { test, expect } from '@playwright/test';
 import { signIn, openOrders, orderCard, apiAs, proxy, bench, runTag, users } from '../lib/helpdesk.mjs';

@@ -4,10 +4,9 @@ An open-source, self-hosted helpdesk layer for e-commerce merchants, built
 **around** [Chatwoot](https://github.com/chatwoot/chatwoot) Community Edition
 without forking it.
 
-Status: **development build with integrated acceptance tests**. The first-release
-plan is in `docs/spec-plan.md`; behavior contracts and implementation tasks are
-in `openspec/`. Real-model quality and external email delivery still require
-acceptance with the chosen services.
+Status: **development build with integrated tests**. [Behavior contracts](docs/behavior/README.md)
+ship with the source. Validate real-model quality and external email delivery
+with the services configured for your installation.
 
 ## What it is
 
@@ -45,10 +44,9 @@ a discounted new order also needs discount permission. The connector contract,
 identity checks and outcome handling are documented in [docs/ai-connector.md](docs/ai-connector.md).
 
 Service builders start with [the integration handoff](docs/service-integration.md).
-[Scaling requirements](docs/scaling.md) define durable processing, tenant isolation
-and measurable capacity gates; thousands of merchants have not yet been load-tested.
-The [acceptance record](docs/release-readiness.md) separates verified behavior from
-remaining production work.
+[Scaling guidance](docs/scaling.md) describes storage, worker and integration
+constraints. See [release capabilities and limitations](docs/release-readiness.md)
+before configuring a production installation.
 
 ## Build and verify
 
@@ -58,6 +56,17 @@ validation. [End-to-end tests](.github/workflows/e2e.yml) drive an isolated help
 and a development Shopify store through `e2e/run.sh`; they create and remove
 tagged test data. The included AI simulator verifies the integration contract,
 not the behavior of a real language model.
+
+## Repository contents
+
+The repository contains product source, tests, build tooling and documentation
+for installing, operating and extending the product. Development plans,
+internal reports and design prototypes are maintained separately.
+Public builds and checks require no access to a private workspace.
+
+Run `node scripts/check-repository-boundary.mjs` before publishing changes.
+Generated review output belongs under ignored `build/`; test fixtures and
+deliberately reviewed regression snapshots remain part of the test suite.
 
 ## Licence
 

@@ -3,26 +3,19 @@
 // e2e/tests, and fails when a scenario has no test or a test names a scenario
 // that does not exist.
 //
-// A change counts from its first ticked task: one that is only proposed has
-// no code to test yet. The changes left out are printed.
+// Contracts ship with this source revision and do not require internal plans.
 //
-//   node scripts/check-e2e-coverage.mjs [directory with specs/<capability>/spec.md]
+//   node scripts/check-e2e-coverage.mjs [directory with <capability>/spec.md]
 //   E2E_COVERAGE_ROOT=<dir> overrides the repository root (used to try the check itself)
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = process.env.E2E_COVERAGE_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..');
-const changes = join(root, 'openspec', 'changes');
-
-// Changes that are proposed and not built yet. Their scenarios get their tests
-// when the change is built, and the change leaves this list then.
-const PLANNED = ['call-conversations', 'hosted-instance', 'shopify-oauth-connection', 'shopify-sign-in'];
-
-const changeNames = existsSync(changes) ? readdirSync(changes).filter(name => name !== 'archive') : [];
-const specsDirs = process.argv[2]
-  ? [process.argv[2]]
-  : [join(root, 'openspec', 'specs'), ...changeNames.filter(name => !PLANNED.includes(name)).map(name => join(changes, name, 'specs'))].filter(existsSync);
+const specsDirs = [process.argv[2] || join(root, 'docs', 'behavior')];
+for (const directory of specsDirs) {
+  if (!existsSync(directory)) throw new Error(`Behavior contracts are missing: ${directory}`);
+}
 
 // Which test file carries which capability; a file may be flat (tests named
 // after scenarios) or grouped by requirement (describe blocks).
@@ -66,6 +59,8 @@ for (const dir of specsDirs) {
   }
 }
 
+if (scenarios.length === 0) throw new Error('No behavior scenarios found');
+
 const tests = {};
 for (const [capability, files] of Object.entries(FILES)) {
   tests[capability] = [];
@@ -98,9 +93,6 @@ for (const [capability, list] of Object.entries(tests)) {
 for (const name of Object.keys(ELSEWHERE)) {
   if (!scenarios.some(entry => key(entry) === name)) problems.push(`the exception "${name}" names no scenario`);
 }
-if (!process.argv[2]) {
-  for (const name of PLANNED) if (!changeNames.includes(name)) problems.push(`the planned change "${name}" is not an open change: take it off the list`);
-}
 
 if (problems.length > 0) {
   console.error(problems.join('\n'));
@@ -108,5 +100,3 @@ if (problems.length > 0) {
 }
 const covered = scenarios.length - Object.keys(ELSEWHERE).length;
 console.log(`${covered} of ${scenarios.length} scenarios have an end-to-end test; ${Object.keys(ELSEWHERE).length} covered elsewhere, with the reason on record`);
-const planned = process.argv[2] ? [] : PLANNED.filter(name => changeNames.includes(name));
-if (planned.length) console.log(`not built yet, so not checked: ${planned.join(', ')}`);

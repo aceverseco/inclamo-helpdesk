@@ -5,11 +5,10 @@ is Chatwoot Community Edition with our overlay; the AI service is a separate
 product. The helpdesk delivers events and offers a few calls; everything the
 agent decides is the AI service's.
 
-Version 1, 2026-11-07, change `ai-agent-connection` (calls: change
-`call-conversations`, [ai-connector-calls.md](ai-connector-calls.md)). The
-registration call (§1.2) is the one part still to be confirmed by the AI
-service's builder. Source lines are Chatwoot v4.19.1, paths relative to its
-tree; `custom/` is ours.
+Version 1. Source references are for Chatwoot v4.19.1, with paths relative
+to its tree; `custom/` is the overlay. External AI services implement the
+registration interface in §1.2. Finished-call ingestion is not implemented
+in this revision.
 
 ```
  Shopper (widget)        Helpdesk                                 AI service
@@ -21,7 +20,6 @@ tree; `custom/` is ours.
                       ◀── reply, note, priority, hand over (§4) ──
                       ◀── history and files, labels (§5)        ──
  call (phone) ─────────────────────────────────────────────────▶ voice agent
-                      ◀── the finished call (ai-connector-calls.md)
 ```
 
 ## 1. Connecting
@@ -44,7 +42,7 @@ The administrator also picks the inboxes the agent answers in. An inbox that
 already has another bot or a Dialogflow integration cannot be picked (Chatwoot
 allows one bot per inbox, `app/models/inbox.rb:76-77`).
 
-### 1.2 Registration (to confirm with the AI service)
+### 1.2 Registration
 
 The helpdesk creates the agent bot (with no webhook yet) and the **Phone** API
 inbox, then calls:
@@ -259,7 +257,8 @@ the AI agent", so the team sees it.
 
 ### 5.3 A finished call
 
-One request per call: [ai-connector-calls.md](ai-connector-calls.md).
+Finished-call ingestion is not implemented in this revision. The Phone inbox
+created during connection does not by itself provide call ingestion or voice service.
 
 ## 6. Labels
 
@@ -276,7 +275,6 @@ Created at connection; an existing label of the same title is left alone.
 | `inclamo_urgent` | urgent (safety); priority `urgent` with it |
 | `inclamo_request_ready` / `inclamo_request_incomplete` | a filed request with all / not all required data |
 | `inclamo_intent_<id>` | the request's type; created when first added |
-| `inclamo_call`, `inclamo_inbound`, `inclamo_outbound`, `inclamo_web`, `inclamo_callback`, `inclamo_parts_request`, `inclamo_transferred`, `inclamo_no_conversation`, `inclamo_match_ambiguous`, `inclamo_no_caller_id` | calls, see ai-connector-calls.md |
 
 ## 7. Who has the conversation
 
@@ -331,11 +329,10 @@ The registration carries `"contract": 1`. A change that breaks a field or a
 call of this document raises the number; the AI service refuses a contract it
 does not know with a `4xx` and a message.
 
-## 10. Seen on the stand
+## 10. Event examples
 
-Recorded by the stand-in agent on the development stand, Chatwoot 4.19.1 with
-the overlay, 2026-11-07 (change `ai-agent-connection`, task 3.6). Ids are the
-test stack's; signed file addresses, tokens and names are cut.
+Examples for Chatwoot 4.19.1 with the overlay. Identifiers are synthetic;
+signed file addresses, tokens and names are omitted.
 
 ### 10.1 A widget message with one image
 
@@ -410,7 +407,7 @@ Chatwoot's auto-assignment does not give it to a person.
 
 ## Governed Shopify actions (contract extension)
 
-ADR 0072 introduces staff rights per operation and independent AI policy. Existing connection registration and bot-token authentication remain unchanged. A connected AI service can now use these endpoints under `/api/v1/accounts/:account_id/inclamo/ai/conversations/:display_id`:
+Staff rights are scoped per operation, independently from AI policy. Existing connection registration and bot-token authentication remain unchanged. A connected AI service can now use these endpoints under `/api/v1/accounts/:account_id/inclamo/ai/conversations/:display_id`:
 
 - `GET /orders`: unambiguously matched customer, recent orders and current policies. The bot is limited to its connected account/inboxes. The helpdesk ignores widget-supplied remembered-customer attributes when matching AI targets.
 - `POST /proposals`: `{ request_id, action_name, order_id | customer_id, params, address?, note? }`. Use a unique 8–64 character alphanumeric/hyphen request id and reuse it for delivery retries. Reusing it with different input is refused. Order-less operations omit target ids. Addresses are allowed only for `address`; notes only for note/new-order operations. Parameters follow the existing staff action contract. For item edits omit `expected`: the server calculates it.

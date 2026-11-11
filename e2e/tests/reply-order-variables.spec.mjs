@@ -1,4 +1,4 @@
-// Scenarios of openspec capability `reply-order-variables`: order variables in
+// Scenarios of behavior contract `reply-order-variables`: order variables in
 // typed replies, saved replies and macro messages. Each describe is a
 // requirement, each test one of its scenarios.
 import { test, expect } from '@playwright/test';

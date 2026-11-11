@@ -1,4 +1,4 @@
-// Scenarios of openspec capability `order-tags-and-notes`. Each describe is a
+// Scenarios of behavior contract `order-tags-and-notes`. Each describe is a
 // requirement, each test one of its scenarios.
 import { test, expect } from '@playwright/test';
 import { signIn, openOrders, orderCard, apiAs, proxy, bench, eventually, runTag, users } from '../lib/helpdesk.mjs';

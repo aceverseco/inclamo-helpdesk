@@ -1,4 +1,4 @@
-// Scenarios of openspec capability `sla-timers`. Each describe is a
+// Scenarios of behavior contract `sla-timers`. Each describe is a
 // requirement, each test one of its scenarios.
 //
 // Every policy here covers inboxes of its own ("E2E SLA ..."), except the one

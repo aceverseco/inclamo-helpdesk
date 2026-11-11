@@ -95,7 +95,7 @@ docker run --rm --ipc=host --network "${project}_default" \
   -v "$root":/repo:ro -v "$output":/out -w /work \
   "mcr.microsoft.com/playwright:v$playwright-noble" sh -c '
     set -e
-    mkdir -p /work/custom/graphql /work/openspec && cp -r /repo/e2e /repo/scripts /work/ && cp -r /repo/custom/graphql/shopify /work/custom/graphql/ && cp -r /repo/openspec/. /work/openspec/
+    mkdir -p /work/custom/graphql /work/docs/behavior && cp -r /repo/e2e /repo/scripts /work/ && cp -r /repo/custom/graphql/shopify /work/custom/graphql/ && cp -r /repo/docs/behavior/. /work/docs/behavior/
     node /work/scripts/check-e2e-coverage.mjs
     cd /work/e2e && rm -rf node_modules && npm install --no-audit --no-fund >/dev/null 2>&1
     npx playwright test "$@"' sh "$@"

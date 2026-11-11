@@ -1,4 +1,4 @@
-// Scenarios of openspec capability `ai-agent-connection`. Each test is named
+// Scenarios of behavior contract `ai-agent-connection`. Each test is named
 // after its scenario; scripts/check-e2e-coverage.mjs relies on that.
 //
 // The shopper writes in the widget, the team works in the dashboard, and the
