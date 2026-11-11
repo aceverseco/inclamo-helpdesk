@@ -13,6 +13,7 @@ the alternative coverage in the checker. No private workspace is required.
 - [acceptance-ux-corrections](acceptance-ux-corrections/spec.md)
 - [ai-agent-connection](ai-agent-connection/spec.md)
 - [ai-order-authority](ai-order-authority/spec.md)
+- [ai-reply-ownership](ai-reply-ownership/spec.md)
 - [conversation-order-panel](conversation-order-panel/spec.md)
 - [helpdesk-onboarding](helpdesk-onboarding/spec.md)
 - [macro-order-actions](macro-order-actions/spec.md)
