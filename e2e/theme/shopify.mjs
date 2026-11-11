@@ -23,6 +23,8 @@ createServer(async (request, response) => {
     if (operation === 'order_details') data = { order: orders.customer.orders.nodes.find(order => order.id === variables.id) || null };
     if (operation === 'orders_by_number') data = { orders: { nodes: orders.customer.orders.nodes.filter(order => variables.query?.includes(order.name)) } };
     if (operation === 'customer_data_probe') data = { customers: { nodes: [] } };
+    // The matched customer has no unpaid draft orders.
+    if (operation === 'awaiting_payment') data = fixture('awaiting_payment_none');
     // What a full refund would return: everything received less what was
     // refunded, through one synthetic payment. The cancel dialog asks it first.
     if (operation === 'refund_suggestion') {

@@ -910,17 +910,14 @@ test('Performance and isolation', async ({ page }, info) => {
     await page.getByText('Alex Example', { exact: true }).first().click();
     await expect(page).toHaveURL(new RegExp(`/conversations/${second.id}$`));
     await expect(editor(page)).toBeVisible();
-    const readPanel = page.waitForResponse(
-      response =>
-        response.url().includes(`/conversations/${conversation.id}/panel`) &&
-        response.status() === 200
-    );
     const start = performance.now();
     await page.getByText('Maya Example', { exact: true }).first().click();
     await expect(page).toHaveURL(
       new RegExp(`/conversations/${conversation.id}$`)
     );
-    await readPanel;
+    // The shared commerce store answers a revisit within its freshness
+    // window without a new read; either way the panel is Maya's.
+    await expect(page.getByTestId('inclamo-customer-name')).toHaveText('Maya Example');
     await expect(page.getByTestId('inclamo-orders-section')).toHaveAttribute(
       'data-state',
       'matched'
