@@ -16,7 +16,8 @@ createServer(async (request, response) => {
   for await (const chunk of request) raw += chunk;
   try {
     const { query, variables = {} } = JSON.parse(raw);
-    const operation = query.match(/\b(?:query|mutation)\s+(\w+)/)?.[1];
+    // Documents arrive with their comments; a comment may say "query" too.
+    const operation = query.replace(/^\s*#.*$/gm, '').match(/\b(?:query|mutation)\s+(\w+)/)?.[1];
     let data;
     if (operation === 'customers_search') data = customers;
     if (operation === 'customer_orders') data = orders;

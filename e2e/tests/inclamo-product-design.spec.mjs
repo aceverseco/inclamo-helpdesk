@@ -127,9 +127,10 @@ test('Build and exercise the product', async ({ page }, info) => {
     await expect(page.locator('dialog[open]')).toHaveCount(0);
   }
 
+  // The expanded workspace shows the supplied combined logo (workspace-brand-logo).
   await expect(page.locator('.inclamo-brand-mark img')).toHaveAttribute(
     'src',
-    '/brand-assets/inclamo-mark.svg'
+    '/brand-assets/inclamo-logo-combined.jpg'
   );
   expect(
     await page
@@ -169,9 +170,12 @@ test('Brand across staff screens', async ({ page }, info) => {
   await expect(row.getByRole('checkbox')).not.toBeChecked();
   await expect(row.locator('[data-testid$="-error"]')).toBeVisible();
   await page.goto(`${accountPath}/settings/order-actions`);
-  await expect(
-    page.getByTestId(`inclamo-role-${admin.userId}`).getByRole('checkbox')
-  ).toBeDisabled();
+  // An administrator holds every right, one switch per operation, none changeable.
+  const adminRights = page
+    .getByTestId(`inclamo-role-${admin.userId}`)
+    .getByRole('checkbox');
+  await expect(adminRights.first()).toBeVisible();
+  for (const right of await adminRights.all()) await expect(right).toBeDisabled();
 
   await page.goto(`${accountPath}/contacts`);
   if (!baseline)
