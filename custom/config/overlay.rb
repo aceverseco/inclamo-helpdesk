@@ -48,6 +48,7 @@ end
 Rails.application.config.to_prepare do
   AutomationRuleListener.prepend(Inclamo::StoreFactsBeforeRules)
   Public::Api::V1::Portals::ArticlesController.prepend(Inclamo::ArticlePreview::PublicGuard)
+  SuperAdmin::Devise::SessionsController.prepend(Inclamo::Authentication::SuperAdminSession)
 end
 
 # Order steps in macros (see Inclamo::Shopify::MacroSteps). Chatwoot's hook

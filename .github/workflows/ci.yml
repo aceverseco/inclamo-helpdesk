@@ -79,6 +79,10 @@ jobs:
           bundle exec rspec --format progress custom/spec
           spec/models/macro_spec.rb spec/services/macros/execution_service_spec.rb spec/jobs/macros_execution_job_spec.rb
           spec/controllers/api/v1/accounts/macros_controller_spec.rb spec/models/automation_rule_spec.rb
+          spec/requests/devise_overrides/passwords_controller_spec.rb spec/requests/devise_overrides/confirmations_controller_spec.rb
+          spec/requests/devise_overrides/sessions_controller_spec.rb spec/controllers/super_admin/devise/sessions_controller_spec.rb:13
+          spec/controllers/devise/passwords_controller_spec.rb spec/controllers/devise_overrides/sessions_controller_spec.rb
+          spec/requests/api/v1/profile/mfa_controller_spec.rb spec/services/mfa
         env:
           # Throwaway keys: the store connection is refused without encryption.
           ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: ci-only-primary-key-0000000000000000
