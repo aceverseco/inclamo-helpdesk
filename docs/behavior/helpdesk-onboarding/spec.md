@@ -2,6 +2,27 @@
 
 Behavior contract for this source revision.
 
+### Authentication prerequisites
+
+An invited organization administrator sets their own password using the invitation
+link. A recovery link must be within the configured lifetime and can be consumed
+only once. Missing, invalid or mismatched passwords must not confirm the user,
+consume the link or issue a session. Organization membership does not grant access
+to other organizations or to the installation's SuperAdmin interface.
+
+When an organization enforces MFA, password setup must lead to sign-in and MFA
+enrollment before a session is issued. An enrolled user's subsequent sign-in must
+require the second factor. SuperAdmin sign-in must also respect an enrolled
+second factor, reject unconfirmed users and refuse bypassing required enrollment.
+Authenticator codes and recovery codes use the native MFA service.
+
+These authentication checks are exercised through the application's HTTP request
+stack in [invitation tests](../../../custom/spec/requests/authentication/organization_invitation_spec.rb),
+[password recovery tests](../../../custom/spec/requests/authentication/password_recovery_spec.rb)
+and [SuperAdmin MFA tests](../../../custom/spec/requests/authentication/super_admin_mfa_spec.rb).
+They intercept outgoing mail with a test transport. Actual delivery from the
+configured sender requires a separate installation check.
+
 ### Requirement: Resumable administrator setup
 
 Administrators SHALL reach setup directly from settings without creating a conversation. Setup SHALL cover store connection, channels and team, staff action rights, AI policy and verification. It SHALL use the same persisted values as the later settings pages and resume after navigation or reload. Staff SHALL not change account setup. A connection failure or failed setting save SHALL remain visible and SHALL not mark its step complete.

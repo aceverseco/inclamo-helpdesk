@@ -1,0 +1,18 @@
+--- a/app/views/super_admin/devise/sessions/new.html.erb
++++ b/app/views/super_admin/devise/sessions/new.html.erb
+@@ -10,6 +10,15 @@
+       <%= f.label :password, t("super_admin.login.password"), class: "text-label" %>
+       <%= f.password_field :password, autocomplete: "current-password", placeholder: t("super_admin.login.password_placeholder"), class: ui(:input, "mt-1 min-h-10") %>
+     </div>
++    <div>
++      <%= f.label :otp_code, t("inclamo.authentication.otp_code"), class: "text-label" %>
++      <%= f.text_field :otp_code, value: nil, autocomplete: "one-time-code", inputmode: "numeric", class: ui(:input, "mt-1 min-h-10") %>
++    </div>
++    <div>
++      <%= f.label :backup_code, t("inclamo.authentication.backup_code"), class: "text-label" %>
++      <%= f.text_field :backup_code, value: nil, autocomplete: "off", class: ui(:input, "mt-1 min-h-10") %>
++    </div>
++    <p class="text-sm"><%= t("inclamo.authentication.mfa_setup") %></p>
+     <%= render "super_admin/application/button", label: t("super_admin.login.submit"), type: "submit", extra: "h-10 w-full" %>
+   <% end %>
+ <% end %>
