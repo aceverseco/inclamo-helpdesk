@@ -11,6 +11,7 @@ export const users = {
 // how many sessions a user may have. The login page itself is not under test.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { expect } from '@playwright/test';
 
 const baseUrl = () => process.env.HELPDESK_URL || 'http://localhost:3000';
 const sessionsFile = () => join(process.env.E2E_OUTPUT || './output', '.sessions.json');
@@ -43,58 +44,88 @@ export async function signIn(page, user) {
   await page.context().addCookies([{ name: 'cw_d_session_info', value: encodeURIComponent(JSON.stringify(headers)), url: baseUrl() }]);
 }
 
+// Whether a locator shows up within `timeout`, without failing the test.
+export const appeared = (locator, timeout, state = 'visible') =>
+  locator.first().waitFor({ state, timeout }).then(() => true, () => false);
+
+// The conversation sidebar follows the user's saved choice (ui_settings), and
+// the header's button shows that choice once it is drawn. The choice is read
+// from the button, not guessed from how long the pane takes to appear: a
+// click on a sidebar that is open but slow closes it, and saves it closed.
+export async function openCustomerPane(page) {
+  const toggle = page.getByTestId('inclamo-toggle-customer');
+  await toggle.waitFor({ timeout: 45_000 });
+  const open = /(^|\s)bg-n-alpha-2(\s|$)/.test((await toggle.getAttribute('class')) ?? '');
+  if (!open) await toggle.click();
+  const pane = page.locator('.reference-customer-pane');
+  await pane.waitFor({ state: 'attached', timeout: 45_000 });
+  return pane;
+}
+
 // Opens a conversation and returns the Orders section of its sidebar (the
 // Orders card of the Details tab), opening the sidebar and expanding the card
 // the way a person would.
 export async function openOrders(page, accountId, conversationId) {
   await page.goto(`/app/accounts/${accountId}/conversations/${conversationId}`);
+  await openCustomerPane(page);
+  const card = page.locator('[data-widget-host="conversation-sidebar"] .inclamo-widget-heading', { hasText: 'Orders' }).first();
+  // Until the user's own layout has loaded, the cards are those of the product
+  // layout and their headings are disabled: whether Orders is collapsed is
+  // decided only by the user's layout.
+  await expect(card).toBeEnabled({ timeout: 45_000 });
+  if ((await card.getAttribute('aria-expanded')) === 'false') await card.click();
   const section = page.getByTestId('inclamo-orders-section');
-  const card = page.locator('[data-widget-host="conversation-sidebar"] .inclamo-widget-heading', { hasText: 'Orders' });
-  const appeared = async (locator, timeout) => locator.first().waitFor({ state: 'attached', timeout }).then(() => true, () => false);
-
-  if (await appeared(section, 5_000)) return section;
-  // The sidebar may be closed: the button at the top right of the conversation opens it.
-  if (!(await appeared(card, 3_000))) await page.getByTestId('inclamo-toggle-customer').click();
-  if (!(await appeared(section, 3_000)) && (await card.first().getAttribute('aria-expanded')) === 'false') await card.first().click();
   await section.waitFor({ state: 'attached', timeout: 45_000 });
   return section;
 }
 
 // Settings pages and the other secondary pages are reached from the sidebar's
-// "Workspace tools" menu. Opens the menu and returns it; Escape closes it.
-// Right after a page loads, the sidebar can still fill in its channels and push
-// the button, and the menu anchored to it, below the window: the menu is then
-// opened again from where the button settled, as a person would.
-export async function workspaceTools(page) {
+// "Workspace tools" menu. Opens the menu, hands it to `use` and closes it
+// again unless `use` has left the page. Right after a page loads, the sidebar
+// can still fill in its channels and push the button, and the menu anchored
+// to it, below the window: the menu is then opened again from where the
+// button settled, as a person would.
+export async function withWorkspaceTools(page, use) {
   const menu = page.locator('.reference-navigation-menu');
   const trigger = page.getByRole('button', { name: 'Workspace tools', exact: true });
   const fits = async () => {
     const box = await menu.boundingBox();
     return Boolean(box) && box.y >= 0 && box.y + box.height <= page.viewportSize().height + 1;
   };
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (!(await menu.isVisible())) await trigger.click();
-    await menu.waitFor({ timeout: 30_000 });
-    if (await fits()) {
-      await page.waitForTimeout(300);
-      if (await fits()) return menu;
+  await expect(async () => {
+    if (await menu.isVisible()) {
+      await page.keyboard.press('Escape');
+      await menu.waitFor({ state: 'hidden', timeout: 10_000 });
     }
+    await trigger.click({ timeout: 30_000 });
+    await menu.waitFor({ timeout: 10_000 });
+    expect(await fits(), 'the Workspace tools menu fits in the window').toBe(true);
+    await page.waitForTimeout(300);
+    expect(await fits(), 'the Workspace tools menu stays in the window').toBe(true);
+  }).toPass({ timeout: 90_000, intervals: [500, 1_000, 2_000] });
+  const result = await use(menu);
+  if (await menu.isVisible()) {
     await page.keyboard.press('Escape');
     await menu.waitFor({ state: 'hidden', timeout: 10_000 });
   }
-  await trigger.click();
-  await menu.waitFor({ timeout: 30_000 });
-  return menu;
+  return result;
 }
 
 // The conversation list shows one queue at a time, chosen in the queue menu
 // above the list (the sidebar's queues lead to the list of all inboxes).
-const queueNames = { all: 'All conversations', me: 'Assigned to me', unassigned: 'Unassigned' };
+// Returns once the list of the chosen queue has been fetched, not only when
+// the menu's label has changed.
+const queues = { all: ['All conversations', 'all'], me: ['Assigned to me', 'me'], unassigned: ['Unassigned', 'unassigned'] };
 export async function chooseQueue(page, key) {
+  const [name, assigneeType] = queues[key];
   const menu = page.getByRole('button', { name: 'Conversation queue' });
-  await menu.click({ timeout: 45_000 });
-  await page.getByRole('menuitemradio', { name: new RegExp(`^${queueNames[key]}`) }).click();
-  await menu.filter({ hasText: queueNames[key] }).waitFor({ timeout: 30_000 });
+  await menu.waitFor({ timeout: 45_000 });
+  if (await menu.filter({ hasText: name }).count()) return;
+  const fetched = page.waitForResponse(response => /\/conversations\?/.test(response.url()) && response.url().includes(`assignee_type=${assigneeType}`), { timeout: 45_000 });
+  await menu.click();
+  await page.getByRole('menuitemradio', { name: new RegExp(`^${name}`) }).click();
+  await menu.filter({ hasText: name }).waitFor({ timeout: 30_000 });
+  await fetched;
 }
 
 // The conversation sidebar keeps the conversation's own sections (Conversation
@@ -102,10 +133,8 @@ export async function chooseQueue(page, key) {
 // card of its "Details" tab (see openOrders).
 // Opens the sidebar if it is closed, then the tab, and returns the tab's panel.
 export async function manageTab(page) {
-  const tab = page.getByRole('tab', { name: 'Manage' });
-  const shown = await tab.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false);
-  if (!shown) await page.getByTestId('inclamo-toggle-customer').click();
-  await tab.click();
+  await openCustomerPane(page);
+  await page.getByRole('tab', { name: 'Manage' }).click({ timeout: 30_000 });
   const panel = page.locator('.reference-customer-manage');
   await panel.waitFor({ timeout: 30_000 });
   return panel;

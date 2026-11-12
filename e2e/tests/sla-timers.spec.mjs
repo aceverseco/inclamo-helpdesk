@@ -7,7 +7,7 @@
 // test stack checks for missed targets every few seconds
 // (INCLAMO_SLA_CHECK_SECONDS), so a target of ten seconds is missed quickly.
 import { test, expect } from '@playwright/test';
-import { signIn, apiAs, eventually, users, workspaceTools, manageTab } from '../lib/helpdesk.mjs';
+import { signIn, apiAs, eventually, users, withWorkspaceTools, manageTab } from '../lib/helpdesk.mjs';
 
 const account = process.env.E2E_ACCOUNT_ID || '1';
 const LABEL = 'sla-missed';
@@ -100,7 +100,7 @@ test.describe('Administrators define SLA policies', () => {
     await signIn(page, users.admin);
     // The page is reached from the Settings group of the Workspace tools menu.
     await page.goto(`/app/accounts/${account}/settings/order-actions`);
-    await (await workspaceTools(page)).locator('a[href$="/settings/sla-policies"]').click();
+    await withWorkspaceTools(page, menu => menu.locator('a[href$="/settings/sla-policies"]').click());
     await expect(page).toHaveURL(/\/settings\/sla-policies$/);
     await page.getByTestId('inclamo-sla-page').waitFor();
 
@@ -143,10 +143,10 @@ test.describe('Administrators define SLA policies', () => {
     await expect(page).not.toHaveURL(/\/settings\/sla-policies$/, { timeout: 20_000 });
     await expect(page.getByTestId('inclamo-sla-page')).toHaveCount(0);
     // The Workspace tools menu, where settings pages are reached, has no entry for the page.
-    const menu = await workspaceTools(page);
-    await expect(menu.locator('a[href*="/settings/"]').first()).toBeVisible();
-    await expect(menu.locator('a[href$="/settings/sla-policies"]')).toHaveCount(0);
-    await page.keyboard.press('Escape');
+    await withWorkspaceTools(page, async menu => {
+      await expect(menu.locator('a[href*="/settings/"]').first()).toBeVisible();
+      await expect(menu.locator('a[href$="/settings/sla-policies"]')).toHaveCount(0);
+    });
     expect((await agent.get('/inclamo/sla_policies')).status).toBe(403);
   });
 });

@@ -66,12 +66,18 @@ test.describe('The panel is a section of the conversation sidebar', () => {
     expect(await cards.count()).toBeGreaterThan(2);
     const heading = cards.filter({ hasText: 'Orders' });
     await expect(heading).toHaveAttribute('aria-expanded', 'true');
-    await heading.click();
-    await expect(heading).toHaveAttribute('aria-expanded', 'false');
-    await expect(section).toHaveCount(0);
-    await heading.click();
-    await expect(heading).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.getByTestId('inclamo-orders-section')).toBeVisible();
+    try {
+      await heading.click();
+      await expect(heading).toHaveAttribute('aria-expanded', 'false');
+      await expect(section).toHaveCount(0);
+      await heading.click();
+      await expect(heading).toHaveAttribute('aria-expanded', 'true');
+      await expect(page.getByTestId('inclamo-orders-section')).toBeVisible();
+    } finally {
+      // Collapsing is saved in the agent's own layout, which the later tests share: it is set back.
+      const { revision } = (await agent.get('/inclamo/workspace_layout')).body;
+      await agent.delete(`/inclamo/workspace_layout?revision=${encodeURIComponent(revision ?? '')}`);
+    }
   });
 
   test('Not connected, agent', async ({ page }) => {
@@ -185,8 +191,14 @@ test.describe('The panel shows the customer and their recent orders', () => {
     await signIn(page, users.agent);
     const section = await openOrders(page, account, conversation.id);
 
-    // The number of orders and the total spent are the Purchase statistics card, next to the Orders card.
-    await expect(page.locator('[data-widget-host="conversation-sidebar"]').getByTestId('inclamo-customer-summary')).toContainText(/orders/i);
+    // The number of orders and the total spent are the Purchase statistics card, next to the Orders card,
+    // as the store tells them to the panel.
+    const { customer } = await agent.panel(conversation.id);
+    expect(customer.orders_count).toBeGreaterThan(0);
+    const metrics = page.locator('[data-widget-host="conversation-sidebar"]').getByTestId('inclamo-customer-summary').locator('strong');
+    await expect(metrics.first()).toHaveText(String(customer.orders_count));
+    const spent = await page.evaluate(({ amount, currency }) => new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(amount)), customer.total_spent);
+    await expect(metrics.nth(1)).toHaveText(spent);
     const card = await orderCard(section, orders.shipped.number);
     const shipments = card.getByTestId('inclamo-order-shipment');
     await expect(shipments).toHaveCount(2);

@@ -90,18 +90,22 @@ const editor = page => page.locator('.ProseMirror[contenteditable="true"]').firs
 const productDialog = page => page.getByTestId('inclamo-insert-product-dialog');
 const productRow = (page, product) => productDialog(page).getByTestId('inclamo-product').filter({ hasText: product.title });
 // The store's search shows a product it has just made only after a moment:
-// when `product` should be found, the search is made again until it is.
+// when `product` should be found, the search is made again until it is. Each
+// attempt waits for the answer to its own search: a new text drops the answer
+// to the one before.
 const search = async (page, text, product) => {
   const query = productDialog(page).getByTestId('inclamo-product-query');
-  const deadline = Date.now() + 90_000;
-  for (;;) {
-    await query.fill(text);
-    await expect(productDialog(page).getByTestId('inclamo-product-searching')).toHaveCount(0, { timeout: 15_000 });
-    if (!product || Date.now() > deadline) return;
-    if (await productRow(page, product).first().waitFor({ timeout: 3_000 }).then(() => true, () => false)) return;
+  await expect(async () => {
+    const answered = page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname.endsWith('/products') && url.searchParams.get('query') === text.trim();
+    }, { timeout: 30_000 });
     await query.fill('');
-    await page.waitForTimeout(3_000);
-  }
+    await query.fill(text);
+    await answered;
+    await expect(productDialog(page).getByTestId('inclamo-product-searching')).toHaveCount(0, { timeout: 10_000 });
+    if (product) await expect(productRow(page, product).first()).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: product ? 120_000 : 45_000, intervals: [3_000] });
 };
 const discountDialog = page => page.getByTestId('inclamo-action-dialog');
 const pickPreset = (page, made) => discountDialog(page).locator(`[data-preset-id="${made.id}"] input`).check();

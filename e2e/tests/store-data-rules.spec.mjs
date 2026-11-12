@@ -2,7 +2,7 @@
 // about the customer as conditions of Chatwoot's automation rules, and the
 // preset rules. Each describe is a requirement, each test one of its scenarios.
 import { test, expect } from '@playwright/test';
-import { signIn, apiAs, proxy, bench, eventually, runTag, users, workspaceTools } from '../lib/helpdesk.mjs';
+import { signIn, apiAs, proxy, bench, eventually, runTag, users, withWorkspaceTools } from '../lib/helpdesk.mjs';
 import { API_VERSION } from '../lib/shopify.mjs';
 import { openStore } from '../lib/store.mjs';
 
@@ -397,8 +397,7 @@ test.describe('Preset rules are switched on with one toggle', () => {
     // The administrator's settings menu has the entry and the page.
     await signIn(page, users.admin);
     await presetsPage(page);
-    await expect((await workspaceTools(page)).getByRole('menuitem', { name: 'Preset rules', exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
+    await withWorkspaceTools(page, menu => expect(menu.getByRole('menuitem', { name: 'Preset rules', exact: true })).toBeVisible());
 
     await signIn(page, users.agent);
     await page.goto(`/app/accounts/${account}/settings/preset-rules`);
@@ -406,10 +405,10 @@ test.describe('Preset rules are switched on with one toggle', () => {
     await expect(page.getByTestId('inclamo-presets-page')).toHaveCount(0);
     // On a settings page an agent may open, the Workspace tools menu has the agent's settings without the entry.
     await page.goto(`/app/accounts/${account}/settings/canned-response/list`);
-    const menu = await workspaceTools(page);
-    await expect(menu.getByRole('menuitem', { name: 'Canned Responses', exact: true })).toBeVisible({ timeout: 45_000 });
-    await expect(menu.getByRole('menuitem', { name: 'Preset rules', exact: true })).toHaveCount(0);
-    await page.keyboard.press('Escape');
+    await withWorkspaceTools(page, async menu => {
+      await expect(menu.getByRole('menuitem', { name: 'Canned Responses', exact: true })).toBeVisible({ timeout: 45_000 });
+      await expect(menu.getByRole('menuitem', { name: 'Preset rules', exact: true })).toHaveCount(0);
+    });
 
     expect((await agent.get('/inclamo/rule_presets')).status).toBe(403);
     expect((await agent.put('/inclamo/rule_presets/vip', { active: true, value: 1 })).status).toBe(403);
