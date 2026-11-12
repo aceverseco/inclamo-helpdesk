@@ -5,7 +5,8 @@ import RefundDialog from '../components/RefundDialog.vue';
 import OrderCard from '../components/OrderCard.vue';
 import OrdersSection from '../components/OrdersSection.vue';
 import InclamoAPI from '../api';
-import { stubs, order, connection, agent, allowedAgent, admin, flush } from './helpers';
+import { clearCommerce } from '../widgets/commerce';
+import { stubs, order, connection, agent, allowedAgent, admin, flush, expandCard } from './helpers';
 
 vi.mock('../api', () => ({
   default: {
@@ -102,6 +103,9 @@ const addBoard = async wrapper => {
 };
 
 beforeEach(() => vi.clearAllMocks());
+
+// The panel store keeps answers between mounts; every test starts empty.
+beforeEach(() => clearCommerce());
 
 describe('EditItemsDialog', () => {
   it('shows a shipped item without controls, and keeps the shipped units of a partly shipped one', async () => {
@@ -391,13 +395,14 @@ describe('The panel after an edit', () => {
     await find(wrapper, 'inclamo-orders-more').trigger('click');
     await flush();
     const card = wrapper.findAllComponents(OrderCard).find(component => component.props('order').number === '#1421');
-    await card.find('button').trigger('click');
+    await expandCard(card);
 
     card.findComponent(EditItemsDialog).vm.$emit('done', { outcome: 'accepted', action: 'edit_items', result: { difference: 'due_back', amount: '80.0', currency: 'UAH' } });
     await flush();
     await flush();
 
-    expect(InclamoAPI.getPanel).toHaveBeenLastCalledWith(7, 'c1');
+    // The third argument is the account the panel was read for.
+    expect(InclamoAPI.getPanel).toHaveBeenLastCalledWith(7, 'c1', '');
     expect(wrapper.findAllComponents(OrderCard).map(component => component.props('order').number)).toEqual(['#1545', '#1421']);
     expect(find(wrapper, 'inclamo-refund-due-back').exists()).toBe(true);
     expect(find(wrapper, 'inclamo-edited-due-back').exists()).toBe(true);

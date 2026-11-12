@@ -10,6 +10,7 @@ import { REPLY_EDITOR_MODES } from 'dashboard/components/widgets/WootWriter/cons
 import registry from 'dashboard/extensions/replyVariables';
 import OrdersSection from '../components/OrdersSection.vue';
 import InclamoAPI from '../api';
+import { clearCommerce } from '../widgets/commerce';
 import { ORDER_VARIABLES } from '../replyVariables';
 import { notePanel, forgetOrderState } from '../orderState';
 import { stubs, order, connection, allowedAgent, flush } from './helpers';
@@ -88,6 +89,9 @@ const replyBox = chat => {
   });
   return { wrapper, send, confirm };
 };
+
+// The panel store keeps answers between mounts; every test starts empty.
+beforeEach(() => clearCommerce());
 
 describe('order variables in replies', () => {
   beforeEach(() => {

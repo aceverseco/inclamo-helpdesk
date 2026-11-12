@@ -20,6 +20,13 @@ for (const directory of specsDirs) {
 // Which test file carries which capability; a file may be flat (tests named
 // after scenarios) or grouped by requirement (describe blocks).
 const FILES = {
+  'workspace-widgets': ['workspace-widgets.spec.mjs'],
+  'in-product-support': ['in-product-support.spec.mjs'],
+  'inclamo-product-design': ['inclamo-product-design.spec.mjs'],
+  'helpdesk-visual-theme': ['dashboard-theme.spec.mjs'],
+  'website-widget-experience': ['website-widget-experience.spec.mjs'],
+  'website-widget-settings': ['website-widget-settings.spec.mjs'],
+  'workspace-brand-logo': ['workspace-brand-logo.spec.mjs'],
   'shopify-connection': ['shopify-connection.spec.mjs'],
   'conversation-order-panel': ['order-panel-reading.spec.mjs', 'order-panel-actions.spec.mjs'],
   'reply-order-variables': ['reply-order-variables.spec.mjs'],

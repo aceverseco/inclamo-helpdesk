@@ -1,0 +1,32 @@
+diff --git a/app/javascript/v3/views/login/Index.vue b/app/javascript/v3/views/login/Index.vue
+--- a/app/javascript/v3/views/login/Index.vue
++++ b/app/javascript/v3/views/login/Index.vue
+@@ -59,6 +59,7 @@
+     const { replaceInstallationName } = useBranding();
+     return {
+       replaceInstallationName,
++      inclamoLogo: '/brand-assets/inclamo-logo-combined.jpg',
+       v$: useVuelidate(),
+     };
+   },
+@@ -402,15 +403,11 @@
+   >
+     <section class="max-w-5xl mx-auto">
+       <img
+-        :src="globalConfig.logo"
+-        :alt="globalConfig.installationName"
+-        class="block w-auto h-8 mx-auto dark:hidden"
+-      />
+-      <img
+-        v-if="globalConfig.logoDark"
+-        :src="globalConfig.logoDark"
+-        :alt="globalConfig.installationName"
+-        class="hidden w-auto h-8 mx-auto dark:block"
++        :src="inclamoLogo"
++        alt="Inclamo"
++        width="96"
++        height="96"
++        class="inclamo-auth-logo block mx-auto"
+       />
+       <h2 class="mt-6 text-3xl font-medium text-center text-n-slate-12">
+         {{ replaceInstallationName($t('LOGIN.TITLE')) }}

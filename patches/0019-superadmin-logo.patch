@@ -1,0 +1,36 @@
+diff --git a/app/views/super_admin/application/_brand.html.erb b/app/views/super_admin/application/_brand.html.erb
+--- a/app/views/super_admin/application/_brand.html.erb
++++ b/app/views/super_admin/application/_brand.html.erb
+@@ -9,10 +9,10 @@
+   update_available = latest_version && Gem::Version.new(latest_version) > Gem::Version.new(version)
+ %>
+ <div class="flex h-14 shrink-0 items-center gap-3">
+-  <%= link_to image_tag("/brand-assets/logo_thumbnail.svg", alt: "", class: "size-8"), super_admin_root_path, class: "shrink-0", tabindex: -1, aria: { hidden: true } %>
++  <%= link_to image_tag("/brand-assets/inclamo-logo-combined.jpg", alt: "Inclamo", width: 56, height: 56, class: "size-14"), super_admin_root_path, class: "shrink-0" %>
+   <div class="min-w-0 whitespace-nowrap">
++    <div class="truncate text-label-small font-medium leading-5 text-n-slate-12" title="<%= t("super_admin.navigation.suffix") %>"><%= t("super_admin.navigation.suffix") %></div>
+     <div class="flex items-baseline gap-1.5 leading-5">
+-      <%= link_to "Inclamo", super_admin_root_path, class: "text-sm font-medium text-n-slate-12" %>
+       <%= link_to "https://github.com/chatwoot/chatwoot/releases/tag/v#{version}",
+                   target: "_blank", rel: "noopener noreferrer",
+                   title: update_available ? t("super_admin.navigation.update_available", version: latest_version) : t("super_admin.navigation.release_notes"),
+@@ -23,6 +23,5 @@
+         <% end %>
+       <% end %>
+     </div>
+-    <div class="text-label-small leading-4 text-n-slate-10"><%= t("super_admin.navigation.suffix") %></div>
+   </div>
+ </div>
+diff --git a/app/views/super_admin/application/_standalone.html.erb b/app/views/super_admin/application/_standalone.html.erb
+--- a/app/views/super_admin/application/_standalone.html.erb
++++ b/app/views/super_admin/application/_standalone.html.erb
+@@ -15,8 +15,7 @@
+   <body class="inclamo-administration min-h-full bg-n-background text-n-slate-12 antialiased">
+     <div class="fixed inset-x-0 top-0 h-64 bg-pixel-band [mask-image:linear-gradient(to_bottom,black,transparent)]"></div>
+     <main class="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-10">
+-      <img src="/brand-assets/logo.svg" alt="Inclamo" class="mx-auto h-8 w-auto dark:hidden">
+-      <img src="/brand-assets/logo_dark.svg" alt="Inclamo" class="mx-auto hidden h-8 w-auto dark:block">
++      <img src="/brand-assets/inclamo-logo-combined.jpg" alt="Inclamo" width="96" height="96" class="mx-auto">
+       <h1 class="mt-6 text-center font-interDisplay text-2xl font-semibold tracking-tight"><%= heading %></h1>
+       <div class="rounded-xl border border-n-weak bg-n-solid-1 mt-8 p-6 sm:p-8">
+         <% if flash[:error].present? %>

@@ -2,6 +2,8 @@
 export const users = {
   admin: { email: process.env.STAND_ADMIN_EMAIL, password: process.env.STAND_ADMIN_PASSWORD },
   agent: { email: process.env.STAND_AGENT_EMAIL, password: process.env.STAND_AGENT_PASSWORD },
+  secondAdmin: { email: process.env.STAND_SECOND_ADMIN_EMAIL, password: process.env.STAND_SECOND_ADMIN_PASSWORD },
+  superAdmin: { email: process.env.STAND_SUPER_ADMIN_EMAIL, password: process.env.STAND_SUPER_ADMIN_PASSWORD },
 };
 
 // One session per user for the whole run, shared by the browser and by API
@@ -52,7 +54,7 @@ export async function openOrders(page, accountId, conversationId) {
   if (await appeared(section, 5_000)) return section;
   // The contact sidebar may be closed: Chatwoot's round button at the top
   // right of the conversation opens it.
-  if (!(await appeared(header, 3_000))) await page.locator('button[class*="!rounded-full"]').first().click();
+  if (!(await appeared(header, 3_000))) await page.getByTestId('inclamo-toggle-customer').or(page.locator('button[class*="!rounded-full"]')).first().click();
   if (!(await appeared(section, 3_000))) await header.first().click();
   await section.waitFor({ state: 'attached', timeout: 45_000 });
   return section;
@@ -189,9 +191,21 @@ export async function orderCard(section, number) {
     await more.click();
   }
   await card.waitFor({ state: 'visible', timeout: 30_000 });
-  if (!(await card.getByTestId('inclamo-action-cancel').isVisible())) await card.locator('button').first().click();
+  const heading = card.locator('button').first();
+  const expanded = await heading.getAttribute('aria-expanded');
+  if (expanded === 'false' || (expanded === null && !(await card.getByTestId('inclamo-action-cancel').isVisible()))) await heading.click();
+  const actions = card.locator('details.reference-order-actions');
+  if (await actions.count() && (await actions.getAttribute('open')) === null) await actions.locator('summary').click();
   await card.getByTestId('inclamo-action-cancel').waitFor({ state: 'visible' });
   return card;
+}
+
+// The store connection's controls (recheck, roles, removal) sit in the
+// collapsed "Store connection" menu at the foot of the Orders section.
+export async function openStoreMenu(section) {
+  const menu = section.locator('details.reference-store-menu');
+  if (await menu.count() && (await menu.getAttribute('open')) === null) await menu.locator('summary').click();
+  await section.getByTestId('inclamo-manage').waitFor({ state: 'visible' });
 }
 
 // The run tag of this test run: every store record the tests create carries it.

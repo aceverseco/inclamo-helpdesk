@@ -1,0 +1,7 @@
+FROM mcr.microsoft.com/playwright:v1.56.0-noble
+WORKDIR /work/e2e
+COPY e2e/package.json ./
+RUN npm install --no-audit --no-fund
+COPY e2e/playwright.workspace-support.config.mjs ./
+COPY e2e/workspace-support ./workspace-support
+COPY e2e/tests/workspace-widgets.spec.mjs e2e/tests/in-product-support.spec.mjs ./tests/

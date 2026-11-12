@@ -2,7 +2,8 @@ import { mount } from '@vue/test-utils';
 import OrderCard from '../components/OrderCard.vue';
 import OrdersSection from '../components/OrdersSection.vue';
 import InclamoAPI from '../api';
-import { stubs, order, connection, agent, allowedAgent, admin, flush } from './helpers';
+import { clearCommerce } from '../widgets/commerce';
+import { stubs, order, connection, agent, allowedAgent, admin, flush, expandCard } from './helpers';
 
 vi.mock('../api', () => ({
   default: { getPanel: vi.fn(), lookup: vi.fn(), performAction: vi.fn(), refundPreview: vi.fn(), marks: vi.fn() },
@@ -14,6 +15,7 @@ const card = (props = {}) =>
     global: { stubs },
   });
 const section = async data => {
+  clearCommerce();
   InclamoAPI.getPanel.mockResolvedValue({ data });
   const wrapper = mount(OrdersSection, { props: { conversationId: 7 }, global: { stubs } });
   await flush();
@@ -24,6 +26,9 @@ const has = (wrapper, id) => wrapper.find(`[data-testid="${id}"]`).exists();
 
 const customer = { id: 'gid://shopify/Customer/1', name: 'Maya Example', orders_count: 1, total_spent: null, tags: ['wholesale'], note: 'Pays by invoice' };
 const tagged = order({ tags: ['gift', 'priority'], note: 'Leave at the door' });
+
+// The panel store keeps answers between mounts; every test starts empty.
+beforeEach(() => clearCommerce());
 
 describe('Tags and notes', () => {
   it("shows the order's tags and note on the card", () => {
@@ -49,7 +54,7 @@ describe('Tags and notes', () => {
 
   it('shows tags and notes to an agent without the order-actions role', async () => {
     const wrapper = await section({ state: 'matched', viewer: agent, connection: connection(), customer, orders: [tagged], page: { has_more: false }, open_actions: [] });
-    await wrapper.find('[data-testid="inclamo-order-#1001"] button').trigger('click');
+    await expandCard(wrapper.find('[data-testid="inclamo-order-#1001"]'));
 
     expect(texts(wrapper, 'inclamo-customer-tag')).toEqual(['wholesale']);
     expect(texts(wrapper, 'inclamo-order-tag')).toEqual(['gift', 'priority']);
@@ -92,7 +97,7 @@ const matched = ({ viewer = admin, can = both, conn = scoped() } = {}) => ({
   open_actions: [],
 });
 const expand = async wrapper => {
-  await wrapper.find('[data-testid="inclamo-order-#1001"] button').trigger('click');
+  await expandCard(wrapper.find('[data-testid="inclamo-order-#1001"]'));
 };
 const accepted = { data: { outcome: 'accepted' } };
 const refused = (refusal, storeMessage = null) => ({ data: { outcome: 'refused', refusal, store_message: storeMessage } });

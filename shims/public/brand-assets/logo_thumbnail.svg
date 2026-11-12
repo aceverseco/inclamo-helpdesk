@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Abstract chat logo</title>
+  <desc>Minimal geometric logo with orange, navy, and sky-blue shapes on a white background.</desc>
+  <rect width="1024" height="1024" fill="#FFFFFF"/>
+  <rect x="150" y="130" width="360" height="220" rx="100" fill="#FF6A00"/>
+  <rect x="150" y="350" width="360" height="460" rx="100" fill="#101B3D"/>
+  <path d="M620 130H760A110 110 0 0 1 870 240V810H620A110 110 0 0 1 510 700V240A110 110 0 0 1 620 130Z" fill="#91C8F5"/>
+</svg>

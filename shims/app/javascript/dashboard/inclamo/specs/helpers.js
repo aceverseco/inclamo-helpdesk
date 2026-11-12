@@ -81,3 +81,10 @@ export const allowedAgent = { administrator: false, can_act_on_orders: true };
 export const admin = { administrator: true, can_act_on_orders: true };
 
 export const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+
+// Opens an order card unless it is open already: the first card of the
+// matched customer's list starts open.
+export const expandCard = async cardWrapper => {
+  const heading = cardWrapper.find('button');
+  if (heading.attributes('aria-expanded') !== 'true') await heading.trigger('click');
+};

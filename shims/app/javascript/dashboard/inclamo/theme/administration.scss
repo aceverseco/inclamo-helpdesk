@@ -1,0 +1,21 @@
+@import "tokens";
+@import "controls";
+
+body.inclamo-administration {
+  @include inclamo-light;
+  @include inclamo-controls;
+  .bg-n-brand,
+  input[type="submit"]:not(.bg-n-ruby-9) {
+    background-color: rgb(var(--inclamo-brand));
+    color: rgb(var(--inclamo-action-text));
+  }
+  .bg-pixel-band {
+    opacity: 0;
+  }
+  nav {
+    background-color: rgb(var(--surface-1));
+  }
+}
+html.dark body.inclamo-administration {
+  @include inclamo-dark;
+}

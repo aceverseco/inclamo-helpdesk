@@ -4,8 +4,9 @@ import NewOrderDialog from '../components/NewOrderDialog.vue';
 import OrderCard from '../components/OrderCard.vue';
 import OrdersSection from '../components/OrdersSection.vue';
 import InclamoAPI from '../api';
+import { clearCommerce } from '../widgets/commerce';
 import { insertIntoReply } from '../reply';
-import { stubs, order, connection, agent, admin, allowedAgent, flush } from './helpers';
+import { stubs, order, connection, agent, admin, allowedAgent, flush, expandCard } from './helpers';
 
 vi.mock('../api', () => ({
   default: {
@@ -51,6 +52,9 @@ const typeAndWait = async (wrapper, text) => {
 };
 
 beforeEach(() => vi.clearAllMocks());
+
+// The panel store keeps answers between mounts; every test starts empty.
+beforeEach(() => clearCommerce());
 
 describe('ProductSearch', () => {
   const show = (props = {}) => mount(ProductSearch, { props: { conversationId: 7, ...props }, global: { stubs } });
@@ -386,6 +390,7 @@ describe('Order again and orders awaiting payment', () => {
     ...overrides,
   });
   const show = async data => {
+    clearCommerce();
     InclamoAPI.getPanel.mockResolvedValue({ data });
     const wrapper = mount(OrdersSection, { props: { conversationId: 7 }, global: { stubs } });
     await flush();
@@ -431,7 +436,7 @@ describe('Order again and orders awaiting payment', () => {
     InclamoAPI.newOrderPrefill.mockResolvedValue({ data: { order_number: '#1001', lines: [{ product: mug, variant: mug.variants[0], quantity: 2 }], skipped: [] } });
     const wrapper = await show(panel());
 
-    await find(wrapper, 'inclamo-order-#1001').find('button').trigger('click');
+    await expandCard(find(wrapper, 'inclamo-order-#1001'));
     await find(wrapper, 'inclamo-action-order-again').trigger('click');
     await flush();
 

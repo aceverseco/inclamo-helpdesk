@@ -155,8 +155,10 @@ class InclamoAPI extends ApiClient {
     return axios.get(`${this.url}/conversations/${conversationId}/sla`);
   }
 
-  getPanel(conversationId, after) {
-    return axios.get(`${this.conversation(conversationId)}/panel`, { params: after ? { after } : {} });
+  // `accountUrl` keeps a page read in one account from landing in another
+  // after the agent switches accounts.
+  getPanel(conversationId, after, accountUrl = this.url) {
+    return axios.get(`${accountUrl}/shopify/conversations/${conversationId}/panel`, { params: after ? { after } : {} });
   }
 
   lookup(conversationId, number) {

@@ -14,6 +14,22 @@ export default [
     permissions: ['administrator'],
   },
   {
+    name: 'inclamo_website_widget',
+    path: 'website-widget',
+    label: () => t('WEBSITE_WIDGET.WEBSITE_WIDGET'),
+    icon: 'i-lucide-message-circle',
+    component: () => import('./website-widget/WebsiteWidgetPage.vue'),
+    permissions: ['administrator'],
+  },
+  {
+    name: 'inclamo_workspace_widgets',
+    path: 'workspace-widgets',
+    label: () => t('WIDGETS.ADMIN_TITLE'),
+    icon: 'i-lucide-layout-dashboard',
+    component: () => import('./widgets/WorkspaceWidgetsPage.vue'),
+    permissions: ['administrator'],
+  },
+  {
     name: ORDER_ROLES_ROUTE,
     path: 'order-actions',
     label: () => t('SETTINGS.ORDER_ROLES.MENU'),

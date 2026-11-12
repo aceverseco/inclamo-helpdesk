@@ -14,12 +14,12 @@ const conversationKey = conversationId => `${accountKey()}#${conversationId}`;
 const working = connection => Boolean(connection?.connected) && connection.status === 'working';
 
 // Called by the Orders section with every answer of the panel.
-export const notePanel = (conversationId, panel) => {
-  if (panel?.connection) state.connections[accountKey()] = working(panel.connection);
+export const notePanel = (conversationId, panel, account = accountKey()) => {
+  if (panel?.connection) state.connections[account] = working(panel.connection);
   // The order the conversation is about: the tied one, else the newest of the
   // matched customer's list. An answer without the key (the store did not
   // answer) says nothing about it.
-  if (panel && 'marked_order' in panel) state.orders[conversationKey(conversationId)] = panel.marked_order || panel.orders?.[0] || null;
+  if (panel && 'marked_order' in panel) state.orders[`${account}#${conversationId}`] = panel.marked_order || panel.orders?.[0] || null;
 };
 
 // Whether the account has a working store connection. Asks the server once
@@ -42,6 +42,10 @@ export const storeConnected = () => {
 // The order a conversation is about as the panel last read it: the order,
 // null when the panel found none, undefined when the panel has not read it.
 export const knownOrder = conversationId => state.orders[conversationKey(conversationId)];
+
+export const invalidateKnownOrder = (conversationId, account = accountKey()) => {
+  delete state.orders[`${account}#${conversationId}`];
+};
 
 export const forgetOrderState = () => {
   asked.clear();

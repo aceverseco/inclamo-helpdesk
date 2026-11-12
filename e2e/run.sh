@@ -50,6 +50,10 @@ STAND_ADMIN_EMAIL=e2e-admin@example.test
 STAND_ADMIN_PASSWORD=A$(random 14)!z
 STAND_AGENT_EMAIL=e2e-agent@example.test
 STAND_AGENT_PASSWORD=A$(random 14)!z
+STAND_SECOND_ADMIN_EMAIL=e2e-second-admin@example.test
+STAND_SECOND_ADMIN_PASSWORD=A$(random 14)!z
+STAND_SUPER_ADMIN_EMAIL=e2e-super-admin@example.test
+STAND_SUPER_ADMIN_PASSWORD=A$(random 14)!z
 ENV
 fi
 
