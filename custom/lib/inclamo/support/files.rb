@@ -4,6 +4,8 @@ require 'vips'
 
 module Inclamo::Support::Files
   TYPES = %w[image/png image/jpeg image/webp application/pdf text/plain].freeze
+  # How an image is written again: format, options, file extension.
+  IMAGE_SAVERS = { 'image/png' => ['.png', {}, '.png'], 'image/jpeg' => ['.jpg', { Q: 92 }, '.jpg'], 'image/webp' => ['.webp', { Q: 92 }, '.webp'] }.freeze
   module_function
 
   def validate!(bytes, filename:)
@@ -13,12 +15,8 @@ module Inclamo::Support::Files
     raise Inclamo::Support::Invalid, 'file_type' unless TYPES.include?(type)
 
     if type.start_with?('image/')
-      image = Vips::Image.new_from_buffer(bytes, '', access: :sequential)
-      raise Inclamo::Support::Invalid, 'image_dimensions' if image.width > 16384 || image.height > 16384 || image.width * image.height > 40_000_000
-      # Re-encode: strip metadata/trailing content and retain only final pixels.
-      bytes = image.write_to_buffer('.png', strip: true)
-      type = 'image/png'
-      filename = "#{File.basename(filename.to_s, '.*')}.png"
+      bytes, type = rewrite_image(bytes, type)
+      filename = "#{File.basename(filename.to_s, '.*')}#{IMAGE_SAVERS.fetch(type).last}"
     elsif type == 'text/plain'
       text = bytes.dup.force_encoding(Encoding::UTF_8)
       raise Inclamo::Support::Invalid, 'file_type' unless text.valid_encoding? && !text.include?("\x00")
@@ -31,6 +29,32 @@ module Inclamo::Support::Files
     { bytes: bytes, type: type, filename: File.basename(filename.to_s).gsub(/[^a-zA-Z0-9._ -]/, '_').first(120).presence || 'attachment' }
   rescue Vips::Error
     raise Inclamo::Support::Invalid, 'file_type'
+  end
+
+  # The image is written again from its pixels, which drops its metadata and
+  # anything appended after them. It keeps its own format: as PNG a photo grows
+  # several times over, and a file under the displayed limit would be refused
+  # for our re-encoding. One still over the limit is written once more as a
+  # JPEG, on white where it was transparent.
+  def rewrite_image(bytes, type)
+    image = pixels(bytes)
+    raise Inclamo::Support::Invalid, 'image_dimensions' if image.width > 16384 || image.height > 16384 || image.width * image.height > 40_000_000
+
+    written = save_image(image, type)
+    return [written, type] if written.bytesize <= Inclamo::Support::MAX_BYTES || type == 'image/jpeg'
+
+    image = pixels(bytes) # read sequentially, an image is read only once
+    image = image.flatten(background: [255]) if image.has_alpha?
+    [save_image(image, 'image/jpeg'), 'image/jpeg']
+  end
+
+  def pixels(bytes)
+    Vips::Image.new_from_buffer(bytes, '', access: :sequential)
+  end
+
+  def save_image(image, type)
+    format, options, = IMAGE_SAVERS.fetch(type)
+    image.write_to_buffer(format, strip: true, **options)
   end
 
   def stage!(bytes:, filename:, owner:, reference: SecureRandom.uuid)

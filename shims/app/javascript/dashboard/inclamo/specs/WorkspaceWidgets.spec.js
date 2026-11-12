@@ -95,5 +95,21 @@ describe('shared commerce context', () => {
     acceptPanel(current, { state: 'matched', marked_order: { id: 'previous-login' } });
     expect(knownOrder(7)).toBeUndefined();
   });
-
+  it('answers a forced read with a read started after it, not with one already under way', async () => {
+    InclamoAPI.getPanel.mockReset();
+    let finishEarlier;
+    InclamoAPI.getPanel
+      .mockReturnValueOnce(new Promise(done => { finishEarlier = done; }))
+      .mockResolvedValueOnce({ data: { state: 'matched', orders: [{ id: 'after-the-action' }] } });
+    const entry = commerceEntry(InclamoAPI.url, 7, 9);
+    const earlier = readCommerce(entry);
+    const forced = readCommerce(entry, true);
+    expect(InclamoAPI.getPanel).toHaveBeenCalledTimes(2);
+    await forced;
+    finishEarlier({ data: { state: 'matched', orders: [{ id: 'before-the-action' }] } });
+    await earlier;
+    await flushPromises();
+    expect(entry.panel.orders[0].id).toBe('after-the-action');
+    expect(entry.pending).toBeNull();
+  });
 });

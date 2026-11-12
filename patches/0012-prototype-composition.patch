@@ -129,10 +129,10 @@ diff --git a/app/javascript/dashboard/components/ChatList.vue b/app/javascript/d
  
      <TeleportWithDirection
        v-if="showAddFoldersModal"
-@@ -953,13 +979,19 @@
+@@ -953,13 +979,20 @@
        @close="onCloseDeleteFoldersModal"
      />
- 
+
 -    <ChatTypeTabs
 -      v-if="!hasAppliedFiltersOrActiveFolders"
 -      :items="assigneeTabItems"
@@ -142,6 +142,7 @@ diff --git a/app/javascript/dashboard/components/ChatList.vue b/app/javascript/d
 -    />
 +    <div class="reference-list-toolbar">
 +      <ChatTypeTabs
++        v-if="!hasAppliedFiltersOrActiveFolders"
 +        :items="assigneeTabItems"
 +        :active-tab="activeAssigneeTab"
 +        is-compact

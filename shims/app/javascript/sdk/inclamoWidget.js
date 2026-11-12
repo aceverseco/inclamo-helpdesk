@@ -130,11 +130,22 @@ export function decorateLauncher({ checkVisibility = true } = {}) {
   close?.setAttribute('aria-label', 'Close chat');
   if (paths[saved.icon])
     svg?.querySelector('path')?.setAttribute('d', paths[saved.icon]);
-  if (saved.icon === 'custom' && typeof saved.icon_url === 'string' && saved.icon_url && svg) {
+  // The widget reports 'loaded' again after $chatwoot.reset(): the launcher
+  // keeps one custom icon, the one the settings name now.
+  const wanted =
+    saved.icon === 'custom' && typeof saved.icon_url === 'string' && saved.icon_url && svg
+      ? new URL(saved.icon_url, cw.baseUrl).href
+      : null;
+  const shown = button.querySelector('.inclamo-launcher-image');
+  if (shown && shown.src !== wanted) {
+    shown.remove();
+    if (svg) svg.style.display = '';
+  }
+  if (wanted && !button.querySelector('.inclamo-launcher-image')) {
     const img = document.createElement('img');
     img.className = 'inclamo-launcher-image';
     img.alt = '';
-    img.src = new URL(saved.icon_url, cw.baseUrl).href;
+    img.src = wanted;
     img.onload = () => {
       svg.style.display = 'none';
     };
