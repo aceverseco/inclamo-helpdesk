@@ -64,4 +64,21 @@ RSpec.describe 'Support recovery from failures' do
 
     expect { Inclamo::Support::Transport.new.events(0) }.to raise_error(Inclamo::Support::Unavailable)
   end
+
+  it 'passes over events it cannot import and still imports the later ones' do
+    installation
+    local.update!(central_reference: 'central-a')
+    reply = { 'kind' => 'message', 'request_reference' => local.reference, 'central_reference' => 'central-a', 'direction' => 'support',
+              'actor' => { 'name' => 'Support', 'administrator' => false }, 'sent_at' => Time.current.iso8601, 'files' => [] }
+    events = [reply.merge('id' => 6), # no message id
+              reply.merge('id' => 7, 'message_id' => '70', 'central_reference' => 'central-b', 'body' => 'Another request'),
+              reply.merge('id' => 8, 'message_id' => '80', 'body' => 'Public answer')]
+    stub_request(:post, "#{endpoint}/recipients").to_return(status: 200, body: '{}')
+    stub_request(:get, "#{endpoint}/events?cursor=0").to_return(status: 200, body: { events: events, cursor: 8, more: false }.to_json)
+
+    Inclamo::Support::SyncJob.perform_now
+
+    expect(installation.reload).to have_attributes(cursor: 8, failures: 0)
+    expect(local.messages.pluck(:central_message_id, :body)).to eq([['80', 'Public answer']])
+  end
 end
