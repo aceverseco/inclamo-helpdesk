@@ -349,6 +349,41 @@ RSpec.describe Inclamo::Shopify::OrderActionRunner do
       expect(lost.reload.outcome).to eq('accepted')
       expect(private_notes.count).to eq(1)
     end
+
+    it 'shows a running cancellation as running to other reads while one request settles it, and leaves it to that request' do
+      running = open_attempt(outcome: 'running')
+      stub_shopify(:order_details_limited, data: { order: open_order })
+      expect(runner.send(:claim!, running)).to be(true)
+
+      runner.settle_open!
+
+      expect(running.reload.outcome).to eq('running')
+      expect(Inclamo::OrderAction.unsettled.where(conversation: conversation).map { |open| open.as_json[:outcome] }).to eq(['running'])
+      expect(WebMock).not_to have_requested(:post, shopify_graphql_url)
+    end
+
+    it 'lets the next read settle the attempt again once a request has read the store' do
+      running = open_attempt(outcome: 'running')
+      stub_shopify(:order_details_limited, data: { order: open_order })
+
+      runner.settle_open!
+      expect(running.reload).to have_attributes(outcome: 'running', claimed_at: nil)
+
+      stub_shopify(:order_details_limited, data: { order: open_order.merge('cancelledAt' => '2026-11-05T12:00:00Z') })
+      runner.settle_open!
+
+      expect(running.reload.outcome).to eq('accepted')
+    end
+
+    it 'takes over a hold that ran out' do
+      running = open_attempt(outcome: 'running')
+      runner.send(:claim!, running)
+      stub_shopify(:order_details_limited, data: { order: open_order.merge('cancelledAt' => '2026-11-05T12:00:00Z') })
+
+      travel_to((Inclamo::Shopify::OrderActionRunner::LEASE + 1.second).from_now) { runner.settle_open! }
+
+      expect(running.reload).to have_attributes(outcome: 'accepted', claimed_at: nil)
+    end
   end
 
   describe 'an action id of another attempt' do
