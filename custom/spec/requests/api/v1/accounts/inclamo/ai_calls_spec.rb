@@ -207,6 +207,36 @@ RSpec.describe 'Inclamo AI agent: filing a finished call', type: :request do
       expect(filed.label_list).to match_array(%w[inclamo_call inclamo_resolved])
     end
 
+    context 'when someone attached an agent bot to the Phone inbox' do
+      before { create(:agent_bot_inbox, inbox: phone_inbox, agent_bot: create(:agent_bot, account: account)) }
+
+      it 'keeps the status the AI service sent, and gives the call to no bot' do
+        expect(phone_inbox.reload.active_bot?).to be(true)
+
+        file
+        expect(filed).to have_attributes(status: 'open', assignee_agent_bot_id: nil)
+
+        file(call_id: 'c-18', needs_team: false, outcome: 'resolved')
+        expect(filed).to have_attributes(status: 'resolved', assignee_agent_bot_id: nil)
+      end
+
+      # Guards the hook this relies on: without it Chatwoot starts the conversation as pending.
+      it 'would be pending by Chatwoot\'s own rule' do
+        contact_inbox = create(:contact_inbox, inbox: phone_inbox, contact: create(:contact, account: account))
+        stock = Conversation.create!(account: account, inbox: phone_inbox, contact: contact_inbox.contact, contact_inbox: contact_inbox, status: :open)
+
+        expect(stock.status).to eq('pending')
+      end
+    end
+
+    it 'resolves the call of a blocked contact, as Chatwoot does' do
+      create(:contact, account: account, phone_number: '+15550100001', blocked: true)
+
+      file
+
+      expect(filed.status).to eq('resolved')
+    end
+
     it 'sets the priority the AI service sends, or none' do
       file(priority: 'urgent')
       expect(filed.priority).to eq('urgent')

@@ -52,7 +52,7 @@ other token, a user's included, is refused. The token is also taken as
 | `ended_at` | required; ISO 8601 with its zone (`Z` or an offset) |
 | `duration` | whole seconds as a number, up to 1,000,000, optional |
 | `outcome` | required; a word of the AI service, up to 50 lowercase letters, digits or `_` (`resolved`, `callback`, `parts_request`, `request`, `transfer_not_answered`, `failed`, `transferred`, `no_conversation`); a word the helpdesk does not know is shown as it is |
-| `needs_team` | required; `true`: the conversation is open; `false`: resolved |
+| `needs_team` | required; `true`: the conversation is open; `false`: resolved. The call keeps this status also when an agent bot is attached to the Phone inbox, and is given to no bot; the call of a blocked contact is always resolved |
 | `priority` | `low`, `medium`, `high`, `urgent`, or absent; send `urgent` for an urgent request |
 | `labels` | at most 20, each `inclamo_` plus lowercase letters, digits or `_`; a label the account does not list yet is added to its list |
 | `recording_url` | https only, up to 1,500 characters, optional; the helpdesk keeps the link and never fetches it |

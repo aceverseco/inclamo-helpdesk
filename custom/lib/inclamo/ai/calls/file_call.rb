@@ -107,8 +107,21 @@ module Inclamo
             custom_attributes: Attributes.of(@filing, match.matched_by)
           )
           conversation.label_list = labels
+          keep_filed_status(conversation)
           conversation.save!
           conversation
+        end
+
+        # A call is over when it is filed, so it keeps the status the AI
+        # service sent. Chatwoot would start a conversation of an inbox with an
+        # agent bot as pending and give it to that bot
+        # (app/models/conversation.rb, determine_conversation_status), which
+        # happens when someone attaches a bot to the Phone inbox by hand. A
+        # blocked contact's conversation is still resolved, as Chatwoot does.
+        def keep_filed_status(conversation)
+          conversation.define_singleton_method(:determine_conversation_status) do
+            self.status = :resolved if contact.blocked?
+          end
         end
 
         # Answers the time of the last turn, or nil for a call without turns.
