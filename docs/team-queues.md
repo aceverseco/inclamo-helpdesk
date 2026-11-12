@@ -47,7 +47,10 @@ Five ready saved replies (`delivery-status`, `cancel-confirm`, `damage-photos`,
 [order variables](order-variables.md).
 
 Administrators manage queues at **Settings → Team queues**: rename, reorder,
-hide and show, and restore a ready queue. Installation is repeatable: it never
+hide and show, and restore a ready queue. Queues and replies are installed when
+an account is created and, for existing accounts, by the upgrade's migration,
+which fails loudly if an account could not be served; a job every ten minutes
+completes any account that still lacks them. Installation is repeatable: it never
 duplicates a queue or a reply, never changes what the store edited, and never
 brings back what the store hid or deleted. If the store already used one of the
 category labels for something else, the queue of that name lists those

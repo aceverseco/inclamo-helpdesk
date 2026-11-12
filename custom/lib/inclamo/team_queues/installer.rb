@@ -5,7 +5,8 @@ module Inclamo
     # Gives an account the ready queues it does not have yet, and the labels
     # they list by (design D6). A queue is found by its key and never deleted,
     # so running this again creates nothing and leaves the name, the order and
-    # the hidden state an administrator set as they are.
+    # the hidden state an administrator set as they are. A queue created later
+    # than the others takes its shipped place among them (TeamQueues.place!).
     module Installer
       module_function
 
@@ -18,10 +19,10 @@ module Inclamo
         return if Inclamo::TeamQueue.exists?(account_id: account.id, key: key)
 
         Inclamo::TeamQueue.transaction(requires_new: true) do
-          Inclamo::TeamQueue.create!(
-            account: account, key: key, name: TeamQueues.shipped_name(key), position: TeamQueues.shipped_position(key),
-            query: TeamQueues.shipped_query(key)
-          )
+          last = Inclamo::TeamQueue.where(account_id: account.id).maximum(:position) || 0
+          queue = Inclamo::TeamQueue.create!(account: account, key: key, name: TeamQueues.shipped_name(key), position: last + 1,
+                                             query: TeamQueues.shipped_query(key))
+          TeamQueues.place!(queue)
         end
       rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
         raise unless Inclamo::TeamQueue.exists?(account_id: account.id, key: key)

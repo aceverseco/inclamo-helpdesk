@@ -21,6 +21,30 @@ RSpec.describe Inclamo::TeamQueue do
     expect { duplicate.save!(validate: false) }.to raise_error(ActiveRecord::RecordNotUnique)
   end
 
+  it 'places a ready queue at its shipped place and leaves no two queues at one position' do
+    own = described_class.create!(account: account, name: 'Own', position: 3, query: {})
+    moved = queues.find_by(key: 'missing_parts')
+    moved.update!(position: 1)
+
+    Inclamo::TeamQueues.place!(moved)
+
+    listed = described_class.where(account_id: account.id).ordered
+    expect(listed.pluck(:position)).to eq((1..9).to_a)
+    expect(listed.pluck(:key).compact).to eq(Inclamo::TeamQueues::READY.keys)
+    expect(listed.pluck(:id).index(own.id)).to be < listed.pluck(:id).index(moved.id)
+  end
+
+  it 'counts nothing, and does not raise, for a queue without usable conditions' do
+    admin = create(:user, account: account, role: :administrator)
+    empty = described_class.create!(account: account, name: 'Empty', position: 20, query: {})
+    broken = described_class.create!(account: account, name: 'Broken', position: 21,
+                                     query: { 'payload' => [Inclamo::TeamQueues.condition('no_such_attribute', ['x'])] })
+
+    expect(Inclamo::TeamQueues.count(empty, admin)).to be_nil
+    expect(Inclamo::TeamQueues.count(broken, admin)).to be_nil
+    expect(Inclamo::TeamQueues.count(queues.find_by(key: 'urgent'), admin)).to eq(0)
+  end
+
   it 'refuses a queue without a name' do
     expect(queues.first.update(name: ' ')).to be(false)
   end

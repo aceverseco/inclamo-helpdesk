@@ -91,6 +91,48 @@ RSpec.describe 'Inclamo team queues API', type: :request do
     end
   end
 
+  describe 'an account with no AI agent connected' do
+    it 'lists its conversations in the other queues and nothing in "Handed over by AI"' do
+      expect(Inclamo::AiConnection.active_for(account.id)).to be_nil
+      create(:conversation, account: account, inbox: inbox, priority: :urgent)
+      create(:conversation, account: account, inbox: inbox).update_labels(['return'])
+
+      list(as: agent)
+
+      expect(queues.keys).to include('ai_handover')
+      expect(queues.transform_values { |queue| queue['count'] }).to include('urgent' => 1, 'return' => 1, 'ai_handover' => 0)
+      expect(account.labels.where('title LIKE ?', 'inclamo\\_%')).to be_empty
+    end
+  end
+
+  describe 'a queue that cannot be counted' do
+    it 'is listed without a count, and the others keep theirs' do
+      create(:conversation, account: account, inbox: inbox, priority: :urgent)
+      broken = records.find_by(key: 'damage')
+      broken.update!(query: { 'payload' => [Inclamo::TeamQueues.condition('no_such_attribute', ['x'])] })
+      records.find_by(key: 'return').update!(query: {})
+
+      list(as: agent)
+
+      expect(response).to have_http_status(:success)
+      expect(queues.transform_values { |queue| queue['count'] }).to include('urgent' => 1, 'damage' => nil, 'return' => nil, 'delivery' => 0)
+    end
+
+    it 'does not fail the list when counting raises for one queue' do
+      allow(Conversations::FilterService).to receive(:new).and_wrap_original do |original, params, *rest|
+        raise ActiveRecord::StatementInvalid, 'no' if params[:payload].last['values'] == ['urgent']
+
+        original.call(params, *rest)
+      end
+
+      list(as: agent)
+
+      expect(response).to have_http_status(:success)
+      expect(queues['urgent']['count']).to be_nil
+      expect(queues['delivery']['count']).to eq(0)
+    end
+  end
+
   describe 'managing' do
     it 'renames a queue for everyone, with the same membership' do
       change('missing_parts', name: ' Parts requests ')
@@ -157,6 +199,48 @@ RSpec.describe 'Inclamo team queues API', type: :request do
 
       expect(response).to have_http_status(:success)
       expect(queue.reload).to have_attributes(name: 'Missing parts', position: 7, hidden: true, query: Inclamo::TeamQueues.shipped_query('missing_parts'))
+      list(as: admin, all: 1)
+      expect(queues.keys).to eq(%w[urgent ai_handover overdue delivery cancellation damage missing_parts return])
+      expect(queues.values.pluck('position')).to eq((1..8).to_a)
+    end
+
+    it 'restores a queue to its shipped place among queues an administrator has reordered' do
+      ids = records.pluck(:id)
+      moved = records.find_by(key: 'urgent')
+      post "#{path}/reorder", params: { ids: (ids - [moved.id]) + [moved.id] }, headers: admin.create_new_auth_token, as: :json
+
+      post "#{path}/#{moved.id}/restore", headers: admin.create_new_auth_token, as: :json
+
+      list(as: agent)
+      expect(queues.keys).to eq(%w[urgent ai_handover overdue delivery cancellation damage missing_parts return])
+      expect(queues.values.pluck('position')).to eq((1..8).to_a)
+    end
+
+    it 'refuses a hidden state that is neither true nor false' do
+      [nil, 7, { 'a' => 1 }].each do |value|
+        change('urgent', hidden: value)
+
+        expect(response).to have_http_status(:unprocessable_entity), value.inspect
+        expect(error).to eq('hidden_invalid')
+      end
+      expect(records.find_by(key: 'urgent').hidden).to be(false)
+    end
+
+    it 'refuses a name that is not text' do
+      change('urgent', name: { 'a' => 1 })
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(error).to eq('name_invalid')
+    end
+
+    it 'refuses an order that is not a list of ids' do
+      [{ 'a' => 1 }, 'all', [{ 'id' => 1 }], [[1]], nil].each do |ids|
+        post "#{path}/reorder", params: { ids: ids }, headers: admin.create_new_auth_token, as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity), ids.inspect
+        expect(error).to eq('order_incomplete')
+      end
+      expect(records.pluck(:key)).to eq(Inclamo::TeamQueues::READY.keys)
     end
 
     it "does not reach another account's queue" do

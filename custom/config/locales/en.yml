@@ -155,6 +155,7 @@ en:
       errors:
         forbidden: Only an administrator can manage the team queues.
         name_invalid: Give the queue a name of at most 60 characters.
+        hidden_invalid: Say whether the queue is hidden with true or false.
         too_many_visible: At most 20 team queues can be shown. Hide another queue first.
         order_incomplete: The new order has to name every team queue once.
         not_ready: Only a ready queue can be restored.

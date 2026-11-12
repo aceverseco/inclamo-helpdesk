@@ -31,9 +31,9 @@ describe('TeamQueuesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     InclamoAPI.getTeamQueues.mockResolvedValue(three());
-    InclamoAPI.updateTeamQueue.mockResolvedValue({});
-    InclamoAPI.reorderTeamQueues.mockResolvedValue({});
-    InclamoAPI.restoreTeamQueue.mockResolvedValue({});
+    InclamoAPI.updateTeamQueue.mockResolvedValue(three());
+    InclamoAPI.reorderTeamQueues.mockResolvedValue(three());
+    InclamoAPI.restoreTeamQueue.mockResolvedValue(three());
   });
 
   it('is a settings page for administrators only', () => {
@@ -56,6 +56,7 @@ describe('TeamQueuesPage', () => {
   });
 
   it('renames a queue and refreshes the navigation', async () => {
+    InclamoAPI.updateTeamQueue.mockResolvedValue(answer(queue(1, 'urgent', 'Urgent'), queue(2, 'missing_parts', 'Parts requests')));
     const wrapper = await show();
 
     await find(wrapper, 'name-missing_parts').setValue('Parts requests');
@@ -63,8 +64,11 @@ describe('TeamQueuesPage', () => {
     await flush();
 
     expect(InclamoAPI.updateTeamQueue).toHaveBeenCalledWith(2, { name: 'Parts requests' });
-    expect(InclamoAPI.getTeamQueues).toHaveBeenCalledTimes(2);
+    // The answer to the change is the list: no second read of it.
+    expect(InclamoAPI.getTeamQueues).toHaveBeenCalledTimes(1);
     expect(loadTeamQueues).toHaveBeenCalledTimes(1);
+    expect(find(wrapper, 'name-missing_parts').element.value).toBe('Parts requests');
+    expect(find(wrapper, 'name-cancellation').exists()).toBe(false);
   });
 
   it('does not save a name that did not change', async () => {
@@ -121,6 +125,8 @@ describe('TeamQueuesPage', () => {
 
     expect(wrapper.find('[data-testid="inclamo-team-queues-error"]').text()).toBe('A queue needs a name.');
     expect(find(wrapper, 'name-urgent').element.value).toBe('Urgent');
+    expect(InclamoAPI.getTeamQueues).toHaveBeenCalledTimes(2);
+    expect(loadTeamQueues).not.toHaveBeenCalled();
   });
 
   it('says so when the queues cannot be loaded', async () => {

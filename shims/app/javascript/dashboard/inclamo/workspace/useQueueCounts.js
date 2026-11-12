@@ -13,9 +13,11 @@ export function useQueueCounts(accountId) {
 
   watch(
     accountId,
-    (id, _previous, onCleanup) => {
+    (id, previous, onCleanup) => {
       counts.value = null;
-      resetTeamQueues();
+      // Only another account's queues are forgotten: on a first load the
+      // route guard may have read this account's queues already.
+      if (previous !== undefined && previous !== id) resetTeamQueues();
       if (!id) return;
 
       let active = true;

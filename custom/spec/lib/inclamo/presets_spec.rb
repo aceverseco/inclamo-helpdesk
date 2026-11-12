@@ -53,6 +53,99 @@ RSpec.describe Inclamo::Presets do
     end
   end
 
+  describe 'the migration for accounts older than the ready presets' do
+    require Rails.root.join('custom/db/migrate/20261112100200_install_inclamo_ready_presets')
+
+    let(:migration) { InstallInclamoReadyPresets.new.tap { |one| one.verbose = false } }
+
+    it 'gives an account without queues and replies all of them' do
+      queues.delete_all
+      Inclamo::PresetInstall.where(account_id: account.id).delete_all
+      CannedResponse.where(account_id: account.id).delete_all
+
+      migration.up
+
+      expect(queues.pluck(:key)).to eq(Inclamo::TeamQueues::READY.keys)
+      expect(replies.count).to eq(5)
+    end
+
+    it 'fails, naming the account it could not serve, and still serves the others' do
+      other = create(:account)
+      [account, other].each { |one| Inclamo::TeamQueue.where(account_id: one.id).delete_all }
+      allow(Inclamo::TeamQueues::Installer).to receive(:call).and_call_original
+      allow(Inclamo::TeamQueues::Installer).to receive(:call).with(account).and_raise(StandardError, 'no')
+
+      expect { migration.up }.to raise_error(RuntimeError, /not installed for accounts #{account.id}\b/)
+
+      expect(queues.count).to eq(0)
+      expect(Inclamo::TeamQueue.where(account_id: other.id).count).to eq(8)
+    end
+  end
+
+  describe 'install!' do
+    it 'raises what failed, after the other installer has run' do
+      replies_before = replies.count
+      CannedResponse.where(account_id: account.id).delete_all
+      Inclamo::PresetInstall.where(account_id: account.id).delete_all
+      allow(Inclamo::TeamQueues::Installer).to receive(:call).and_raise(StandardError, 'no')
+
+      expect { described_class.install!(account) }.to raise_error(StandardError, 'no')
+      expect(replies.count).to eq(replies_before)
+    end
+  end
+
+  describe 'the repair' do
+    it 'finds an account that lacks a queue or a reply never offered, and no complete one' do
+      complete = create(:account)
+      no_queue = create(:account)
+      no_reply = create(:account)
+      Inclamo::TeamQueue.where(account_id: no_queue.id, key: 'damage').delete_all
+      Inclamo::PresetInstall.where(account_id: no_reply.id, key: 'return').delete_all
+      # A reply the store deleted was offered: that account is complete.
+      complete.canned_responses.find_by(short_code: 'return-start').destroy!
+
+      expect(described_class.incomplete.where(id: [account.id, complete.id, no_queue.id, no_reply.id]).pluck(:id)).to match_array([no_queue.id, no_reply.id])
+    end
+
+    it 'installs what is missing, at its shipped place, and leaves the rest as it is' do
+      queues.find_by(key: 'urgent').update!(name: 'Fire')
+      queues.find_by(key: 'damage').destroy!
+
+      expect(Inclamo::PresetsRepairJob.perform_now).to eq([])
+
+      expect(queues.pluck(:key)).to eq(Inclamo::TeamQueues::READY.keys)
+      expect(queues.pluck(:position)).to eq((1..8).to_a)
+      expect(queues.find_by(key: 'urgent').name).to eq('Fire')
+      expect(described_class.incomplete.where(id: account.id)).to be_empty
+    end
+
+    it 'goes on to the next account when one fails, and answers the ones it could not serve' do
+      other = create(:account)
+      [account, other].each { |one| Inclamo::TeamQueue.where(account_id: one.id, key: 'damage').delete_all }
+      allow(Inclamo::TeamQueues::Installer).to receive(:call).and_call_original
+      allow(Inclamo::TeamQueues::Installer).to receive(:call).with(account).and_raise(StandardError, 'no')
+
+      failed = nil
+      expect { failed = described_class.repair }.not_to raise_error
+
+      expect(failed).to include(account.id)
+      expect(failed).not_to include(other.id)
+      expect(Inclamo::TeamQueue.where(account_id: other.id).count).to eq(8)
+    end
+
+    it 'serves a bounded number of accounts a run, oldest first' do
+      older = account
+      newer = create(:account)
+      [older, newer].each { |one| Inclamo::TeamQueue.where(account_id: one.id, key: 'damage').delete_all }
+      allow(described_class).to receive(:incomplete).and_return(Account.where(id: [account.id, newer.id]))
+
+      described_class.repair(limit: 1)
+
+      expect(queues.count).to eq(8)
+      expect(Inclamo::TeamQueue.where(account_id: newer.id).count).to eq(7)
+    end
+  end
+
   describe 'ready replies' do
     it 'a new account has the five replies, with the order variables of their categories' do
       expect(replies.pluck(:short_code)).to match_array(%w[delivery-status cancel-confirm damage-photos missing-part return-start])

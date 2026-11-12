@@ -53,19 +53,19 @@ const ELSEWHERE = {
   'team-queues › Ready queues exist for every account › A new account has the ready queues':
     'needs a new account; covered by custom/spec/lib/inclamo/presets_spec.rb (an account gets the eight queues when it is created)',
   'team-queues › Ready queues exist for every account › An existing account gets the ready queues on upgrade':
-    'needs an upgrade of an installation with accounts; covered by custom/spec/lib/inclamo/presets_spec.rb (the installer on an account without queues, which the install migration runs for every account)',
+    'needs an upgrade of an installation with accounts; covered by custom/spec/lib/inclamo/presets_spec.rb, which runs the install migration itself on an account without queues',
   'team-queues › Queues work without the AI subscription › Account without an AI agent':
-    'the test installation keeps its AI agent connected for other files; covered by custom/spec/requests/api/v1/accounts/inclamo/team_queues_spec.rb on an account without a connection',
+    'the test installation keeps its AI agent connected for other files; covered by custom/spec/requests/api/v1/accounts/inclamo/team_queues_spec.rb ("an account with no AI agent connected")',
   'team-queues › Installing the ready queues is repeatable › Second installation changes nothing':
-    'needs the installer to run again, which only an upgrade does; covered by custom/spec/lib/inclamo/presets_spec.rb',
+    'needs the installer to run again at a chosen moment (it runs again on upgrade and whenever the repair job finds an account incomplete); covered by custom/spec/lib/inclamo/presets_spec.rb',
   'ready-replies › Ready saved replies exist for the support categories › Agent inserts the delivery reply':
     'the browser path of a saved reply with order variables is shown by reply-order-variables; the ready text itself is covered by custom/spec/requests/api/v1/accounts/inclamo/ready_replies_spec.rb on a tied, shipped order',
   'ready-replies › Installing the ready replies is repeatable › Edited reply is kept':
-    'needs the installer to run again, which only an upgrade does; covered by custom/spec/lib/inclamo/presets_spec.rb',
+    'needs the installer to run again at a chosen moment (it runs again on upgrade and whenever the repair job finds an account incomplete); covered by custom/spec/lib/inclamo/presets_spec.rb',
   'ready-replies › Installing the ready replies is repeatable › Deleted reply stays deleted':
-    'needs the installer to run again, which only an upgrade does; covered by custom/spec/lib/inclamo/presets_spec.rb',
+    'needs the installer to run again at a chosen moment (it runs again on upgrade and whenever the repair job finds an account incomplete); covered by custom/spec/lib/inclamo/presets_spec.rb',
   'ready-replies › Installing the ready replies is repeatable › Short code already taken':
-    'needs the installer to run again, which only an upgrade does; covered by custom/spec/lib/inclamo/presets_spec.rb',
+    'needs the installer to run again at a chosen moment (it runs again on upgrade and whenever the repair job finds an account incomplete); covered by custom/spec/lib/inclamo/presets_spec.rb',
   "ai-reply-ownership › The agent's protected reply is posted only while the conversation is the agent's › Take-over and reply at the same moment":
     'needs two database transactions at the same instant; covered by custom/spec/lib/inclamo/ai/protected_reply_ordering_spec.rb on two connections',
   'shopify-connection › The credentials are a secret › Installation without encryption keys':

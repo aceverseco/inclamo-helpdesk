@@ -14,8 +14,17 @@ class Api::V1::Accounts::Inclamo::TeamQueuesController < Api::V1::Accounts::Base
   end
 
   def update
-    @queue.name = params[:name].to_s.strip if params.key?(:name)
-    @queue.hidden = ActiveModel::Type::Boolean.new.cast(params[:hidden]) if params.key?(:hidden)
+    if params.key?(:name)
+      return refuse(:name_invalid) unless params[:name].is_a?(String)
+
+      @queue.name = params[:name].strip
+    end
+    if params.key?(:hidden)
+      hidden = [true, false].include?(params[:hidden]) || params[:hidden].is_a?(String) ? ActiveModel::Type::Boolean.new.cast(params[:hidden]) : nil
+      return refuse(:hidden_invalid) if hidden.nil?
+
+      @queue.hidden = hidden
+    end
     return refuse(@queue.errors.of_kind?(:hidden, :too_many_visible) ? :too_many_visible : :name_invalid) unless @queue.save
 
     render json: listing(queues)
@@ -23,7 +32,10 @@ class Api::V1::Accounts::Inclamo::TeamQueuesController < Api::V1::Accounts::Base
 
   # `ids`: every queue of the account, in the new order.
   def reorder
-    ids = Array(params[:ids]).map(&:to_i)
+    ids = params[:ids]
+    return refuse(:order_incomplete) unless ids.is_a?(Array) && ids.all? { |id| id.is_a?(Integer) || (id.is_a?(String) && id.match?(/\A\d+\z/)) }
+
+    ids = ids.map(&:to_i)
     return refuse(:order_incomplete) unless ids.sort == queues.pluck(:id).sort
 
     ::Inclamo::TeamQueue.transaction do
@@ -32,14 +44,17 @@ class Api::V1::Accounts::Inclamo::TeamQueuesController < Api::V1::Accounts::Base
     render json: listing(queues)
   end
 
-  # The name, place and membership a ready queue shipped with. Whether it is
-  # hidden stays as the administrator set it.
+  # The name, membership and place a ready queue shipped with: its place among
+  # the queues as they are ordered now, every queue numbered anew so that no
+  # two share a position. Whether it is hidden stays as the administrator set it.
   def restore
     return refuse(:not_ready) unless @queue.ready?
 
     key = @queue.key
-    @queue.update!(name: ::Inclamo::TeamQueues.shipped_name(key), position: ::Inclamo::TeamQueues.shipped_position(key),
-                   query: ::Inclamo::TeamQueues.shipped_query(key))
+    ::Inclamo::TeamQueue.transaction do
+      @queue.update!(name: ::Inclamo::TeamQueues.shipped_name(key), query: ::Inclamo::TeamQueues.shipped_query(key))
+      ::Inclamo::TeamQueues.place!(@queue)
+    end
     render json: listing(queues)
   end
 
@@ -49,6 +64,7 @@ class Api::V1::Accounts::Inclamo::TeamQueuesController < Api::V1::Accounts::Base
     ::Inclamo::TeamQueue.where(account_id: Current.account.id).ordered
   end
 
+  # A queue that cannot be counted is listed with no count (Inclamo::TeamQueues.count).
   def listing(scope)
     {
       queues: scope.map { |queue| queue.as_json(count: queue.hidden? ? nil : ::Inclamo::TeamQueues.count(queue, Current.user)) },

@@ -63,9 +63,10 @@ module Inclamo
           # (SlaTimer.maybe_due), unless the inbox's hours change.
           timer.store_due!(computed_at) if timer.business_hours_only?
         end
-        # The team queue "Overdue": its label is put back where it is due and
-        # missing. Nothing is written where nothing changed.
-        Inclamo::TeamQueues::Markers.reassert_overdue unless timers
+        # The team queue "Overdue": its label is brought in step with the
+        # timers, a bounded number of conversations a run. Nothing is written
+        # where nothing changed.
+        Inclamo::TeamQueues::Markers.reconcile_overdue unless timers
       end
 
       def check!(timer, target, now)
@@ -162,13 +163,16 @@ module Inclamo
         # A fresh record: Chatwoot's label persistence must not reuse an instance.
         conversation = Conversation.find(timer.conversation_id)
         label!(conversation.account)
-        wanted = [LABEL]
-        if overdue && !conversation.resolved?
-          Inclamo::TeamQueues::Installer.label!(conversation.account, Inclamo::TeamQueues::OVERDUE_LABEL)
-          wanted << Inclamo::TeamQueues::OVERDUE_LABEL
+        Inclamo::TeamQueues::Installer.label!(conversation.account, Inclamo::TeamQueues::OVERDUE_LABEL) if overdue
+        # Under the row lock, which reloads the conversation, so a label added
+        # by somebody else at this moment is kept (as Inclamo::Ai::Labels.add).
+        conversation.with_lock do
+          wanted = [LABEL]
+          wanted << Inclamo::TeamQueues::OVERDUE_LABEL if overdue && !conversation.resolved?
+          current = conversation.label_list.to_a
+          missing = wanted - current
+          conversation.update!(label_list: current + missing) if missing.any?
         end
-        missing = wanted - conversation.label_list
-        conversation.add_labels(missing) if missing.any?
         note = I18n.t("inclamo.sla.notes.#{target}", policy: timer.policy_name, target: Sla.duration_words(timer.target_seconds(target)))
         Messages::MessageBuilder.new(nil, conversation, { content: note, private: true }).perform
       end

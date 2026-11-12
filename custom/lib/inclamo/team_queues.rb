@@ -64,10 +64,38 @@ module Inclamo
 
     # How many conversations the queue lists for this staff member: the count
     # Chatwoot's filter gives with the queue's payload, so the number and the
-    # opened list cannot disagree (design D5).
+    # opened list cannot disagree (design D5). Unknown (nil) for a queue whose
+    # conditions are missing or Chatwoot's filter does not accept: one such
+    # queue must not take the whole list of queues down with it.
+    # The filter reads its key definitions anew for every instance; that is
+    # inside Chatwoot's service and is left as it is.
     def count(queue, user)
-      params = { payload: queue.query['payload'], page: 1 }.with_indifferent_access
+      payload = queue.query.is_a?(Hash) ? queue.query['payload'] : nil
+      return nil unless payload.is_a?(Array) && payload.any? && payload.all?(Hash)
+
+      params = { payload: payload, page: 1 }.with_indifferent_access
       ::Conversations::FilterService.new(params, user, queue.account).perform[:count][:all_count]
+    rescue StandardError => e
+      Rails.logger.error("[inclamo] team queue #{queue.id} not counted: #{e.class.name}: #{e.message}")
+      ChatwootExceptionTracker.new(e, account: queue.account).capture_exception
+      nil
+    end
+
+    # Puts a ready queue at the place it shipped at, among the account's
+    # queues as they are ordered now: before the first ready queue that ships
+    # after it, or after the last ready queue. Every queue is then numbered
+    # anew, 1, 2, 3..., so no two share a position.
+    def place!(queue)
+      Inclamo::TeamQueue.transaction do
+        others = Inclamo::TeamQueue.where(account_id: queue.account_id).where.not(id: queue.id).ordered.lock.to_a
+        place = shipped_position(queue.key)
+        index = others.index { |other| other.ready? && shipped_position(other.key) > place }
+        index ||= (others.rindex(&:ready?) || others.size - 1) + 1
+        others.insert(index, queue).each_with_index do |one, at|
+          Inclamo::TeamQueue.where(id: one.id).where.not(position: at + 1).update_all(position: at + 1, updated_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
+        end
+      end
+      queue.reload
     end
   end
 end

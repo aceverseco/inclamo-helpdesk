@@ -101,6 +101,9 @@ if defined?(Sidekiq::Cron::Job)
     end
     Sidekiq::Cron::Job.create(name: 'inclamo_sla_check_job', cron: Inclamo::Sla.check_cron(seconds),
                               class: 'Inclamo::SlaCheckJob', queue: 'scheduled_jobs')
+    # Accounts that lack a ready team queue or saved reply get them (Inclamo::Presets).
+    Sidekiq::Cron::Job.create(name: 'inclamo_presets_repair_job', cron: '*/10 * * * *',
+                              class: 'Inclamo::PresetsRepairJob', queue: 'scheduled_jobs')
   end
 end
 

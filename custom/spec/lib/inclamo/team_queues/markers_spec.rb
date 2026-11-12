@@ -92,6 +92,73 @@ RSpec.describe Inclamo::TeamQueues::Markers do
     expect(labels).to contain_exactly('sla-missed', 'sla-overdue')
   end
 
+  it 'is taken off by the next pass where it is carried and nothing is overdue' do
+    # As after a write that failed when the target was met, or a label added by hand.
+    timers.check_due!(conversation.created_at + 3.hours)
+    Inclamo::SlaTimer.where(conversation_id: conversation.id).update_all(first_response_at: conversation.created_at + 4.hours) # rubocop:disable Rails/SkipsModelValidations
+    by_hand = create(:conversation, account: account, inbox: create(:inbox, account: account))
+    by_hand.update_labels(%w[sla-overdue vip])
+    resolved = create(:conversation, account: account, inbox: create(:inbox, account: account), status: :resolved)
+    resolved.update_labels(['sla-overdue'])
+
+    timers.check_due!(conversation.created_at + 5.hours)
+
+    expect(labels).to eq(['sla-missed'])
+    expect(labels(by_hand)).to eq(['vip'])
+    expect(labels(resolved)).to be_empty
+  end
+
+  it 'brings a bounded number of conversations in step a run, oldest first, and goes on in the next' do
+    others = 2.times.map { create(:conversation, account: account, inbox: inbox).tap { |conv| timers.apply!(conv) } }
+    all = [conversation, *others]
+    Inclamo::SlaTimer.where(conversation_id: all.map(&:id)).update_all(first_response_missed_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
+    stale = 2.times.map { create(:conversation, account: account, inbox: inbox).tap { |conv| conv.update_labels(['sla-overdue']) } }
+
+    described_class.reconcile_overdue(limit: 1)
+
+    expect(all.map { |conv| labels(conv).include?('sla-overdue') }).to eq([true, false, false])
+    expect(stale.map { |conv| labels(conv).include?('sla-overdue') }).to eq([false, true])
+
+    2.times { described_class.reconcile_overdue(limit: 1) }
+
+    expect(all.map { |conv| labels(conv).include?('sla-overdue') }).to eq([true, true, true])
+    expect(stale.map { |conv| labels(conv).include?('sla-overdue') }).to eq([false, false])
+    expect(described_class::RECONCILE_BATCH).to eq(200)
+  end
+
+  it 'is taken off when the policy is deleted, also when every target was already missed' do
+    # "Standard" keeps to its own inbox, so the other inbox gets the policy with one target.
+    policy.update!(all_inboxes: false, inbox_ids: [inbox.id])
+    only_first = Inclamo::SlaPolicy.create!(account: account, name: 'First only', first_response_seconds: 600, all_inboxes: false,
+                                            inbox_ids: [create(:inbox, account: account).id])
+    other = create(:conversation, account: account, inbox_id: only_first.inbox_ids.first)
+    timers.apply!(other)
+    timers.check_due!(other.created_at + 1.hour)
+    timer = Inclamo::SlaTimer.find_by(conversation_id: other.id)
+    expect(timer).to have_attributes(policy_id: only_first.id, stopped_at: nil)
+    expect(Inclamo::SlaTimer.running.where(id: timer.id)).to be_empty
+    expect(labels(other)).to contain_exactly('sla-missed', 'sla-overdue')
+
+    only_first.destroy!
+
+    expect(timer.reload.stopped_at).to be_present
+    expect(labels(other)).to eq(['sla-missed'])
+    # Shown as missed still: deleting the policy does not change what happened.
+    expect(Inclamo::Sla::TimerPresenter.new(timer).as_json.to_json).to include('"state":"missed"')
+    timers.check_due!(other.created_at + 2.hours)
+    expect(labels(other)).to eq(['sla-missed'])
+  end
+
+  it 'leaves a timer whose targets were all reached as it is when the policy is deleted' do
+    timers.replied!(reply(at: conversation.created_at + 1.minute))
+    conversation.reload.update!(status: :resolved)
+    timers.resolved!(conversation, conversation.created_at + 2.minutes)
+
+    policy.destroy!
+
+    expect(Inclamo::SlaTimer.find_by(conversation_id: conversation.id).stopped_at).to be_nil
+  end
+
   it 'is not put back on a resolved conversation, nor once the target is met' do
     answered = create(:conversation, account: account, inbox: inbox)
     timers.apply!(answered)
@@ -121,8 +188,8 @@ RSpec.describe Inclamo::TeamQueues::Markers do
   end
 
   it 'never fails the timer when the label cannot be written' do
-    allow(described_class).to receive(:remove).and_raise(StandardError, 'no')
     timers.check_due!(conversation.created_at + 3.hours)
+    allow(described_class).to receive(:overdue?).and_raise(StandardError, 'no')
 
     expect { timers.replied!(reply(at: conversation.created_at + 4.hours)) }.not_to raise_error
     expect(Inclamo::SlaTimer.find_by(conversation_id: conversation.id).first_response_at).to be_present

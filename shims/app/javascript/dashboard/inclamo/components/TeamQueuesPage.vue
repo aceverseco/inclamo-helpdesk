@@ -32,23 +32,24 @@ const load = async () => {
   }
 };
 
-// Every change is answered from the server's list, and the navigation follows.
+// A change is answered with the account's queues as they now are. A refused
+// one is followed by a read, so the page shows what the server still holds.
 const change = async request => {
   busy.value = true;
   error.value = '';
   try {
-    await request();
+    show((await request()).data);
+    loadTeamQueues();
   } catch (e) {
     error.value = e.response?.data?.message || t('SETTINGS.TEAM_QUEUES.SAVE_FAILED');
-  }
-  try {
-    show((await InclamoAPI.getTeamQueues(true)).data);
-  } catch (e) {
-    failed.value = true;
+    try {
+      show((await InclamoAPI.getTeamQueues(true)).data);
+    } catch (again) {
+      failed.value = true;
+    }
   } finally {
     busy.value = false;
   }
-  loadTeamQueues();
 };
 
 const rename = queue => {

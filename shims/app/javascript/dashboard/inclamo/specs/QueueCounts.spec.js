@@ -142,14 +142,15 @@ describe('navigation queue counts', () => {
   it('refreshes the team queues on the same triggers and forgets them on an account switch', async () => {
     start();
     await settle();
-    expect(resetTeamQueues).toHaveBeenCalledTimes(1);
+    // A first load keeps what the route guard may have read already.
+    expect(resetTeamQueues).not.toHaveBeenCalled();
     expect(loadTeamQueues).toHaveBeenCalledTimes(1);
     emitter.emit('fetch_conversation_stats');
     await vi.advanceTimersByTimeAsync(1000);
     expect(loadTeamQueues).toHaveBeenCalledTimes(2);
     accountId.value = 2;
     await settle();
-    expect(resetTeamQueues).toHaveBeenCalledTimes(2);
+    expect(resetTeamQueues).toHaveBeenCalledTimes(1);
     expect(loadTeamQueues).toHaveBeenCalledTimes(3);
   });
 });

@@ -8,12 +8,15 @@ module Inclamo
     # resolution was missed and the conversation is not resolved. `sla-missed`
     # (Inclamo::Sla) is another thing: it stays for good once a target was missed.
     #
-    # Every write goes through here or through the SLA mark of a missed target,
-    # is safe to repeat, writes nothing when nothing changes (each label write
-    # is a conversation update the store's automation rules see), and never
-    # fails its caller. Nothing here is called from a label's own change.
+    # The label is written here and at the SLA mark of a missed target, always
+    # under the conversation's row lock (as Inclamo::Ai::Labels adds the AI
+    # agent's), so a label somebody else adds at the same moment is kept. A
+    # write happens only when the label has to change: each one is a
+    # conversation update the store's automation rules see. Nothing here fails
+    # its caller, and nothing here is called from a label's own change.
     module Markers
-      # A timer whose missed target is still unmet.
+      # A timer whose missed target is still unmet. Matches the partial index
+      # index_inclamo_sla_timers_overdue.
       OVERDUE = <<~SQL.squish.freeze
         inclamo_sla_timers.stopped_at IS NULL
         AND ((inclamo_sla_timers.first_response_missed_at IS NOT NULL AND inclamo_sla_timers.first_response_at IS NULL)
@@ -24,6 +27,12 @@ module Inclamo
                 WHERE taggings.taggable_type = 'Conversation' AND taggings.taggable_id = conversations.id
                   AND taggings.context = 'labels' AND tags.name = :label)
       SQL
+      TIMER_OVERDUE = "EXISTS (SELECT 1 FROM inclamo_sla_timers WHERE inclamo_sla_timers.conversation_id = conversations.id AND #{OVERDUE})".freeze
+      # Conversations one run of the SLA check brings in step at most, in each
+      # direction, oldest first; the next run goes on. Keeps the first run
+      # after an upgrade, with a backlog of missed targets, from changing every
+      # such conversation in one job.
+      RECONCILE_BATCH = 200
 
       module_function
 
@@ -31,36 +40,39 @@ module Inclamo
       def sync_overdue(conversation_id)
         conversation = Conversation.find_by(id: conversation_id)
         return unless conversation
+        # In step already: no lock, no write.
+        return if overdue?(conversation) == conversation.label_list.include?(OVERDUE_LABEL)
 
-        overdue = !conversation.resolved? && Inclamo::SlaTimer.where(conversation_id: conversation.id).where(OVERDUE).exists?
-        overdue ? add(conversation) : remove(conversation)
+        Installer.label!(conversation.account, OVERDUE_LABEL)
+        # The row lock reloads the conversation: what is due and which labels
+        # it has are read again once nobody else can change them.
+        conversation.with_lock do
+          due = overdue?(conversation)
+          current = conversation.label_list.to_a
+          next if due == current.include?(OVERDUE_LABEL)
+
+          conversation.update!(label_list: due ? current + [OVERDUE_LABEL] : current - [OVERDUE_LABEL])
+        end
       rescue StandardError => e
         report(e, conversation_id)
       end
 
-      # Puts the label back where it is due and missing (taken off by hand, or
-      # not written when the target was missed); part of the SLA check. Only
-      # conversations that lack it are touched.
-      def reassert_overdue
-        Conversation.where.not(status: :resolved).joins('JOIN inclamo_sla_timers ON inclamo_sla_timers.conversation_id = conversations.id')
-                    .where(OVERDUE).where("NOT #{LABELLED}", label: OVERDUE_LABEL).pluck(:id).each { |id| sync_overdue(id) }
+      def overdue?(conversation)
+        !conversation.resolved? && Inclamo::SlaTimer.where(conversation_id: conversation.id).where(OVERDUE).exists?
+      end
+
+      # Part of the SLA check, both ways: the label is put where it is due and
+      # missing (taken off by hand, or the write at the miss failed), and taken
+      # off where it is carried and nothing is overdue any more (a write that
+      # failed when the target was met, the conversation resolved or the timer
+      # stopped). Conversations already in step are not touched.
+      def reconcile_overdue(limit: RECONCILE_BATCH)
+        lacking = Conversation.where.not(status: :resolved).where(TIMER_OVERDUE).where("NOT #{LABELLED}", label: OVERDUE_LABEL)
+        stale = Conversation.where(LABELLED, label: OVERDUE_LABEL)
+                            .where("conversations.status = :resolved OR NOT #{TIMER_OVERDUE}", resolved: Conversation.statuses[:resolved])
+        [lacking, stale].each { |scope| scope.order(:id).limit(limit).pluck(:id).each { |id| sync_overdue(id) } }
       rescue StandardError => e
         report(e)
-      end
-
-      # A fresh record each time: Chatwoot's label persistence must not reuse
-      # an instance (see Inclamo::Sla::Timers.mark_conversation!).
-      def add(conversation)
-        return if conversation.label_list.include?(OVERDUE_LABEL)
-
-        Installer.label!(conversation.account, OVERDUE_LABEL)
-        conversation.add_labels([OVERDUE_LABEL])
-      end
-
-      def remove(conversation)
-        return unless conversation.label_list.include?(OVERDUE_LABEL)
-
-        conversation.update_labels(conversation.label_list - [OVERDUE_LABEL])
       end
 
       def report(error, conversation_id = nil)
