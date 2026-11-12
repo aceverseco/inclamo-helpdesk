@@ -88,11 +88,21 @@ const open = async (page, user, chat = conversation, state = 'matched') => {
 };
 const editor = page => page.locator('.ProseMirror[contenteditable="true"]').first();
 const productDialog = page => page.getByTestId('inclamo-insert-product-dialog');
-const search = async (page, text) => {
-  await productDialog(page).getByTestId('inclamo-product-query').fill(text);
-  await expect(productDialog(page).getByTestId('inclamo-product-searching')).toHaveCount(0, { timeout: 15_000 });
-};
 const productRow = (page, product) => productDialog(page).getByTestId('inclamo-product').filter({ hasText: product.title });
+// The store's search shows a product it has just made only after a moment:
+// when `product` should be found, the search is made again until it is.
+const search = async (page, text, product) => {
+  const query = productDialog(page).getByTestId('inclamo-product-query');
+  const deadline = Date.now() + 90_000;
+  for (;;) {
+    await query.fill(text);
+    await expect(productDialog(page).getByTestId('inclamo-product-searching')).toHaveCount(0, { timeout: 15_000 });
+    if (!product || Date.now() > deadline) return;
+    if (await productRow(page, product).first().waitFor({ timeout: 3_000 }).then(() => true, () => false)) return;
+    await query.fill('');
+    await page.waitForTimeout(3_000);
+  }
+};
 const discountDialog = page => page.getByTestId('inclamo-action-dialog');
 const pickPreset = (page, made) => discountDialog(page).locator(`[data-preset-id="${made.id}"] input`).check();
 const createCode = page => page.getByRole('button', { name: 'Create the code', exact: true }).click();
@@ -118,13 +128,15 @@ const giveCode = async (page, made, chat = conversation, state = 'matched') => {
 };
 
 test.describe('A product is inserted into the reply', () => {
+  // The store's search may need a while to show the products of this run.
+  test.describe.configure({ timeout: 180_000 });
   test('Product with a link', async ({ page }) => {
     // The development store is password-protected and gives no storefront link:
     // the proxy answers as the open store does for the published product.
     await proxy.rule({ match: { operation: 'product_search' }, effect: 'patch', value: { patch: 'storefront', urls: { [products.shown.id]: products.shown.url } } });
     const section = await open(page, users.agent);
     await section.getByTestId('inclamo-insert-product-open').click();
-    await search(page, products.shown.title);
+    await search(page, products.shown.title, products.shown);
     await productRow(page, products.shown).getByTestId('inclamo-product-variant').click();
 
     await expect(productDialog(page)).toBeHidden();
@@ -140,7 +152,7 @@ test.describe('A product is inserted into the reply', () => {
   test('Search by SKU', async ({ page }) => {
     const section = await open(page, users.agent);
     await section.getByTestId('inclamo-insert-product-open').click();
-    await search(page, products.hidden.sku);
+    await search(page, products.hidden.sku, products.hidden);
 
     await expect(productRow(page, products.hidden)).toHaveCount(1);
     await expect(productRow(page, products.hidden).getByTestId('inclamo-product-variant')).toContainText(products.hidden.sku);
@@ -149,7 +161,7 @@ test.describe('A product is inserted into the reply', () => {
   test('Product not in the online store', async ({ page }) => {
     const section = await open(page, users.agent);
     await section.getByTestId('inclamo-insert-product-open').click();
-    await search(page, products.hidden.title);
+    await search(page, products.hidden.title, products.hidden);
 
     await expect(productRow(page, products.hidden).getByTestId('inclamo-product-no-link')).toBeVisible();
     await productRow(page, products.hidden).getByTestId('inclamo-product-variant').click();
