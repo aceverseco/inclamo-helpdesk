@@ -28,6 +28,11 @@ response arrived and the resolution target is not missed) or the conversation
 is resolved. It is the live state; the label `sla-missed` stays as the
 permanent record that a target was missed.
 
+The label is the helpdesk's own: the SLA check also removes `sla-overdue` from an
+open conversation that has no unmet target, including one a person or an
+automation rule added. A store that used a label of this name for something
+else should rename its own.
+
 The plain category labels are the store's to set: by hand, in a macro, or in
 an automation rule. The `inclamo_` labels are for the AI agent, which may add
 only labels with that prefix ([AI connector](ai-connector.md)): an agent that

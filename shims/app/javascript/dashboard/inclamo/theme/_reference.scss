@@ -82,7 +82,10 @@ body.inclamo-dashboard-theme .inclamo-ref {
   }
   .queue-nav .nav-row {
     height: 34px;
+    // Room for the longest shipped queue name, also when selected (bold).
+    gap: 7px;
     padding-left: 18px;
+    padding-right: 8px;
     margin-top: 2px;
     font-size: 13px;
   }
