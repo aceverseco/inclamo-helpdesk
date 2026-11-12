@@ -24,11 +24,17 @@ module Inclamo::Support::Feed
       end.compact }
   end
 
+  # The client pages through a source's events by id (`cursor`), so the
+  # events of one source must become visible in id order: an event committed
+  # after a higher id was read would be skipped for good. New events are
+  # therefore inserted together at the end, under a per-source lock held
+  # until commit (`publish!`); reconciliations that insert nothing take no lock.
   def reconcile!(mapping)
     mapping.with_lock do
       conversation = mapping.conversation.reload
+      fresh = []
       if mapping.last_status != conversation.status
-        event!(mapping, "status:#{SecureRandom.uuid}", { 'kind' => 'status', 'status' => conversation.status })
+        fresh << ["status:#{SecureRandom.uuid}", { 'kind' => 'status', 'status' => conversation.status }]
         mapping.update!(last_status: conversation.status)
       end
       current_ids = []
@@ -39,17 +45,33 @@ module Inclamo::Support::Feed
         prior = Inclamo::Support::Event.where(central_request_id: mapping.id).where("identity LIKE ?", "message:#{message.id}:%").exists?
         next unless public?(message) || prior
 
-        payload = serialize(message)
         identity = "message:#{message.id}:#{message.updated_at.utc.iso8601(6)}:#{message.private?}"
-        event = event!(mapping, identity, payload)
-        Inclamo::Support::Recipients.notify!(mapping, message) if event && message.outgoing? && public?(message)
+        fresh << [identity, serialize(message)]
+        Inclamo::Support::Recipients.notify!(mapping, message) if message.outgoing? && public?(message)
       end
       known_ids = Inclamo::Support::Event.where(central_request_id: mapping.id)
                       .where("payload->>'kind' = 'message'").distinct.pluck(Arel.sql("payload->>'message_id'"))
       (known_ids - current_ids).each do |id|
-        event!(mapping, "removed:#{id}", { 'kind' => 'removed', 'message_id' => id })
+        fresh << ["removed:#{id}", { 'kind' => 'removed', 'message_id' => id }]
       end
+      publish!(mapping, fresh)
     end
+  end
+
+  # Inserts the events not recorded yet, in order. Must run inside the
+  # caller's transaction: the source's lock is released only at its commit.
+  def publish!(mapping, entries)
+    known = Inclamo::Support::Event.where(central_request_id: mapping.id, identity: entries.map(&:first)).pluck(:identity)
+    entries = entries.reject { |entry| known.include?(entry.first) }
+    return if entries.empty?
+
+    lock_feed!(mapping.source_id)
+    entries.each { |identity, payload| event!(mapping, identity, payload) }
+  end
+
+  def lock_feed!(source_id)
+    key = Digest::SHA256.hexdigest("inclamo-support-feed:#{source_id}").first(15).to_i(16)
+    ActiveRecord::Base.connection.select_value("SELECT pg_advisory_xact_lock(#{key})")
   end
 
   def event!(mapping, identity, payload)
