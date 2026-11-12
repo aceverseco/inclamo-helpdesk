@@ -10,6 +10,8 @@ import WidgetHost from '../widgets/WidgetHost.vue';
 import SupportLauncher from '../support/SupportLauncher.vue';
 import { clearCommerce } from '../widgets/commerce';
 import { forgetOrderState } from '../orderState';
+import { FOLDER_ROUTE, FOLDER_CONVERSATION_ROUTE } from '../routes';
+import { resolveTeamQueue } from '../teamQueues';
 const currentUser = useMapGetter('getCurrentUser');
 watch(() => currentUser.value?.id, () => { clearCommerce(); forgetOrderState(); });
 const route = useRoute();
@@ -23,6 +25,12 @@ const section = computed(() => {
 const isInbox = computed(() =>
   /\/conversations\/|\/dashboard$/.test(route.path)
 );
+// Inside a team queue the last crumb is the queue's name.
+const teamQueueName = computed(() =>
+  [FOLDER_ROUTE, FOLDER_CONVERSATION_ROUTE].includes(route.name)
+    ? resolveTeamQueue(route.params.id)?.name
+    : undefined
+);
 </script>
 <template>
   <header class="inclamo-workspace-header">
@@ -30,7 +38,13 @@ const isInbox = computed(() =>
       <span>{{ inclamoT('BRAND.WORKSPACE') }}</span>
       <span class="i-lucide-chevron-right" aria-hidden="true" />
       <strong>{{ section }}</strong>
-      <template v-if="isInbox"
+      <template v-if="teamQueueName"
+        ><span class="i-lucide-chevron-right" aria-hidden="true" /><span
+          data-testid="inclamo-breadcrumb-queue"
+          >{{ teamQueueName }}</span
+        ></template
+      >
+      <template v-else-if="isInbox"
         ><span class="i-lucide-chevron-right" aria-hidden="true" /><span>{{
           inclamoT('WORKSPACE.ALL')
         }}</span></template
