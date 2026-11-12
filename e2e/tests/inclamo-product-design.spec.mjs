@@ -716,7 +716,7 @@ test('Work a real conversation', async ({ page }, info) => {
   await card.getByTestId('inclamo-order-mark').click();
   await expect(card.getByTestId('inclamo-order-marked')).toBeVisible();
   await editor(page).fill('Your order is ');
-  await editor(page).press('End');
+  await editor(page).press('Control+End'); // the end of the reply, not of the line it wraps to
   await page.keyboard.type('{{order.number', { delay: 50 });
   await expect(page.getByRole('option')).toHaveCount(1);
   await page.keyboard.press('Enter');

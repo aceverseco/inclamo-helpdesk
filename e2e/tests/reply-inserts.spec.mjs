@@ -148,7 +148,7 @@ test.describe('A product is inserted into the reply', () => {
     await expect(editor(page)).toContainText(products.shown.title);
     await expect(editor(page)).toContainText('150');
     await expect(editor(page)).toContainText(products.shown.url);
-    await editor(page).press('End');
+    await editor(page).press('Control+End'); // the end of the reply, not of the line it wraps to
     await editor(page).pressSequentially(' It fits.');
     await expect(editor(page)).toContainText(`${products.shown.url} It fits.`);
   });
