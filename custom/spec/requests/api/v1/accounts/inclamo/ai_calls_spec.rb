@@ -134,7 +134,7 @@ RSpec.describe 'Inclamo AI agent: filing a finished call', type: :request do
       expect(response).to have_http_status(:created)
       expect(body).to include('found' => false, 'matched_by' => 'created', 'labels_added' => [])
       conversation = filed
-      expect(conversation.status).to eq('open')
+      expect(conversation.status).to eq('resolved')
       expect(conversation.custom_attributes).to eq(
         'inclamo_call_entry' => 'inbound', 'inclamo_call_line' => '+15550100100', 'inclamo_call_caller' => '+15550100001',
         'inclamo_call_duration' => 192, 'inclamo_call_ended_at' => '2026-11-07T14:03:12Z', 'inclamo_call_outcome' => 'request',
@@ -198,9 +198,10 @@ RSpec.describe 'Inclamo AI agent: filing a finished call', type: :request do
       expect(filed.custom_attributes['inclamo_call_recording']).to eq(link)
     end
 
-    it 'opens a call that needs the team and resolves one that does not' do
+    it 'resolves every call, with or without a request for the team' do
       file
-      expect(filed.status).to eq('open')
+      expect(filed.status).to eq('resolved')
+      expect(filed.label_list).to include('inclamo_handover', 'inclamo_escalation')
 
       file(call_id: 'c-18', needs_team: false, outcome: 'resolved', labels: %w[inclamo_call inclamo_resolved])
       expect(filed.status).to eq('resolved')
@@ -210,11 +211,11 @@ RSpec.describe 'Inclamo AI agent: filing a finished call', type: :request do
     context 'when someone attached an agent bot to the Phone inbox' do
       before { create(:agent_bot_inbox, inbox: phone_inbox, agent_bot: create(:agent_bot, account: account)) }
 
-      it 'keeps the status the AI service sent, and gives the call to no bot' do
+      it 'stores the call resolved all the same, and gives it to no bot' do
         expect(phone_inbox.reload.active_bot?).to be(true)
 
         file
-        expect(filed).to have_attributes(status: 'open', assignee_agent_bot_id: nil)
+        expect(filed).to have_attributes(status: 'resolved', assignee_agent_bot_id: nil)
 
         file(call_id: 'c-18', needs_team: false, outcome: 'resolved')
         expect(filed).to have_attributes(status: 'resolved', assignee_agent_bot_id: nil)
@@ -227,14 +228,6 @@ RSpec.describe 'Inclamo AI agent: filing a finished call', type: :request do
 
         expect(stock.status).to eq('pending')
       end
-    end
-
-    it 'resolves the call of a blocked contact, as Chatwoot does' do
-      create(:contact, account: account, phone_number: '+15550100001', blocked: true)
-
-      file
-
-      expect(filed.status).to eq('resolved')
     end
 
     it 'sets the priority the AI service sends, or none' do
@@ -350,7 +343,8 @@ RSpec.describe 'Inclamo AI agent: filing a finished call', type: :request do
       expect(response).to have_http_status(:ok)
       expect(body).to eq(first.merge('found' => true, 'labels_added' => []))
       expect(rows.call).to eq(before)
-      expect(filed.status).to eq('open')
+      expect(filed.status).to eq('resolved')
+      expect(filed.label_list).to include('inclamo_handover')
     end
 
     it 'gives one conversation when the same call is filed at the same moment' do
@@ -546,7 +540,7 @@ RSpec.describe 'Inclamo AI agent: filing a finished call', type: :request do
       OnlineStatusTracker.set_status(account.id, agent.id, 'online')
     end
 
-    it 'sends nothing, wakes no agent bot and notifies the assignee of the conversation, not of its turns' do
+    it 'sends nothing, wakes no agent bot, assigns nobody and notifies nobody of its turns' do
       long = Array.new(40) { |index| { role: index.even? ? 'agent' : 'caller', text: "Turn #{index}" } }
       deliveries = stub_request(:any, /ai\.example\.com/)
       # Chatwoot looks for a picture of a new contact with an email.
@@ -556,10 +550,9 @@ RSpec.describe 'Inclamo AI agent: filing a finished call', type: :request do
 
       expect(response).to have_http_status(:created)
       conversation = filed
-      expect(conversation.assignee_id).to eq(agent.id)
-      expect(conversation.reload.status).to eq('open')
+      expect(conversation.reload).to have_attributes(assignee_id: nil, status: 'resolved')
       kinds = Notification.where(user: agent).pluck(:notification_type)
-      expect(kinds).to include('conversation_assignment')
+      expect(kinds).not_to include('conversation_assignment')
       expect(kinds).not_to include('assigned_conversation_new_message')
       expect(Notification.where(secondary_actor_type: 'Message', secondary_actor_id: conversation.messages.where(private: false).select(:id))).to be_empty
       expect(deliveries).not_to have_been_requested

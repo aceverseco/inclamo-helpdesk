@@ -71,15 +71,15 @@ The call's id SHALL be its key in the account. Filing a call whose id was filed 
 - **THEN** the account has one conversation for `c-18`
 
 ### Requirement: Status, priority and labels follow the call
-The conversation SHALL be open when the AI service marks the call as needing the team, and resolved otherwise. Its priority SHALL be the one the AI service sends (none, low, medium, high or urgent). It SHALL carry the labels the AI service sends; every label SHALL start with `inclamo_`, and a filing with any other label SHALL be refused with the code `invalid_label` and file nothing. A label the account does not list yet SHALL be added to the account's labels on first use.
+Every filed call SHALL be stored as a resolved conversation, whether or not the AI service marks it as needing the team, also when an agent bot is attached to the Phone inbox; it SHALL be given to no bot. Its priority SHALL be the one the AI service sends (none, low, medium, high or urgent). It SHALL carry the labels the AI service sends, by which the team finds the calls that left a request; every label SHALL start with `inclamo_`, and a filing with any other label SHALL be refused with the code `invalid_label` and file nothing. A label the account does not list yet SHALL be added to the account's labels on first use.
 
 #### Scenario: A request for the team
 - **WHEN** the AI service files a call with a request for the team, marked as needing the team, with labels `inclamo_call`, `inclamo_inbound`, `inclamo_handover` and `inclamo_escalation`
-- **THEN** the conversation is open and carries those four labels
+- **THEN** the conversation is resolved and carries those four labels
 
 #### Scenario: An urgent request
 - **WHEN** the AI service files a call with an urgent request and priority `urgent`
-- **THEN** the conversation is open with priority urgent
+- **THEN** the conversation is resolved with priority urgent
 
 #### Scenario: A resolved call
 - **WHEN** the AI service files a call not marked as needing the team, with the label `inclamo_resolved`
@@ -101,7 +101,7 @@ The conversation sidebar SHALL show a call card, its "Call" section, on conversa
 - **THEN** the sidebar shows no call card
 
 ### Requirement: Filing a call reaches nobody outside and wakes no agent
-Filing a call SHALL NOT send any message, email or webhook to the caller, and the agent bot SHALL NOT receive an event for the messages a filing writes. A teammate SHALL NOT be notified once for each turn: a filed call SHALL give the notifications a new conversation and its assignment give, as a chat does, and none for its messages.
+Filing a call SHALL NOT send any message, email or webhook to the caller, and the agent bot SHALL NOT receive an event for the messages a filing writes. A teammate SHALL NOT be notified of the turns of a filed call, and filing SHALL NOT assign the call to anyone.
 
 #### Scenario: The agent's turns stay records
 - **WHEN** a call with outgoing agent turns is filed for a contact who has an email
@@ -112,8 +112,8 @@ Filing a call SHALL NOT send any message, email or webhook to the caller, and th
 - **THEN** the AI service's webhook receives no event for those twenty messages
 
 #### Scenario: No notification for each turn
-- **WHEN** a call with forty turns, needing the team, is filed and the Phone inbox assigns it to an agent
-- **THEN** that agent has the assignment notification and no notification for any of the forty messages
+- **WHEN** a call with forty turns, needing the team, is filed while an agent of the Phone inbox is online
+- **THEN** the call is assigned to nobody and that agent has no notification for any of the forty messages
 
 ### Requirement: No payment card number is stored
 Before a turn, a record or a caller's name is stored, every run of 13 to 19 digits, with or without spaces or dashes between them, that passes the Luhn check SHALL be replaced with `[card number removed]`.

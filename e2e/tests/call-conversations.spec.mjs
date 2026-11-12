@@ -253,14 +253,14 @@ test('Two filings at once', async () => {
 test('A request for the team', async () => {
   const answer = await filed('team-request', 'team-request');
 
-  expect((await conversation(answer.conversation_id)).status).toBe('open');
+  expect((await conversation(answer.conversation_id)).status).toBe('resolved');
   expect((await labelsOf(answer.conversation_id)).sort()).toEqual(['inclamo_call', 'inclamo_escalation', 'inclamo_handover', 'inclamo_inbound']);
 });
 
 test('An urgent request', async () => {
   const answer = await filed('team-request', 'urgent', { priority: 'urgent' });
 
-  expect(await conversation(answer.conversation_id)).toMatchObject({ status: 'open', priority: 'urgent' });
+  expect(await conversation(answer.conversation_id)).toMatchObject({ status: 'resolved', priority: 'urgent' });
 });
 
 test('A resolved call', async () => {
@@ -349,15 +349,7 @@ test('The agent bot stays quiet', async () => {
 });
 
 test('No notification for each turn', async ({ page }) => {
-  // Chatwoot assigns the oldest open conversations first and at most five to
-  // an agent in five minutes: the calls of the tests before this one are
-  // closed, so this call is the one the Phone inbox has to assign.
-  for (;;) {
-    const open = (await admin.get(`/conversations?inbox_id=${phoneInboxId}&status=open&assignee_type=all`)).body.data.payload;
-    if (!open.length) break;
-    for (const entry of open) await admin.post(`/conversations/${entry.id}/toggle_status`, { status: 'resolved' });
-  }
-  // The Phone inbox assigns by itself to the agents of the inbox who are online.
+  // An agent of the Phone inbox who is online: Chatwoot would assign an open conversation to them.
   await admin.post('/inbox_members', { inbox_id: phoneInboxId, user_ids: [agent.userId] });
   await admin.patch(`/inboxes/${phoneInboxId}`, { enable_auto_assignment: true });
   await signIn(page, users.agent);
@@ -371,19 +363,15 @@ test('No notification for each turn', async ({ page }) => {
 
   const answer = await filed('team-request', 'forty', { turns });
 
-  const assigned = await eventually(() => conversation(answer.conversation_id), record => record.meta.assignee?.id === agent.userId, { timeout: 45_000 });
-  expect(assigned.status).toBe('open');
-  const about = notifications => notifications.filter(entry => entry.primary_actor?.id === answer.conversation_id || entry.primary_actor_id === answer.conversation_id);
-  const mine = await eventually(
-    async () => about((await agent.get('/notifications')).body.data.payload),
-    list => list.some(entry => entry.notification_type === 'conversation_assignment'),
-    { timeout: 45_000 }
+  // Assignment and notifications happen in the background; leave them time.
+  await new Promise(resolve => setTimeout(resolve, 10_000));
+  const record = await conversation(answer.conversation_id);
+  expect(record.status).toBe('resolved');
+  expect(record.meta.assignee || null).toBeNull();
+  const about = (await agent.get('/notifications')).body.data.payload.filter(
+    entry => entry.primary_actor?.id === answer.conversation_id || entry.primary_actor_id === answer.conversation_id
   );
-  await new Promise(resolve => setTimeout(resolve, 5_000));
-  const later = about((await agent.get('/notifications')).body.data.payload);
-  expect(mine.some(entry => entry.notification_type === 'conversation_assignment')).toBe(true);
-  expect(later.filter(entry => /new_message/.test(entry.notification_type))).toEqual([]);
-  expect(later.filter(entry => entry.secondary_actor?.message_type !== undefined && !entry.secondary_actor?.private)).toEqual([]);
+  expect(about).toEqual([]);
 });
 
 // --- No payment card number is stored ---------------------------------------------
