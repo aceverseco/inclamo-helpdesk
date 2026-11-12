@@ -6,7 +6,7 @@ import { join } from 'node:path';
 export default defineConfig({
   testDir: './tests',
   // These files run against stacks of their own, with their own configs:
-  // e2e/theme/run.sh (playwright.theme.config.mjs) and
+  // e2e/theme/run.sh (playwright.theme.config.mjs; dashboard-theme.spec.mjs with THEME_LEGACY=1) and
   // e2e/workspace-support/run.sh (playwright.workspace-support.config.mjs).
   testIgnore: [
     'dashboard-theme.spec.mjs',

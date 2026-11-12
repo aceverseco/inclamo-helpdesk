@@ -9,9 +9,10 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request replaces its run; on main every merge keeps its own result.
 concurrency:
   group: dashboard-theme-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   theme:
@@ -36,6 +37,15 @@ jobs:
         run: sh e2e/theme/run.sh
         env:
           HELPDESK_IMAGE: inclamo-helpdesk:theme
+      # The scenarios of helpdesk-visual-theme are covered by dashboard-theme.spec.mjs
+      # (scripts/check-e2e-coverage.mjs), which runs only with THEME_LEGACY=1.
+      - name: Run the visual theme scenarios
+        if: ${{ !cancelled() }}
+        run: sh e2e/theme/run.sh
+        env:
+          HELPDESK_IMAGE: inclamo-helpdesk:theme
+          THEME_LEGACY: '1'
+          E2E_OUTPUT: ${{ github.workspace }}/e2e/theme-output/legacy
       - name: Retain synthetic visual evidence
         if: always()
         uses: actions/upload-artifact@v4
