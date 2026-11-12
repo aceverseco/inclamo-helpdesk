@@ -46,6 +46,9 @@ export const standIn = {
   // through Chatwoot's message call, or the protected reply with `protected`.
   reply: (conversationId, { content, protected: isProtected = false } = {}) =>
     control('POST', 'reply', { conversation_id: conversationId, content, protected: isProtected }),
+  // Files a finished call with the bot's token the stand-in holds; answers the
+  // helpdesk's { status, body } (docs/ai-connector-calls.md).
+  call: call => control('POST', 'call', { call }),
   // How long a "slow" turn holds its reply at most, and releasing it now.
   slow: ms => control('POST', 'slow', { ms }),
   release: () => control('POST', 'release', {}),
@@ -127,3 +130,10 @@ export async function keepPayloads(name, conversationId) {
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${name}.json`), JSON.stringify(await standIn.raw(conversationId), null, 2));
 }
+
+// An invented finished call of e2e/fixtures/calls, with a call id, numbers and
+// texts of this run laid over it.
+export const callFixture = (name, overrides = {}) => ({
+  ...JSON.parse(readFileSync(join(here, '..', 'fixtures', 'calls', `${name}.json`), 'utf8')),
+  ...overrides,
+});

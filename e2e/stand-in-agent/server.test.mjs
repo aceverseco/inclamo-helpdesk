@@ -211,6 +211,23 @@ test('answers 503 when told to, and takes deliveries again after', async () => {
   assert.equal(back.status, 200);
 });
 
+test('files a finished call with the bot token, and logs its id and the answer only', async () => {
+  await connect();
+  calls.length = 0;
+  const call = { call_id: 'c-test-1', entry: 'inbound', record: 'Resolved by the agent', turns: [{ role: 'caller', text: 'A caller turn' }] };
+
+  const answer = await post('/__e2e/call', { call });
+
+  assert.equal(answer.status, 200);
+  assert.equal(answer.body.status, 200);
+  assert.deepEqual(calls.map(entry => [entry.method, entry.url, entry.token]), [['POST', '/api/v1/accounts/1/inclamo/calls', token]]);
+  assert.deepEqual(calls[0].body, call);
+  const { log } = await (await fetch(`${agentUrl}/__e2e/log`)).json();
+  const filed = log.filter(entry => entry.kind === 'call_filed').at(-1);
+  assert.deepEqual([filed.call_id, filed.status], ['c-test-1', 200]);
+  assert.ok(!JSON.stringify(filed).includes('A caller turn'));
+});
+
 test('keeps no token or secret in its log', async () => {
   const log = await (await fetch(`${agentUrl}/__e2e/log`)).text();
 

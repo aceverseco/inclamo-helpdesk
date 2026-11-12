@@ -73,6 +73,9 @@ end
 # in-product support's signed material never reach the request log.
 Rails.application.config.filter_parameters |= [:client_secret, :access_token, :connection_code, :address, :note]
 Rails.application.config.filter_parameters |= [:private_key, :signature, :verification_digest, :code, :bytes]
+# The content of a filed call (Api::V1::Accounts::Inclamo::AiCallsController):
+# its turns, record and caller. Whole names only, so no other parameter is hidden.
+Rails.application.config.filter_parameters |= [/\Aturns\z/, /\Arecord\z/, /\Acaller\z/, /\Arecording_url\z/, /\Aline\z/]
 
 # Deliveries to the AI service are recorded (Inclamo::Ai::DeliveryRecorder).
 # Chatwoot's webhook sender has no extension hook, so it is prepended here,

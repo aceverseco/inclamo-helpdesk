@@ -1,9 +1,11 @@
 // The sections the overlay adds to the conversation sidebar. Chatwoot's
 // ContactPanel renders every entry of this list like one of its own sections,
 // and hides one whose `visible` says no.
+import CallSection from './components/CallSection.vue';
 import OrdersSection from './components/OrdersSection.vue';
 import SlaSection from './components/SlaSection.vue';
 import { t } from './i18n';
+import { isCall } from './calls';
 import { hasTimer } from './slaTimers';
 
 export default [
@@ -12,6 +14,14 @@ export default [
     openKey: 'is_inclamo_orders_open',
     title: () => t('ORDERS.TITLE'),
     component: OrdersSection,
+  },
+  {
+    name: 'inclamo_call',
+    openKey: 'is_inclamo_call_open',
+    title: () => t('CALL.TITLE'),
+    component: CallSection,
+    // Only a conversation filed as a call has the section.
+    visible: conversationId => isCall(conversationId),
   },
   {
     name: 'inclamo_sla',

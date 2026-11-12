@@ -258,8 +258,16 @@ the AI agent", so the team sees it.
 
 ### 5.3 A finished call
 
-Finished-call ingestion is not implemented in this revision. The Phone inbox
-created during connection does not by itself provide call ingestion or voice service.
+```
+POST /api/v1/accounts/{account_id}/inclamo/calls
+```
+
+After a call of the AI phone agent ends, the AI service files it with one
+request and the bot's token. The helpdesk puts it in the Phone inbox as a
+conversation on the caller's contact, the turns as messages and the record as
+a private note. The request, the answer, the contact rule and the refusals are
+in [ai-connector-calls.md](ai-connector-calls.md). Telephony and recordings
+stay in the AI service: the Phone inbox provides no voice service by itself.
 
 ### 5.4 Protected reply
 

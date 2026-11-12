@@ -1,0 +1,13 @@
+{
+  "call_id": "fixture-no-conversation",
+  "entry": "inbound",
+  "line": "+12025550100",
+  "caller": { "phone": "+12025550103" },
+  "ended_at": "2026-11-07T16:00:09Z",
+  "duration": 9,
+  "outcome": "no_conversation",
+  "needs_team": false,
+  "labels": ["inclamo_call", "inclamo_inbound", "inclamo_no_conversation"],
+  "turns": [],
+  "record": "No conversation · Inbound call · 9 s · Inclamo AI agent\n\nThe caller said nothing."
+}

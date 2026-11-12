@@ -211,6 +211,14 @@ en:
         busy: The connection is being changed right now. Try again in a moment.
         not_answered: The AI service did not answer. Try again in a moment.
         refused_without_message: The AI service refused the connection code.
+    ai_calls:
+      unknown_caller: Unknown caller
+      website_visitor: Website visitor
+      errors:
+        not_connected: The AI agent is not connected in this account.
+        invalid_call: A field of the call breaks its rule. Do not send the same body again.
+        invalid_label: Labels of a call start with inclamo_ and hold only lower case letters, digits and _.
+        too_large: The call is too large. File it again in the short form.
     ai_agent:
       errors:
         unauthorized: Only the connected AI agent can make this call.

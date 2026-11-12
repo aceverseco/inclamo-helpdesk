@@ -38,6 +38,7 @@ const FILES = {
   'reply-inserts': ['reply-inserts.spec.mjs'],
   'sla-timers': ['sla-timers.spec.mjs'],
   'ai-agent-connection': ['ai-agent-connection.spec.mjs'],
+  'call-conversations': ['call-conversations.spec.mjs'],
   'ai-order-authority': ['ai-order-authority.spec.mjs'],
   'ai-reply-ownership': ['ai-reply-ownership.spec.mjs'],
   'staff-action-permissions': ['staff-action-permissions.spec.mjs'],
@@ -68,6 +69,8 @@ const ELSEWHERE = {
     'needs the installer to run again at a chosen moment (it runs again on upgrade and whenever the repair job finds an account incomplete); covered by custom/spec/lib/inclamo/presets_spec.rb',
   "ai-reply-ownership › The agent's protected reply is posted only while the conversation is the agent's › Take-over and reply at the same moment":
     'needs two database transactions at the same instant; covered by custom/spec/lib/inclamo/ai/protected_reply_ordering_spec.rb on two connections',
+  "call-conversations › The call lands on the caller's contact › Two contacts share the number":
+    "Chatwoot's API refuses a second contact with a number another holds, so the tests cannot make two; covered by custom/spec/requests/api/v1/accounts/inclamo/ai_calls_spec.rb on rows written past that check",
   'shopify-connection › The credentials are a secret › Installation without encryption keys':
     'needs an installation without encryption keys; covered by the request spec and the component test',
 };

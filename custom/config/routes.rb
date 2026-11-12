@@ -77,6 +77,8 @@ namespace :api, defaults: { format: 'json' } do
             end
           end
           get 'conversations/:conversation_id/sla', to: '/api/v1/accounts/inclamo/conversation_slas#show'
+          # A finished call of the AI phone agent (docs/ai-connector-calls.md).
+          post 'calls', to: '/api/v1/accounts/inclamo/ai_calls#create'
           namespace :ai do
             resource :connection, only: [:show, :create, :destroy], controller: '/api/v1/accounts/inclamo/ai_connections'
             scope 'conversations/:conversation_id', controller: '/api/v1/accounts/inclamo/ai_conversations' do
