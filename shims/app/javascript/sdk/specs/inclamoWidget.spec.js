@@ -1,5 +1,49 @@
-import { describe, it, expect } from 'vitest';
-import { resolveSettings, pageAllowed } from '../inclamoWidget';
+import { describe, it, expect, afterEach } from 'vitest';
+import { resolveSettings, pageAllowed, decorateLauncher } from '../inclamoWidget';
+
+describe('Website widget launcher', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    delete window.$chatwoot;
+  });
+  const launcher = () => {
+    document.body.innerHTML =
+      '<div id="cw-bubble-holder"><button class="woot-widget-bubble"><svg><path d="M0 0"/></svg></button></div>';
+    return document.querySelector('.woot-widget-bubble');
+  };
+  const images = button => button.querySelectorAll('.inclamo-launcher-image');
+
+  it('shows one custom icon however often the widget reports it loaded', () => {
+    const button = launcher();
+    window.$chatwoot = {
+      baseUrl: 'https://help.example.test',
+      inclamoWidget: { icon: 'custom', icon_url: '/icons/one.png' },
+    };
+    decorateLauncher({ checkVisibility: false });
+    // $chatwoot.reset() reloads the frame, and the frame reports 'loaded' again.
+    decorateLauncher({ checkVisibility: false });
+    expect(images(button)).toHaveLength(1);
+
+    window.$chatwoot.inclamoWidget = { icon: 'custom', icon_url: '/icons/two.png' };
+    decorateLauncher({ checkVisibility: false });
+    expect(images(button)).toHaveLength(1);
+    expect(images(button)[0].src).toBe('https://help.example.test/icons/two.png');
+  });
+
+  it('drops the custom icon when the saved icon is no longer custom', () => {
+    const button = launcher();
+    window.$chatwoot = {
+      baseUrl: 'https://help.example.test',
+      inclamoWidget: { icon: 'custom', icon_url: '/icons/one.png' },
+    };
+    decorateLauncher({ checkVisibility: false });
+    button.querySelector('svg').style.display = 'none';
+    window.$chatwoot.inclamoWidget = { icon: 'help' };
+    decorateLauncher({ checkVisibility: false });
+    expect(images(button)).toHaveLength(0);
+    expect(button.querySelector('svg').style.display).toBe('');
+  });
+});
 const channel = {
   locale: 'en',
   enabledLanguages: [{ iso_639_1_code: 'en' }, { iso_639_1_code: 'fr' }],
