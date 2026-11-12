@@ -444,8 +444,10 @@ test.describe('Failures are shown, never silent', () => {
     await confirm(page, 'Cancel the order');
 
     await expect(page.getByTestId('inclamo-action-message')).toContainText('still working', { timeout: 45_000 });
-    expect(await lastRecord()).toMatchObject({ action: 'cancel', outcome: 'running' });
-    expect((await admin.panel(conversation.id)).open_actions.map(action => action.outcome)).toContain('running');
+    // A read of the panel holds the attempt as pending for a moment while it asks the store again.
+    expect(await lastRecord()).toMatchObject({ action: 'cancel' });
+    await expect.poll(async () => (await lastRecord()).outcome, { timeout: 30_000 }).toBe('running');
+    await expect.poll(async () => (await admin.panel(conversation.id)).open_actions.map(action => action.outcome), { timeout: 30_000 }).toContain('running');
 
     // The store has finished; the panel checks again when it is next read.
     await proxy.reset();

@@ -62,9 +62,27 @@ export async function openOrders(page, accountId, conversationId) {
 
 // Settings pages and the other secondary pages are reached from the sidebar's
 // "Workspace tools" menu. Opens the menu and returns it; Escape closes it.
+// Right after a page loads, the sidebar can still fill in its channels and push
+// the button, and the menu anchored to it, below the window: the menu is then
+// opened again from where the button settled, as a person would.
 export async function workspaceTools(page) {
   const menu = page.locator('.reference-navigation-menu');
-  if (!(await menu.isVisible())) await page.getByRole('button', { name: 'Workspace tools', exact: true }).click();
+  const trigger = page.getByRole('button', { name: 'Workspace tools', exact: true });
+  const fits = async () => {
+    const box = await menu.boundingBox();
+    return Boolean(box) && box.y >= 0 && box.y + box.height <= page.viewportSize().height + 1;
+  };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (!(await menu.isVisible())) await trigger.click();
+    await menu.waitFor({ timeout: 30_000 });
+    if (await fits()) {
+      await page.waitForTimeout(300);
+      if (await fits()) return menu;
+    }
+    await page.keyboard.press('Escape');
+    await menu.waitFor({ state: 'hidden', timeout: 10_000 });
+  }
+  await trigger.click();
   await menu.waitFor({ timeout: 30_000 });
   return menu;
 }
