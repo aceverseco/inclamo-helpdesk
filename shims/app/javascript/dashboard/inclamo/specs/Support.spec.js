@@ -76,4 +76,64 @@ describe('support privacy and fallbacks', () => {
     } finally { create.mockRestore(); vi.useRealTimers(); }
   });
 
+  describe('attached images', () => {
+    const MiB = 1024 * 1024;
+    let create;
+    // What a browser makes of a 12 MP phone photo: about 20 MiB as PNG, about 4 MiB as JPEG.
+    const element = document.createElement.bind(document);
+    const encoded = sizes => vi.spyOn(document, 'createElement').mockImplementation((name, ...rest) => {
+      if (name !== 'canvas') return element(name, ...rest);
+      return {
+        width: 0, height: 0,
+        getContext: () => ({ drawImage() {}, fillRect() {} }),
+        toBlob: (done, type) => done({ size: sizes[type], type }),
+      };
+    });
+    const attach = async (wrapper, file) => {
+      const input = wrapper.find('input[type="file"]');
+      Object.defineProperty(input.element, 'files', { value: [file], configurable: true });
+      await input.trigger('change');
+      await new Promise(resolve => { setTimeout(resolve, 0); });
+    };
+    const form = draft => mount(SupportForm, { props: { draft, metadata: { max_bytes: 10 * MiB, author: { name: 'Synthetic Author' }, account: { name: 'Synthetic Account' } } } });
+    beforeEach(() => {
+      vi.stubGlobal('navigator', {});
+      vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 4000, height: 3000, close() {} }));
+      vi.stubGlobal('URL', Object.assign(Object.create(URL), { createObjectURL: () => 'blob:preview', revokeObjectURL() {} }));
+    });
+    afterEach(() => create?.mockRestore());
+
+    it('keeps a photo under the displayed limit a JPEG, without its metadata', async () => {
+      create = encoded({ 'image/png': 20 * MiB, 'image/jpeg': 4 * MiB });
+      const draft = { body: '', category: 'problem', files: [], context: {} };
+      const wrapper = form(draft);
+      const photo = new File(['photo'], 'IMG_0042.JPG', { type: 'image/jpeg' });
+      await attach(wrapper, photo);
+
+      expect(wrapper.text()).not.toContain('Check the file type and size');
+      expect(draft.files.map(file => [file.name, file.blob.type])).toEqual([['IMG_0042.jpg', 'image/jpeg']]);
+      // Re-encoded from the drawn pixels, not the original file with its metadata.
+      expect(draft.files[0].blob).not.toBe(photo);
+      expect(draft.files[0].blob.size).toBe(4 * MiB);
+    });
+
+    it('sends an image that would grow past the limit as a JPEG', async () => {
+      create = encoded({ 'image/png': 12 * MiB, 'image/jpeg': 3 * MiB });
+      const draft = { body: '', category: 'problem', files: [], context: {} };
+      const wrapper = form(draft);
+      await attach(wrapper, new File(['drawing'], 'diagram.png', { type: 'image/png' }));
+
+      expect(draft.files.map(file => [file.name, file.blob.type])).toEqual([['diagram.jpg', 'image/jpeg']]);
+    });
+
+    it('still refuses an image that is over the limit in any form', async () => {
+      create = encoded({ 'image/png': 30 * MiB, 'image/jpeg': 11 * MiB });
+      const draft = { body: '', category: 'problem', files: [], context: {} };
+      const wrapper = form(draft);
+      await attach(wrapper, new File(['huge'], 'huge.png', { type: 'image/png' }));
+
+      expect(draft.files).toEqual([]);
+      expect(wrapper.text()).toContain('Check the file type and size');
+    });
+  });
 });

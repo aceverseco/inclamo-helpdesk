@@ -1,8 +1,34 @@
 export const captureAvailable = () => Boolean(navigator.mediaDevices?.getDisplayMedia);
 
-export function canvasBlob(canvas) {
-  return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('image_failed')), 'image/png'));
+export function canvasBlob(canvas, type = 'image/png') {
+  return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('image_failed')), type, type === 'image/png' ? undefined : 0.92));
 }
+
+// Encoding the drawn pixels drops the image's metadata. A photo keeps a photo
+// format: as PNG a JPEG grows several times over, and a file under the
+// displayed limit would be refused for our re-encoding. A result still over
+// the limit is tried once more as JPEG, on white where it was transparent.
+const KEPT_TYPES = ['image/jpeg', 'image/webp'];
+export async function encodeImage(canvas, sourceType, maxBytes = Infinity) {
+  const blob = await canvasBlob(canvas, KEPT_TYPES.includes(sourceType) ? sourceType : 'image/png');
+  if (blob.size <= maxBytes || blob.type === 'image/jpeg') return blob;
+  const opaque = document.createElement('canvas');
+  try {
+    opaque.width = canvas.width;
+    opaque.height = canvas.height;
+    const context = opaque.getContext('2d');
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, opaque.width, opaque.height);
+    context.drawImage(canvas, 0, 0);
+    return await canvasBlob(opaque, 'image/jpeg');
+  } finally {
+    opaque.width = 0;
+    opaque.height = 0;
+  }
+}
+
+export const imageName = (name, type) =>
+  `${name.replace(/\.[^.]+$/, '')}.${{ 'image/jpeg': 'jpg', 'image/webp': 'webp' }[type] || 'png'}`;
 
 // The chooser is invoked directly from the user's click. No pixels leave this
 // module/browser. All tracks stop even when playback, canvas or encoding fails.
@@ -52,7 +78,7 @@ export async function captureFrame(beforeFrame = () => {}, afterFrame = () => {}
   }
 }
 
-export async function flattenImage(blob) {
+export async function flattenImage(blob, maxBytes = Infinity) {
   const bitmap = await createImageBitmap(blob);
   const canvas = document.createElement('canvas');
   try {
@@ -61,6 +87,6 @@ export async function flattenImage(blob) {
     canvas.width = Math.max(1, Math.round(bitmap.width * scale));
     canvas.height = Math.max(1, Math.round(bitmap.height * scale));
     canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    return await canvasBlob(canvas);
+    return await encodeImage(canvas, blob.type, maxBytes);
   } finally { bitmap.close(); canvas.width = canvas.height = 0; }
 }
