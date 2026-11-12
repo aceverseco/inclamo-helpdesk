@@ -77,7 +77,9 @@ const loadMore = async () => {
     if (generation !== current.generation) return;
     acceptPanel(current, { ...current.panel, orders: [...(current.panel.orders || []), ...(data.orders || [])], page: data.page });
   } catch {
-    if (entry.value === current) current.failed = true;
+    // A failed further page leaves the orders already shown, and the summary
+    // other widgets read from this entry, as they were. "Load more" stays on
+    // screen and asks for the same page again.
   } finally {
     if (entry.value === current) loadingMore.value = false;
   }

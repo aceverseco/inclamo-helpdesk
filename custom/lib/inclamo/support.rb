@@ -3,6 +3,10 @@
 module Inclamo::Support
   class Invalid < StandardError; end
   class Unauthorized < StandardError; end
+  # Central intake refused this installation's request (401, 403 or 404):
+  # a halted intake, a clock out of step or a revoked source. Handled as
+  # Unauthorized everywhere except delivery, which retries it.
+  Rejected = Class.new(Unauthorized)
   class Conflict < StandardError; end
   class Unavailable < StandardError; end
   class RateLimited < StandardError; end

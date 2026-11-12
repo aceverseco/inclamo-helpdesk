@@ -29,8 +29,11 @@ export function acceptPanel(entry, data) {
     notePanel(entry.conversationId, data, entry.account);
   }
 }
+// A forced read (after an order action) must not be answered by a read that
+// started before the action: it starts its own, and the earlier one's answer
+// is dropped by the generation check.
 export async function readCommerce(entry, force = false) {
-  if (entry.pending) return entry.pending;
+  if (entry.pending && !force) return entry.pending;
   if (!force && entry.panel && Date.now() - entry.updatedAt < FRESHNESS_MS) return entry.panel;
   const generation = ++entry.generation;
   // A refresh reads as many orders as are shown and replaces them at once: an

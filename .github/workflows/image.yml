@@ -19,9 +19,10 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request replaces its run; on main every merge keeps its own result.
 concurrency:
   group: image-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   image:

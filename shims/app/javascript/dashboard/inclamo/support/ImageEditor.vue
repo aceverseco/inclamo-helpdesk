@@ -1,9 +1,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { Button } from '../ui/button';
-import { canvasBlob } from './capture';
+import { encodeImage } from './capture';
 import { t } from '../i18n';
-const props = defineProps({ image: { type: Blob, required: true } });
+const props = defineProps({ image: { type: Blob, required: true }, maxBytes: { type: Number, default: Infinity } });
 const emit = defineEmits(['done', 'cancel']);
 const canvas = ref(null);
 const tool = ref('rectangle');
@@ -85,7 +85,7 @@ onMounted(async () => {
 });
 const done = async () => {
   busy.value = true;
-  try { const flattened = await canvasBlob(canvas.value); if (!disposed) emit('done', flattened); }
+  try { const flattened = await encodeImage(canvas.value, props.image.type, props.maxBytes); if (!disposed) emit('done', flattened); }
   catch { failed.value = true; }
   finally { busy.value = false; }
 };

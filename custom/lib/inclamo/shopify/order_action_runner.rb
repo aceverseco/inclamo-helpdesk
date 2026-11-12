@@ -15,8 +15,9 @@ module Inclamo
     # An accepted action leaves a private note in the conversation.
     #
     # One request at a time works on an attempt: the one that created it,
-    # and later one that claims it (`claim!`). An attempt still pending after
-    # LEASE belongs to a request that ended without finishing it.
+    # and later one that claims it (`claim!`, held in `claimed_at`). An attempt
+    # still pending, or still claimed, after LEASE belongs to a request that
+    # ended without finishing it.
     #
     # An order-less action (OrderAction::ORDER_LESS, e.g. a new order) skips
     # step 3: it is about the customer matched to the conversation, whom its
@@ -283,24 +284,36 @@ module Inclamo
 
         handler = handler_for_open(record, extra)
         return record unless handler
-        return record unless claim!(record)
+        return record unless (claimed = claim!(record))
 
         run(record, handler)
       rescue Error
         record
+      ensure
+        release!(record) if claimed
       end
 
       # Takes an open attempt for this request, as it was read: one that is
-      # running or unknown, or pending longer than LEASE. False when another
-      # request has it, or has moved it on since.
+      # running or unknown, or pending longer than LEASE, and that no other
+      # request holds (claimed less than LEASE ago). Its outcome is left as it
+      # is, so that a panel read meanwhile still shows a running cancellation
+      # as running. False when another request has it, or has moved it on since.
       def claim!(record)
         open = record.outcome != 'pending' || record.updated_at < LEASE.ago
         return false unless open && %w[pending running unknown].include?(record.outcome)
+        return false if record.claimed_at && record.claimed_at >= LEASE.ago
 
+        now = Time.current
         claimed = OrderAction.where(id: record.id, outcome: record.outcome, updated_at: record.updated_at)
-                             .update_all(outcome: 'pending', updated_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
+                             .update_all(claimed_at: now, updated_at: now) # rubocop:disable Rails/SkipsModelValidations
         record.reload
         claimed == 1
+      end
+
+      # Ends this request's hold on an attempt it claimed, unless the hold ran
+      # out and another request holds it now.
+      def release!(record)
+        OrderAction.where(id: record.id, claimed_at: record.claimed_at).update_all(claimed_at: nil) # rubocop:disable Rails/SkipsModelValidations
       end
 
       # Settles an open attempt by reading the store (D7): the handlers of
@@ -309,7 +322,7 @@ module Inclamo
       # settle, is unknown.
       def resolve(record)
         was = record.outcome
-        return unless claim!(record)
+        return unless (claimed = claim!(record))
 
         state = handler_for_open(record)&.resolve
         case state
@@ -324,6 +337,8 @@ module Inclamo
       rescue Error
         # The store could not be read: the attempt is left as it was.
         record.update!(outcome: was == 'pending' ? 'unknown' : was)
+      ensure
+        release!(record) if claimed
       end
 
       def handler_for(record, order, extra = {})

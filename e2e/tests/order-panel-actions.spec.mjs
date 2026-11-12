@@ -1,7 +1,7 @@
 // Scenarios of behavior contract `conversation-order-panel` about acting on
 // orders. Each describe is a requirement, each test one of its scenarios.
 import { test, expect } from '@playwright/test';
-import { signIn, openOrders, orderCard, openStoreMenu, apiAs, proxy, bench, runTag, users, workspaceTools } from '../lib/helpdesk.mjs';
+import { signIn, openOrders, orderCard, openStoreMenu, apiAs, proxy, bench, runTag, users, withWorkspaceTools } from '../lib/helpdesk.mjs';
 import { openStore } from '../lib/store.mjs';
 
 const account = process.env.E2E_ACCOUNT_ID || '1';
@@ -92,8 +92,7 @@ test.describe('Order actions need a role given by an administrator', () => {
     await section.getByTestId('inclamo-manage-roles').click();
     await expect(page).toHaveURL(/\/settings\/order-actions$/);
     // A page of the account settings: the Workspace tools menu has its entry.
-    await expect((await workspaceTools(page)).getByRole('menuitem', { name: 'Order actions' })).toBeVisible();
-    await page.keyboard.press('Escape');
+    await withWorkspaceTools(page, menu => expect(menu.getByRole('menuitem', { name: 'Order actions' })).toBeVisible());
     for (const action of ['cancel', 'refund', 'address', 'replacement']) {
       await page.getByTestId(`inclamo-permission-${agent.userId}-${action}`).check();
       await expect.poll(async () => (await admin.get('/inclamo/order_roles')).body.members.find(member => member.user_id === agent.userId).permissions[action]).toBe(true);

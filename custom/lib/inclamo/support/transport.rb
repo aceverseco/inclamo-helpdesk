@@ -117,7 +117,7 @@ class Inclamo::Support::Transport
         raise Inclamo::Support::Unavailable if response_body.bytesize > (binary ? Inclamo::Support::MAX_BYTES : 8 * 1024 * 1024)
       end
       raise Inclamo::Support::Conflict if response.code == '409'
-      raise Inclamo::Support::Unauthorized if %w[401 403 404].include?(response.code)
+      raise Inclamo::Support::Rejected if %w[401 403 404].include?(response.code)
       raise Inclamo::Support::Unavailable unless response.is_a?(Net::HTTPSuccess)
 
       result = if binary
@@ -130,7 +130,7 @@ class Inclamo::Support::Transport
                end
     end
     result
-  rescue IOError, SystemCallError, Timeout::Error, OpenSSL::SSL::SSLError, JSON::ParserError
+  rescue IOError, SystemCallError, SocketError, Timeout::Error, OpenSSL::SSL::SSLError, Net::HTTPBadResponse, JSON::ParserError
     raise Inclamo::Support::Unavailable
   end
 end

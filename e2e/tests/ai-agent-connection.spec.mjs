@@ -9,7 +9,7 @@
 // issued (E2E_AI_CODE; docs/ai-connector.md §8). What only the stand-in can
 // show (what it received, its 503s, reading with its token) is then skipped.
 import { test, expect } from '@playwright/test';
-import { signIn, apiAs, users, eventually, runTag, workspaceTools, manageTab, chooseQueue } from '../lib/helpdesk.mjs';
+import { signIn, apiAs, users, eventually, runTag, withWorkspaceTools, manageTab, chooseQueue } from '../lib/helpdesk.mjs';
 import {
   standIn,
   aiService,
@@ -110,13 +110,14 @@ const openConversation = async (page, user, id) => {
 // The conversation's labels as the dashboard shows them: in the contact
 // sidebar's Manage tab, section "Conversation Actions", opened the way a person would.
 async function expectSidebarLabels(page, titles) {
-  const appeared = (locator, timeout) => locator.waitFor({ state: 'visible', timeout }).then(() => true, () => false);
   await page.locator('[data-message-id]').first().waitFor({ timeout: 45_000 });
   const manage = await manageTab(page);
-  const section = manage.getByText('Conversation Actions', { exact: true }).first();
-  await section.waitFor({ timeout: 30_000 });
+  // Whether the section is open is the user's saved choice, which its header
+  // shows (squared lower corners): a click on an open section would close it.
+  const header = manage.locator('button', { has: page.getByText('Conversation Actions', { exact: true }) }).first();
+  await header.waitFor({ timeout: 30_000 });
+  if (!/(^|\s)rounded-bl-none(\s|$)/.test((await header.getAttribute('class')) ?? '')) await header.click();
   const label = title => manage.getByText(title, { exact: true }).first();
-  if (!(await appeared(label(titles[0]), 5_000))) await section.click();
   for (const title of titles) await expect(label(title)).toBeVisible({ timeout: 30_000 });
 }
 
@@ -146,18 +147,17 @@ test('Administrator opens the page without a connection', async ({ page }) => {
   await expect(view.getByTestId(`inclamo-ai-inbox-${website.id}`)).toBeVisible();
   await expect(view.getByTestId(`inclamo-ai-inbox-${otherInbox.id}`)).toBeVisible();
   // Its entry is in the Settings group of the Workspace tools menu.
-  await expect((await workspaceTools(page)).locator('a[href$="/settings/ai-agent"]')).toBeVisible();
-  await page.keyboard.press('Escape');
+  await withWorkspaceTools(page, menu => expect(menu.locator('a[href$="/settings/ai-agent"]')).toBeVisible());
   expect(await bots()).toEqual([]);
 });
 
 test('Agents do not see the page', async ({ page }) => {
   await signIn(page, users.agent);
   await page.goto(`/app/accounts/${account}/settings/canned-response/list`);
-  const menu = await workspaceTools(page);
-  await expect(menu.locator('a[href$="/settings/canned-response/list"]')).toBeVisible({ timeout: 45_000 });
-  await expect(menu.locator('a[href$="/settings/ai-agent"]')).toHaveCount(0);
-  await page.keyboard.press('Escape');
+  await withWorkspaceTools(page, async menu => {
+    await expect(menu.locator('a[href$="/settings/canned-response/list"]')).toBeVisible({ timeout: 45_000 });
+    await expect(menu.locator('a[href$="/settings/ai-agent"]')).toHaveCount(0);
+  });
 
   await page.goto(settingsPath);
   await expect(page).not.toHaveURL(/\/settings\/ai-agent/, { timeout: 30_000 });

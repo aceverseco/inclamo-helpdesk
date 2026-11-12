@@ -3,6 +3,13 @@
 class Inclamo::Support::SyncJob < ApplicationJob
   queue_as :low
 
+  # Failures that say the database is busy: the whole batch is fetched and
+  # imported again later. Anything else is a problem of the event itself and
+  # would fail on every retry, holding back every later event of the feed,
+  # so that event is logged and passed over.
+  TRANSIENT = [ActiveRecord::ConnectionNotEstablished, ActiveRecord::ConnectionTimeoutError, ActiveRecord::Deadlocked,
+               ActiveRecord::LockWaitTimeout, ActiveRecord::QueryCanceled].freeze
+
   def perform(request_id = nil)
     installation = Inclamo::Support::Installation.find_by(purpose: 'support')
     return unless installation&.source_id
@@ -24,7 +31,7 @@ class Inclamo::Support::SyncJob < ApplicationJob
     5.times do
       batch = transport.events(installation.cursor)
       installation.with_lock do
-        batch.fetch('events').each { |event| Inclamo::Support::Feed.import!(event) }
+        batch.fetch('events').each { |event| import(event) }
         installation.update!(cursor: batch.fetch('cursor'))
       end
       break unless batch['more']
@@ -36,5 +43,15 @@ class Inclamo::Support::SyncJob < ApplicationJob
 
     failures = installation.failures + 1
     installation.update!(failures: failures, next_sync_at: [10 * 2**[failures, 8].min, 3600].min.seconds.from_now, sync_lease_until: nil)
+  end
+
+  private
+
+  def import(event)
+    ActiveRecord::Base.transaction(requires_new: true) { Inclamo::Support::Feed.import!(event) }
+  rescue *TRANSIENT
+    raise
+  rescue StandardError => error
+    Rails.logger.error("Inclamo support event #{event['id'] if event.is_a?(Hash)} skipped: #{error.class}")
   end
 end

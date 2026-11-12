@@ -231,6 +231,27 @@ describe('OrdersSection', () => {
     expect(has(wrapper, 'inclamo-orders-more')).toBe(false);
   });
 
+  it('keeps the orders on screen when the next page fails, and asks for that page again', async () => {
+    const wrapper = await show(matched({ page: { has_more: true, cursor: 'next' } }));
+
+    InclamoAPI.getPanel.mockRejectedValueOnce(new Error('timeout'));
+    await wrapper.find('[data-testid="inclamo-orders-more"]').trigger('click');
+    await flush();
+
+    expect(has(wrapper, 'inclamo-orders-unavailable')).toBe(false);
+    expect(has(wrapper, 'inclamo-order-#1001')).toBe(true);
+    expect(has(wrapper, 'inclamo-order-#1002')).toBe(true);
+    const more = wrapper.find('[data-testid="inclamo-orders-more"]');
+    expect(more.attributes()).not.toHaveProperty('disabled');
+
+    InclamoAPI.getPanel.mockResolvedValueOnce({ data: matched({ orders: [order({ id: 'gid://shopify/Order/3', number: '#1000' })], page: { has_more: false, cursor: null } }) });
+    await more.trigger('click');
+    await flush();
+    expect(InclamoAPI.getPanel).toHaveBeenLastCalledWith(7, 'next', '');
+    expect(has(wrapper, 'inclamo-order-#1000')).toBe(true);
+    expect(has(wrapper, 'inclamo-order-#1001')).toBe(true);
+  });
+
   it('finds an order by its number and can keep its customer for the contact', async () => {
     const wrapper = await show({ state: 'none', viewer: agent, connection: connection(), candidates: [] });
     InclamoAPI.lookup.mockResolvedValue({ data: { found: true, order: order({ number: '#1042' }) } });

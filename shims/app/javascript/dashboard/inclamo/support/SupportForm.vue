@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, defineAsyncComponent, onUnmounted } from 'vue';
 import { Button } from '../ui/button';
-import { captureAvailable, captureFrame, flattenImage } from './capture';
+import { captureAvailable, captureFrame, flattenImage, imageName } from './capture';
 import { supportUI } from './state';
 import { t } from '../i18n';
 const ImageEditor = defineAsyncComponent(() => import('./ImageEditor.vue'));
@@ -25,11 +25,11 @@ const add = async files => {
   try {
     for (const file of files) {
       if (file.size > sizeLimit.value || !['image/png', 'image/jpeg', 'image/webp', 'application/pdf', 'text/plain'].includes(file.type)) throw new Error('invalid_file');
-      const blob = file.type.startsWith('image/') ? await flattenImage(file) : file;
+      const blob = file.type.startsWith('image/') ? await flattenImage(file, sizeLimit.value) : file;
       if (disposed) return;
       if (blob.size > sizeLimit.value) throw new Error('invalid_file');
       const image = blob.type.startsWith('image/');
-      props.draft.files.push({ blob, name: image ? `${file.name.replace(/\.[^.]+$/, '')}.png` : file.name,
+      props.draft.files.push({ blob, name: image ? imageName(file.name, blob.type) : file.name,
         url: image ? URL.createObjectURL(blob) : null, reference: null });
     }
   } catch { localError.value = 'SUPPORT.FILE_INVALID'; }
@@ -59,7 +59,7 @@ const capture = async () => {
 const edited = blob => {
   if (blob.size > sizeLimit.value) { localError.value = 'SUPPORT.FILE_INVALID'; return; }
   const item = editing.value;
-  const file = { blob, name: item.name, reference: null, url: URL.createObjectURL(blob) };
+  const file = { blob, name: imageName(item.name, blob.type), reference: null, url: URL.createObjectURL(blob) };
   if (item.index === null) props.draft.files.push(file);
   else { URL.revokeObjectURL(props.draft.files[item.index].url); props.draft.files.splice(item.index, 1, file); }
   editing.value = null;
@@ -96,6 +96,6 @@ onUnmounted(() => { disposed = true; editing.value = null; });
       <p v-if="localError || error" role="alert" class="text-sm text-n-ruby-11">{{ t(localError || error) }}</p>
       <Button type="button" :disabled="busy || processing || !draft.body.trim() || (!metadata && !reply)" data-testid="support-submit" @click="emit('submit')">{{ t(busy ? 'SUPPORT.SENDING' : 'SUPPORT.SEND') }}</Button>
     </template>
-    <ImageEditor v-else :image="editing.blob" @done="edited" @cancel="editing = null" />
+    <ImageEditor v-else :image="editing.blob" :max-bytes="sizeLimit" @done="edited" @cancel="editing = null" />
   </div>
 </template>

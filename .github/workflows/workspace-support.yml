@@ -14,9 +14,10 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request replaces its run; on main every merge keeps its own result.
 concurrency:
   group: workspace-support-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   support:
@@ -38,8 +39,9 @@ jobs:
           push: false
           load: true
           tags: inclamo-helpdesk:support
-          cache-from: type=gha,scope=support
-          cache-to: type=gha,mode=max,scope=support
+          # The same image as the Dashboard theme's: one cache for both.
+          cache-from: type=gha,scope=theme
+          cache-to: type=gha,mode=max,scope=theme
       - name: Prepare the synthetic installations
         run: sh e2e/workspace-support/prepare.sh
       - name: Run the workspace widgets and in-product support tests
@@ -52,6 +54,8 @@ jobs:
           path: |
             workspace-support-output/results.json
             workspace-support-output/**/*.png
+            workspace-support-output/*.log
+            workspace-support-output/**/trace.zip
           retention-days: 14
       - name: Remove the installations
         if: always()
