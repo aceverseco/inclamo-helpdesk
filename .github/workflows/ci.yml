@@ -156,7 +156,9 @@ jobs:
 
       - name: Run the overlay's component tests
         working-directory: build/chatwoot
-        run: pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/inclamo
+        run: >-
+          pnpm exec vitest --no-watch --no-cache --no-coverage app/javascript/dashboard/inclamo
+          app/javascript/sdk/specs/inclamoWidget.spec.js app/javascript/widget/inclamo
 
       - name: Chatwoot's own tests around the seams still pass
         working-directory: build/chatwoot
