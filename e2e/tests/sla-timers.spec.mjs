@@ -7,7 +7,7 @@
 // test stack checks for missed targets every few seconds
 // (INCLAMO_SLA_CHECK_SECONDS), so a target of ten seconds is missed quickly.
 import { test, expect } from '@playwright/test';
-import { signIn, apiAs, eventually, users } from '../lib/helpdesk.mjs';
+import { signIn, apiAs, eventually, users, workspaceTools, manageTab } from '../lib/helpdesk.mjs';
 
 const account = process.env.E2E_ACCOUNT_ID || '1';
 const LABEL = 'sla-missed';
@@ -63,17 +63,15 @@ const timerApplied = conversationId => eventually(() => timerOf(conversationId),
 
 // The header of the SLA section in the conversation sidebar.
 const slaHeader = page => page.locator('button.drag-handle').filter({ has: page.locator('h5', { hasText: /^SLA$/ }) });
-const ordersHeader = page => page.locator('button.drag-handle').filter({ has: page.locator('h5', { hasText: /^Orders$/ }) });
+const actionsHeader = page => page.locator('button.drag-handle').filter({ has: page.locator('h5', { hasText: /^Conversation Actions$/ }) });
 
-// Opens a conversation and makes sure the contact sidebar is open; returns once
-// its sections are drawn (the Orders section is always there).
+// Opens a conversation and the Manage tab of its sidebar, where the
+// conversation's sections are; returns once they are drawn (the Conversation
+// Actions section is always there).
 async function openConversation(page, conversationId) {
   await page.goto(`/app/accounts/${account}/conversations/${conversationId}`);
-  const drawn = () => ordersHeader(page).first().waitFor({ state: 'attached', timeout: 8_000 }).then(() => true, () => false);
-  if (!(await drawn())) {
-    await page.locator('button[class*="!rounded-full"]').first().click();
-    await ordersHeader(page).first().waitFor({ state: 'attached', timeout: 45_000 });
-  }
+  await manageTab(page);
+  await actionsHeader(page).first().waitFor({ state: 'attached', timeout: 45_000 });
 }
 
 // The SLA section of a conversation, expanded the way a person would.
@@ -100,9 +98,9 @@ const target = (section, name) => section.getByTestId(`inclamo-sla-${name}`);
 test.describe('Administrators define SLA policies', () => {
   test('Administrator creates a policy', async ({ page }) => {
     await signIn(page, users.admin);
-    // The page is reached from the Settings group of the sidebar.
+    // The page is reached from the Settings group of the Workspace tools menu.
     await page.goto(`/app/accounts/${account}/settings/order-actions`);
-    await page.locator(`a[href$="/settings/sla-policies"]`).first().click();
+    await (await workspaceTools(page)).locator('a[href$="/settings/sla-policies"]').click();
     await expect(page).toHaveURL(/\/settings\/sla-policies$/);
     await page.getByTestId('inclamo-sla-page').waitFor();
 
@@ -144,10 +142,11 @@ test.describe('Administrators define SLA policies', () => {
 
     await expect(page).not.toHaveURL(/\/settings\/sla-policies$/, { timeout: 20_000 });
     await expect(page.getByTestId('inclamo-sla-page')).toHaveCount(0);
-    // The Settings group of the sidebar, opened if the agent has one, has no entry for the page.
-    const settings = page.getByRole('button', { name: /^Settings$/ });
-    if (await settings.count()) await settings.first().click();
-    await expect(page.locator('a[href$="/settings/sla-policies"]')).toHaveCount(0);
+    // The Workspace tools menu, where settings pages are reached, has no entry for the page.
+    const menu = await workspaceTools(page);
+    await expect(menu.locator('a[href*="/settings/"]').first()).toBeVisible();
+    await expect(menu.locator('a[href$="/settings/sla-policies"]')).toHaveCount(0);
+    await page.keyboard.press('Escape');
     expect((await agent.get('/inclamo/sla_policies')).status).toBe(403);
   });
 });

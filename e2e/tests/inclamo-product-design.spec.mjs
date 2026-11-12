@@ -37,10 +37,11 @@ async function appearance(page, mode) {
   );
 }
 
-async function capture(page, name, info) {
+// `mask` covers parts whose content depends on the day of the run.
+async function capture(page, name, info, mask = []) {
   await page.evaluate(() => document.fonts.ready);
   await page.mouse.move(1400, 880);
-  const screenshot = await page.screenshot({ animations: 'disabled' });
+  const screenshot = await page.screenshot({ animations: 'disabled', mask });
   await info.attach(`${baseline ? 'baseline' : 'theme'}-${name}`, {
     body: screenshot,
     contentType: 'image/png',
@@ -48,6 +49,7 @@ async function capture(page, name, info) {
   if (!baseline)
     await expect(page).toHaveScreenshot(`inclamo-${name}.png`, {
       animations: 'disabled',
+      mask,
     });
 }
 
@@ -874,7 +876,10 @@ test('Authentication and administration', async ({ page }, info) => {
   await page.locator('input[type="password"]').fill(users.admin.password);
   await page.locator('button[type="submit"]').click();
   await expect(page).toHaveURL(/super_admin(?!\/sign_in)/);
-  await capture(page, 'superadmin', info);
+  // The conversations chart and its summary cover the last 30 days up to today.
+  const chart = page.locator('#app section').filter({ has: page.locator('dl') });
+  await chart.locator('div.w-full.min-w-0.mt-4').waitFor();
+  await capture(page, 'superadmin', info, [chart.locator('dl'), chart.locator('div.w-full.min-w-0.mt-4')]);
 });
 
 test('Leave the staff application', async ({ page }, info) => {

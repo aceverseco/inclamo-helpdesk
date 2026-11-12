@@ -5,8 +5,16 @@ import { join } from 'node:path';
 // store. They change real data in that store, so they run one at a time.
 export default defineConfig({
   testDir: './tests',
-  // Synthetic theme snapshots have a separate installation and retention policy.
-  testIgnore: 'dashboard-theme.spec.mjs',
+  // These files run against stacks of their own, with their own configs:
+  // e2e/theme/run.sh (playwright.theme.config.mjs) and
+  // e2e/workspace-support/run.sh (playwright.workspace-support.config.mjs).
+  testIgnore: [
+    'dashboard-theme.spec.mjs',
+    'inclamo-product-design.spec.mjs',
+    'inclamo-onboarding.spec.mjs',
+    'workspace-widgets.spec.mjs',
+    'in-product-support.spec.mjs',
+  ],
   fullyParallel: false,
   workers: 1,
   retries: 0,

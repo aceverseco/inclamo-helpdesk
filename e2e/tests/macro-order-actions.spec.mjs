@@ -1,7 +1,7 @@
 // Scenarios of behavior contract `macro-order-actions`: order steps in
 // macros. Each describe is a requirement, each test one of its scenarios.
 import { test, expect } from '@playwright/test';
-import { signIn, apiAs, proxy, bench, runTag, users, eventually } from '../lib/helpdesk.mjs';
+import { signIn, apiAs, proxy, bench, runTag, users, eventually, manageTab } from '../lib/helpdesk.mjs';
 import { openStore } from '../lib/store.mjs';
 
 const account = process.env.E2E_ACCOUNT_ID || '1';
@@ -93,14 +93,12 @@ const status = async conversation => (await admin.get(`/conversations/${conversa
 const held = order => store.read(order);
 const refunded = async order => Number((await held(order)).totalRefundedSet.shopMoney.amount);
 
-// The Macros section of the conversation's sidebar, opened the way a person would.
+// The Macros section of the conversation's sidebar (its Manage tab), opened the way a person would.
 const openMacros = async (page, user, conversation) => {
   await signIn(page, user);
   await page.goto(`/app/accounts/${account}/conversations/${conversation.id}`);
+  await manageTab(page);
   const header = page.locator('button.drag-handle', { hasText: 'Macros' });
-  if (!(await header.first().waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false))) {
-    await page.locator('button[class*="!rounded-full"]').first().click();
-  }
   await header.first().waitFor({ state: 'visible', timeout: 30_000 });
   const row = name => page.locator('div.h-10', { hasText: name });
   // The section remembers whether it was open: open it only when the list does not show.

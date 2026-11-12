@@ -61,11 +61,16 @@ test.describe('The panel is a section of the conversation sidebar', () => {
 
     await expect(section).toBeVisible();
     await expect(page.getByText('Hello, a question about my order').first()).toBeVisible();
-    // It behaves like the other sections: one of several, collapsible.
-    expect(await page.locator('button.drag-handle').count()).toBeGreaterThan(3);
-    await page.locator('button.drag-handle', { hasText: 'Orders' }).click();
+    // It behaves like the other cards of the sidebar: one of several, collapsible.
+    const cards = page.locator('[data-widget-host="conversation-sidebar"] .inclamo-widget-heading');
+    expect(await cards.count()).toBeGreaterThan(2);
+    const heading = cards.filter({ hasText: 'Orders' });
+    await expect(heading).toHaveAttribute('aria-expanded', 'true');
+    await heading.click();
+    await expect(heading).toHaveAttribute('aria-expanded', 'false');
     await expect(section).toHaveCount(0);
-    await page.locator('button.drag-handle', { hasText: 'Orders' }).click();
+    await heading.click();
+    await expect(heading).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByTestId('inclamo-orders-section')).toBeVisible();
   });
 
@@ -180,7 +185,8 @@ test.describe('The panel shows the customer and their recent orders', () => {
     await signIn(page, users.agent);
     const section = await openOrders(page, account, conversation.id);
 
-    await expect(section.getByTestId('inclamo-customer-summary')).toContainText('orders');
+    // The number of orders and the total spent are the Purchase statistics card, next to the Orders card.
+    await expect(page.locator('[data-widget-host="conversation-sidebar"]').getByTestId('inclamo-customer-summary')).toContainText(/orders/i);
     const card = await orderCard(section, orders.shipped.number);
     const shipments = card.getByTestId('inclamo-order-shipment');
     await expect(shipments).toHaveCount(2);

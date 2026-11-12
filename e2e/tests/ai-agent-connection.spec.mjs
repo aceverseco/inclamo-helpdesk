@@ -9,7 +9,7 @@
 // issued (E2E_AI_CODE; docs/ai-connector.md §8). What only the stand-in can
 // show (what it received, its 503s, reading with its token) is then skipped.
 import { test, expect } from '@playwright/test';
-import { signIn, apiAs, users, eventually, runTag } from '../lib/helpdesk.mjs';
+import { signIn, apiAs, users, eventually, runTag, workspaceTools, manageTab, chooseQueue } from '../lib/helpdesk.mjs';
 import {
   standIn,
   aiService,
@@ -108,27 +108,28 @@ const openConversation = async (page, user, id) => {
 };
 
 // The conversation's labels as the dashboard shows them: in the contact
-// sidebar, section "Conversation Actions", opened the way a person would.
+// sidebar's Manage tab, section "Conversation Actions", opened the way a person would.
 async function expectSidebarLabels(page, titles) {
   const appeared = (locator, timeout) => locator.waitFor({ state: 'visible', timeout }).then(() => true, () => false);
   await page.locator('[data-message-id]').first().waitFor({ timeout: 45_000 });
-  const section = page.getByText('Conversation Actions', { exact: true }).first();
-  // The contact sidebar may be closed: the round button at the top right opens it.
-  if (!(await appeared(section, 5_000))) await page.locator('button[class*="!rounded-full"]').first().click();
+  const manage = await manageTab(page);
+  const section = manage.getByText('Conversation Actions', { exact: true }).first();
   await section.waitFor({ timeout: 30_000 });
-  const label = title => page.getByText(title, { exact: true }).first();
+  const label = title => manage.getByText(title, { exact: true }).first();
   if (!(await appeared(label(titles[0]), 5_000))) await section.click();
   for (const title of titles) await expect(label(title)).toBeVisible({ timeout: 30_000 });
 }
+
+// A row of the conversation list.
+const conversationRow = '.reference-row-host';
 
 // The conversation list of a team member, filtered by status the way the
 // dashboard's own status filter keeps it (Chatwoot's UI settings).
 async function listWithStatus(page, api, status) {
   await api.put('api/v1/profile', { profile: { ui_settings: { conversations_filter_by: { status, order_by: 'last_activity_at_desc' } } } });
   await page.goto(`/app/accounts/${account}/inbox/${website.id}`);
-  // The agent's conversations have the bot as assignee: they are under "All".
-  const all = page.locator('main li').filter({ hasText: /^\s*All\s*\d*\s*$/ }).first();
-  await all.click({ timeout: 45_000 });
+  // The agent's conversations have the bot as assignee: they are in the queue of all conversations.
+  await chooseQueue(page, 'all');
 }
 
 // --- The AI agent page is the door to the agent ------------------------------
@@ -144,15 +145,19 @@ test('Administrator opens the page without a connection', async ({ page }) => {
   await expect(view.getByTestId('inclamo-ai-code')).toBeVisible();
   await expect(view.getByTestId(`inclamo-ai-inbox-${website.id}`)).toBeVisible();
   await expect(view.getByTestId(`inclamo-ai-inbox-${otherInbox.id}`)).toBeVisible();
-  await expect(page.locator('a[href$="/settings/ai-agent"]').first()).toBeVisible();
+  // Its entry is in the Settings group of the Workspace tools menu.
+  await expect((await workspaceTools(page)).locator('a[href$="/settings/ai-agent"]')).toBeVisible();
+  await page.keyboard.press('Escape');
   expect(await bots()).toEqual([]);
 });
 
 test('Agents do not see the page', async ({ page }) => {
   await signIn(page, users.agent);
   await page.goto(`/app/accounts/${account}/settings/canned-response/list`);
-  await expect(page.locator('a[href$="/settings/canned-response/list"]').first()).toBeVisible({ timeout: 45_000 });
-  await expect(page.locator('a[href$="/settings/ai-agent"]')).toHaveCount(0);
+  const menu = await workspaceTools(page);
+  await expect(menu.locator('a[href$="/settings/canned-response/list"]')).toBeVisible({ timeout: 45_000 });
+  await expect(menu.locator('a[href$="/settings/ai-agent"]')).toHaveCount(0);
+  await page.keyboard.press('Escape');
 
   await page.goto(settingsPath);
   await expect(page).not.toHaveURL(/\/settings\/ai-agent/, { timeout: 30_000 });
@@ -258,11 +263,11 @@ test("The team sees the agent's conversations under Pending", async ({ browser, 
   await signIn(page, users.agent);
 
   await listWithStatus(page, agent, 'pending');
-  await expect(page.locator('.conversation', { hasText: name })).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator(conversationRow, { hasText: name })).toBeVisible({ timeout: 45_000 });
 
   await listWithStatus(page, agent, 'open');
-  await expect(page.locator('.conversation').first().or(page.getByText(/no .*conversations/i).first())).toBeVisible({ timeout: 45_000 });
-  await expect(page.locator('.conversation', { hasText: name })).toHaveCount(0);
+  await expect(page.locator(conversationRow).first().or(page.getByText(/no .*conversations/i).first())).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator(conversationRow, { hasText: name })).toHaveCount(0);
 });
 
 // --- The shopper's files reach the agent ---------------------------------------
