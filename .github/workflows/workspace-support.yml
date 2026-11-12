@@ -1,0 +1,58 @@
+name: Workspace support
+
+# The workspace widgets and in-product support scenarios run against three
+# synthetic installations of their own (client, hosted, central) on an
+# internal Docker network, with fixture mail, store and support services:
+# e2e/workspace-support/prepare.sh and run.sh. No live store, mail provider
+# or credential is used.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workspace-support-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  support:
+    name: Workspace widgets and in-product support
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      HELPDESK_IMAGE: inclamo-helpdesk:support
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble the pinned CE and overlay
+        run: scripts/assemble.sh build/chatwoot
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the usual product image
+        uses: docker/build-push-action@v6
+        with:
+          context: build/chatwoot
+          file: build/chatwoot/docker/Dockerfile
+          push: false
+          load: true
+          tags: inclamo-helpdesk:support
+          cache-from: type=gha,scope=support
+          cache-to: type=gha,mode=max,scope=support
+      - name: Prepare the synthetic installations
+        run: sh e2e/workspace-support/prepare.sh
+      - name: Run the workspace widgets and in-product support tests
+        run: sh e2e/workspace-support/run.sh
+      - name: Retain synthetic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-support-evidence
+          path: |
+            workspace-support-output/results.json
+            workspace-support-output/**/*.png
+          retention-days: 14
+      - name: Remove the installations
+        if: always()
+        run: docker compose -p inclamo-workspace-support -f e2e/workspace-support/compose.yaml down --volumes >/dev/null 2>&1 || true

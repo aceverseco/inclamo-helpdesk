@@ -43,21 +43,72 @@ export async function signIn(page, user) {
   await page.context().addCookies([{ name: 'cw_d_session_info', value: encodeURIComponent(JSON.stringify(headers)), url: baseUrl() }]);
 }
 
-// Opens a conversation and returns the Orders section of its sidebar, opening
-// the contact sidebar and expanding the section the way a person would.
+// Opens a conversation and returns the Orders section of its sidebar (the
+// Orders card of the Details tab), opening the sidebar and expanding the card
+// the way a person would.
 export async function openOrders(page, accountId, conversationId) {
   await page.goto(`/app/accounts/${accountId}/conversations/${conversationId}`);
   const section = page.getByTestId('inclamo-orders-section');
-  const header = page.locator('button.drag-handle', { hasText: 'Orders' });
+  const card = page.locator('[data-widget-host="conversation-sidebar"] .inclamo-widget-heading', { hasText: 'Orders' });
   const appeared = async (locator, timeout) => locator.first().waitFor({ state: 'attached', timeout }).then(() => true, () => false);
 
   if (await appeared(section, 5_000)) return section;
-  // The contact sidebar may be closed: Chatwoot's round button at the top
-  // right of the conversation opens it.
-  if (!(await appeared(header, 3_000))) await page.getByTestId('inclamo-toggle-customer').or(page.locator('button[class*="!rounded-full"]')).first().click();
-  if (!(await appeared(section, 3_000))) await header.first().click();
+  // The sidebar may be closed: the button at the top right of the conversation opens it.
+  if (!(await appeared(card, 3_000))) await page.getByTestId('inclamo-toggle-customer').click();
+  if (!(await appeared(section, 3_000)) && (await card.first().getAttribute('aria-expanded')) === 'false') await card.first().click();
   await section.waitFor({ state: 'attached', timeout: 45_000 });
   return section;
+}
+
+// Settings pages and the other secondary pages are reached from the sidebar's
+// "Workspace tools" menu. Opens the menu and returns it; Escape closes it.
+// Right after a page loads, the sidebar can still fill in its channels and push
+// the button, and the menu anchored to it, below the window: the menu is then
+// opened again from where the button settled, as a person would.
+export async function workspaceTools(page) {
+  const menu = page.locator('.reference-navigation-menu');
+  const trigger = page.getByRole('button', { name: 'Workspace tools', exact: true });
+  const fits = async () => {
+    const box = await menu.boundingBox();
+    return Boolean(box) && box.y >= 0 && box.y + box.height <= page.viewportSize().height + 1;
+  };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (!(await menu.isVisible())) await trigger.click();
+    await menu.waitFor({ timeout: 30_000 });
+    if (await fits()) {
+      await page.waitForTimeout(300);
+      if (await fits()) return menu;
+    }
+    await page.keyboard.press('Escape');
+    await menu.waitFor({ state: 'hidden', timeout: 10_000 });
+  }
+  await trigger.click();
+  await menu.waitFor({ timeout: 30_000 });
+  return menu;
+}
+
+// The conversation list shows one queue at a time, chosen in the queue menu
+// above the list (the sidebar's queues lead to the list of all inboxes).
+const queueNames = { all: 'All conversations', me: 'Assigned to me', unassigned: 'Unassigned' };
+export async function chooseQueue(page, key) {
+  const menu = page.getByRole('button', { name: 'Conversation queue' });
+  await menu.click({ timeout: 45_000 });
+  await page.getByRole('menuitemradio', { name: new RegExp(`^${queueNames[key]}`) }).click();
+  await menu.filter({ hasText: queueNames[key] }).waitFor({ timeout: 30_000 });
+}
+
+// The conversation sidebar keeps the conversation's own sections (Conversation
+// Actions, Macros, SLA and Chatwoot's others) on its "Manage" tab; Orders is a
+// card of its "Details" tab (see openOrders).
+// Opens the sidebar if it is closed, then the tab, and returns the tab's panel.
+export async function manageTab(page) {
+  const tab = page.getByRole('tab', { name: 'Manage' });
+  const shown = await tab.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false);
+  if (!shown) await page.getByTestId('inclamo-toggle-customer').click();
+  await tab.click();
+  const panel = page.locator('.reference-customer-manage');
+  await panel.waitFor({ timeout: 30_000 });
+  return panel;
 }
 
 // The helpdesk's API as one signed-in user, for preparing and checking what

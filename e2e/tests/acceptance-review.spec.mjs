@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { writeFileSync } from 'node:fs';
-import { signIn, openOrders, orderCard, apiAs, proxy, bench, runTag, users } from '../lib/helpdesk.mjs';
+import { signIn, openOrders, orderCard, apiAs, proxy, bench, runTag, users, chooseQueue } from '../lib/helpdesk.mjs';
 import { openStore } from '../lib/store.mjs';
 
 const account = process.env.E2E_ACCOUNT_ID || '1';
@@ -100,8 +100,8 @@ test('Setup and administrator settings are reviewable in the combined image', as
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(composer).toHaveCount(0);
-  // The saved list filter is Mine; this synthetic conversation is unassigned.
-  await page.locator('main li a').filter({ hasText: /^All\s*\d+$/ }).click();
+  // This synthetic conversation is unassigned: it is in the queue of all conversations.
+  await chooseQueue(page, 'all');
   await expect(page.getByText('Acceptance Shopper', { exact: true }).first()).toBeVisible();
 });
 

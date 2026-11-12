@@ -5,7 +5,7 @@ const account = process.env.E2E_ACCOUNT_ID || '1';
 let admin, agent, store, conversation, order, cancelOrder;
 const grant = (action, enabled) => admin.patch(`/inclamo/order_roles/${agent.userId}`, { action_name: action, enabled });
 test.beforeAll(async ({ playwright }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(420_000);
   const request = await playwright.request.newContext({ baseURL: process.env.HELPDESK_URL });
   admin = await apiAs(request, users.admin); agent = await apiAs(request, users.agent);
   await proxy.reset(); await admin.disconnect(); await admin.connect(bench());
@@ -15,6 +15,8 @@ test.beforeAll(async ({ playwright }) => {
   const customer = await store.customer('Rights');
   order = await store.draftOrder(customer);
   cancelOrder = await store.draftOrder(customer);
+  // The store's customer search, which the panel uses to find the customer, shows one it has just made only after a moment.
+  await store.known(customer, facts => facts.orders >= 2, { timeout: 180_000 });
   conversation = await admin.conversation(inbox, { name: 'Rights Shopper', email: customer.email, message: 'Please update my delivery address.' });
 });
 test.afterAll(async () => { await proxy.reset(); if (store) expect((await store.clean()).kept).toEqual([]); });

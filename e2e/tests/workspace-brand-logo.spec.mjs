@@ -20,6 +20,13 @@ test.beforeAll(async ({ playwright }) => {
 async function shownWhole(image, size) {
   await expect(image).toBeVisible();
   await expect(image).toHaveJSProperty('complete', true);
+  // The sidebar widens with a transition after it is expanded or the window
+  // changes: the size is the one the image settles at.
+  if (size) {
+    await expect
+      .poll(() => image.evaluate(node => { const box = node.getBoundingClientRect(); return [Math.round(box.width), Math.round(box.height)]; }))
+      .toEqual([size, size]);
+  }
   const shape = await image.evaluate(node => {
     const box = node.getBoundingClientRect();
     return { naturalWidth: node.naturalWidth, naturalHeight: node.naturalHeight, width: box.width, height: box.height, fit: getComputedStyle(node).objectFit };
@@ -35,10 +42,6 @@ async function shownWhole(image, size) {
     const sameShape = Math.abs(shape.width / shape.height - shape.naturalWidth / shape.naturalHeight) < 0.02;
     expect(sameShape || ['contain', 'scale-down'].includes(shape.fit)).toBe(true);
     expect(shape.fit).not.toBe('cover');
-  }
-  if (size) {
-    expect(Math.round(shape.width)).toBe(size);
-    expect(Math.round(shape.height)).toBe(size);
   }
 }
 
