@@ -200,7 +200,7 @@ RSpec.describe Inclamo::Sla::Timers do
       timer = timer_of(conversation)
       expect(timer.first_response_missed_at).to be_within(1.second).of(timer.started_at + 2.hours)
       expect(timer.resolution_missed_at).to be_nil
-      expect(conversation.reload.label_list).to eq([Inclamo::Sla::LABEL])
+      expect(conversation.reload.label_list).to contain_exactly(Inclamo::Sla::LABEL, Inclamo::TeamQueues::OVERDUE_LABEL)
       expect(notes(conversation)).to eq(['SLA "Standard": the first-response target of 2 hours was missed.'])
       expect(account.labels.find_by(title: Inclamo::Sla::LABEL)).to have_attributes(show_on_sidebar: true)
     end
@@ -210,7 +210,7 @@ RSpec.describe Inclamo::Sla::Timers do
 
       timer = timer_of(conversation)
       expect(timer.resolution_missed_at).to be_within(1.second).of(timer.started_at + 2.days)
-      expect(conversation.reload.label_list).to eq([Inclamo::Sla::LABEL])
+      expect(conversation.reload.label_list).to contain_exactly(Inclamo::Sla::LABEL, Inclamo::TeamQueues::OVERDUE_LABEL)
       expect(notes(conversation)).to eq(['SLA "Standard": the first-response target of 2 hours was missed.',
                                          'SLA "Standard": the resolution target of 2 days was missed.'])
     end
@@ -240,7 +240,7 @@ RSpec.describe Inclamo::Sla::Timers do
       described_class.check_due!(conversation.created_at + 3.hours)
 
       expect(account.labels.where(title: Inclamo::Sla::LABEL).pluck(:color)).to eq(['#000000'])
-      expect(conversation.reload.label_list).to eq([Inclamo::Sla::LABEL])
+      expect(conversation.reload.label_list).to contain_exactly(Inclamo::Sla::LABEL, Inclamo::TeamQueues::OVERDUE_LABEL)
     end
   end
 

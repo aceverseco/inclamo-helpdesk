@@ -28,6 +28,11 @@ class Inclamo::SlaTimer < ApplicationRecord
   belongs_to :policy, class_name: 'Inclamo::SlaPolicy', optional: true, inverse_of: :timers
 
   scope :running, -> { where(RUNNING.values.map { |condition| "(#{condition})" }.join(' OR ')) }
+  # Not stopped, with a target not reached yet: still running, or already missed.
+  scope :unfinished, lambda {
+    where('stopped_at IS NULL AND ((first_response_seconds IS NOT NULL AND first_response_at IS NULL) ' \
+          'OR (resolution_seconds IS NOT NULL AND resolved_at IS NULL))')
+  }
 
   # Timers with a target that may have passed by `now`. Counting business hours
   # only ever makes a deadline later, so plain time is the first cut. A

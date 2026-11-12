@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useSidebarContext } from 'dashboard/components-next/sidebar/provider';
 import { useMapGetter } from 'dashboard/composables/store';
@@ -21,6 +21,15 @@ import {
   Mail,
   Bell,
   ArrowUpRight,
+  Flame,
+  Bot,
+  TimerOff,
+  Truck,
+  Ban,
+  PackageX,
+  Puzzle,
+  Undo2,
+  ListFilter,
 } from 'lucide-vue-next';
 import { Button } from '../ui/button';
 import {
@@ -33,6 +42,14 @@ import {
 } from '../ui/dropdown-menu';
 import { t } from '../i18n';
 import { useQueueCounts } from './useQueueCounts';
+import {
+  teamQueues,
+  teamQueuesKnown,
+  teamQueueRouteId,
+  isTeamQueueId,
+  notifyTeamQueueUnavailable,
+} from '../teamQueues';
+import { FOLDER_ROUTE, FOLDER_CONVERSATION_ROUTE } from '../routes';
 const props = defineProps({
   items: { type: Array, required: true },
   collapsed: Boolean,
@@ -107,6 +124,43 @@ const customerViews = computed(() =>
 );
 const isCurrent = item =>
   resolvePath(item.to) === route.path || item.activeOn?.includes(route.name);
+// Team queues: the account's shared queues, the same for every staff member.
+const teamQueueIcons = {
+  urgent: Flame,
+  ai_handover: Bot,
+  overdue: TimerOff,
+  delivery: Truck,
+  cancellation: Ban,
+  damage: PackageX,
+  missing_parts: Puzzle,
+  return: Undo2,
+};
+const openFolderId = computed(() =>
+  [FOLDER_ROUTE, FOLDER_CONVERSATION_ROUTE].includes(route.name)
+    ? route.params.id
+    : undefined
+);
+const teamQueueRows = computed(() =>
+  teamQueues.value.map(queue => ({
+    ...queue,
+    routeId: teamQueueRouteId(queue),
+    icon: teamQueueIcons[queue.key] || ListFilter,
+    to: accountScopedRoute(FOLDER_ROUTE, { id: teamQueueRouteId(queue) }),
+  }))
+);
+// The queue on screen was hidden by an administrator meanwhile: back to the
+// main list, with the same message a stale link gets.
+watch(
+  () =>
+    teamQueuesKnown.value &&
+    isTeamQueueId(openFolderId.value) &&
+    !teamQueueRows.value.some(row => row.routeId === openFolderId.value),
+  gone => {
+    if (!gone) return;
+    notifyTeamQueueUnavailable();
+    router.push(accountScopedRoute('home'));
+  }
+);
 function selectQueue(key) {
   router.push({ ...accountScopedRoute('home'), query: { queue: key } });
 }
@@ -147,6 +201,29 @@ function selectQueue(key) {
           {{ stats?.[item.count] ?? '—' }}
         </span>
       </button>
+    </div>
+    <div
+      v-if="teamQueueRows.length"
+      class="queue-nav team-queue-nav"
+      role="group"
+      :aria-label="t('TEAM_QUEUES.HEADING')"
+    >
+      <RouterLink
+        v-for="item in teamQueueRows"
+        :key="item.id"
+        :to="item.to"
+        class="nav-row"
+        :class="{ selected: openFolderId === item.routeId }"
+        :aria-current="openFolderId === item.routeId ? 'page' : undefined"
+        :title="item.name"
+        :data-testid="`inclamo-team-queue-${item.key || item.id}`"
+      >
+        <component :is="item.icon" />
+        <span>{{ item.name }}</span>
+        <span class="nav-count" :title="t('TEAM_QUEUES.COUNT')">
+          {{ item.count ?? '—' }}
+        </span>
+      </RouterLink>
     </div>
     <RouterLink
       v-if="customers"

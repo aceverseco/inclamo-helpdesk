@@ -237,6 +237,24 @@ class InclamoAPI extends ApiClient {
         throw error;
       });
   }
+
+  // Team queues. Everyone reads the visible ones with their counts; an
+  // administrator reads the hidden ones too and changes them.
+  getTeamQueues(all = false) {
+    return axios.get(`${this.url}/team_queues`, { params: all ? { all: 1 } : {} });
+  }
+
+  updateTeamQueue(id, payload) {
+    return axios.patch(`${this.url}/team_queues/${id}`, payload);
+  }
+
+  reorderTeamQueues(ids) {
+    return axios.post(`${this.url}/team_queues/reorder`, { ids });
+  }
+
+  restoreTeamQueue(id) {
+    return axios.post(`${this.url}/team_queues/${id}/restore`);
+  }
 }
 
 export default new InclamoAPI();

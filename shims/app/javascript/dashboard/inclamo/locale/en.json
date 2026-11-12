@@ -438,6 +438,23 @@
         "encryption_not_configured": "Encryption must be configured on this installation before the AI agent can be connected.",
         "forbidden": "Only an administrator can manage the AI agent."
       }
+    },
+    "TEAM_QUEUES": {
+      "MENU": "Team queues",
+      "TITLE": "Team queues",
+      "INTRO": "Queues every member of the team sees in the workspace, under All, Assigned to me and Unassigned. Rename them, change their order, or hide the ones you do not use.",
+      "LOADING": "Loading team queues…",
+      "FAILED": "Team queues could not be loaded. Reload the page to try again.",
+      "SAVE_FAILED": "The change was not saved.",
+      "NAME": "Name of the queue {name}",
+      "SHOWN": "Show the queue {name} to the team",
+      "SHOWN_COLUMN": "Shown",
+      "MOVE_UP": "Move {name} up",
+      "MOVE_DOWN": "Move {name} down",
+      "RESTORE": "Restore",
+      "RESTORE_LABEL": "Restore the queue {name} to its original name, place and conditions",
+      "HIDDEN": "Hidden",
+      "LABEL_NOTE": "Delivery, Cancellation, Damage, Missing parts and Return list open conversations that carry the label of the same name. Add the label by hand, in a macro or in an automation rule. Urgent lists open conversations with urgent priority. Overdue and Handed over by AI are filled automatically."
     }
   },
   "REPLY_VARIABLES": {
@@ -1157,5 +1174,10 @@
     "COPIED": "Copied",
     "COPY_INSTALLATION_CODE": "Copy installation code",
     "LIVE_PREVIEW": "Live preview"
+  },
+  "TEAM_QUEUES": {
+    "HEADING": "Team queues",
+    "COUNT": "Open conversations in this queue",
+    "NOT_AVAILABLE": "This queue is not available. Showing all conversations."
   }
 }

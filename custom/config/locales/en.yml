@@ -133,6 +133,40 @@ en:
         forbidden: Only an administrator can manage the preset rules.
         value_required: Enter an amount, zero or more, before switching this rule on.
         rule_invalid: Chatwoot does not accept this rule as it is now. Open it in the automation list, correct it and try again.
+    # Team queues: the names the ready queues ship with, the descriptions of
+    # the labels they list by, and the refusals of the queues endpoint.
+    team_queues:
+      names:
+        urgent: Urgent
+        ai_handover: Handed over by AI
+        overdue: Overdue
+        delivery: Delivery
+        cancellation: Cancellation
+        damage: Damage
+        missing_parts: Missing parts
+        return: Return
+      labels:
+        sla_overdue: An SLA target was missed and is still unmet. Lists the conversation in the queue "Overdue".
+        delivery: A question about delivery. Lists the conversation in the queue "Delivery".
+        cancellation: A request to cancel an order. Lists the conversation in the queue "Cancellation".
+        damage: A damaged item. Lists the conversation in the queue "Damage".
+        missing_parts: A missing part or item. Lists the conversation in the queue "Missing parts".
+        return: A return. Lists the conversation in the queue "Return".
+      errors:
+        forbidden: Only an administrator can manage the team queues.
+        name_invalid: Give the queue a name of at most 60 characters.
+        hidden_invalid: Say whether the queue is hidden with true or false.
+        too_many_visible: At most 20 team queues can be shown. Hide another queue first.
+        order_incomplete: The new order has to name every team queue once.
+        not_ready: Only a ready queue can be restored.
+    # The saved replies every account starts with (short codes in
+    # Inclamo::ReadyReplies). Only variables of the reply-order-variables contract.
+    ready_replies:
+      delivery: "Thanks for getting in touch. Your order {{order.number}} is on its way. You can follow it here: {{order.tracking_link}}"
+      cancellation: "We have received your request to cancel order {{order.number}}. We are checking whether it can still be stopped and will confirm shortly."
+      damage: "We are sorry your item arrived damaged. Could you send us a photo of the item and of the packaging? We will sort it out as soon as we have them."
+      missing_parts: "We are sorry something is missing from your order. Could you tell us which part or item is missing, with its number from the manual if there is one? We will send it out."
+      return: "We can help with a return of order {{order.number}}. Could you tell us which item you would like to return and why?"
     sla:
       label_description: A target of an SLA policy was missed in this conversation.
       notes:

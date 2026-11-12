@@ -84,13 +84,19 @@ class Inclamo::SlaPolicy < ApplicationRecord
     self.position = (self.class.where(account_id: account_id).maximum(:position) || -1) + 1
   end
 
-  # Timers already applied keep their targets; those still running stop, so
-  # nothing is marked as missed after the policy is gone. A target that passed
+  # Timers already applied keep their targets; every timer with a target not
+  # reached yet stops, whether that target is still running or was already
+  # missed. So nothing is marked as missed after the policy is gone, and a
+  # conversation is not listed as overdue for a policy that no longer exists
+  # (a target shown as missed stays shown as missed). A target that passed
   # while the policy was there is marked first, as the check would have done:
   # the check may not have run since.
   def stop_running_timers
     now = Time.current
     Inclamo::Sla::Timers.check_due!(now, timers)
-    timers.running.update_all(stopped_at: now, updated_at: now) # rubocop:disable Rails/SkipsModelValidations
+    stopped = timers.unfinished.pluck(:conversation_id)
+    timers.unfinished.update_all(stopped_at: now, updated_at: now) # rubocop:disable Rails/SkipsModelValidations
+    # A stopped timer is not overdue any more (team queue "Overdue").
+    stopped.each { |conversation_id| Inclamo::TeamQueues::Markers.sync_overdue(conversation_id) }
   end
 end

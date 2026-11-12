@@ -1,0 +1,71 @@
+diff --git a/app/javascript/dashboard/routes/dashboard/conversation/conversation.routes.js b/app/javascript/dashboard/routes/dashboard/conversation/conversation.routes.js
+--- a/app/javascript/dashboard/routes/dashboard/conversation/conversation.routes.js
++++ b/app/javascript/dashboard/routes/dashboard/conversation/conversation.routes.js
+@@ -2,6 +2,10 @@
+ import { frontendURL } from '../../../helper/URLHelper';
+ import store from '../../../store';
+ import ConversationView from './ConversationView.vue';
++import {
++  isTeamQueueId,
++  teamQueueAvailable,
++} from 'dashboard/inclamo/teamQueues';
+ 
+ const CONVERSATION_PERMISSIONS = [
+   'administrator',
+@@ -12,6 +16,7 @@
+ ];
+ 
+ const isFolderAvailable = async folderId => {
++  if (isTeamQueueId(folderId)) return teamQueueAvailable(folderId);
+   let folders = store.getters['customViews/getConversationCustomViews'];
+   if (!folders.length) {
+     await store.dispatch('customViews/get', 'conversation');
+diff --git a/app/javascript/dashboard/components/ChatList.vue b/app/javascript/dashboard/components/ChatList.vue
+--- a/app/javascript/dashboard/components/ChatList.vue
++++ b/app/javascript/dashboard/components/ChatList.vue
+@@ -8,6 +8,7 @@
+ } from 'dashboard/composables/store.js';
+ 
+ import ChatListHeader from './ChatListHeader.vue';
++import { resolveTeamQueue } from 'dashboard/inclamo/teamQueues';
+ import ConversationBasicFilter from './widgets/conversation/ConversationBasicFilter.vue';
+ import InboxTools from 'dashboard/inclamo/components/InboxTools.vue';
+ import ConversationList from './ConversationList.vue';
+@@ -148,6 +149,8 @@
+ 
+ const activeFolder = computed(() => {
+   if (props.foldersId) {
++    const teamQueue = resolveTeamQueue(props.foldersId);
++    if (teamQueue) return teamQueue;
+     const activeView = folders.value.filter(
+       view => view.id === Number(props.foldersId)
+     );
+@@ -943,6 +946,7 @@
+       :contact-filter="appliedContactFilter"
+       :has-applied-filters="hasAppliedFilters"
+       :has-active-folders="hasActiveFolders"
++      :folder-locked="Boolean(activeFolder?.teamQueue)"
+       :is-on-expanded-layout="isOnExpandedLayout"
+       :conversation-stats="conversationStats"
+       :is-list-loading="chatListLoading && !conversationList.length"
+diff --git a/app/javascript/dashboard/components/ChatListHeader.vue b/app/javascript/dashboard/components/ChatListHeader.vue
+--- a/app/javascript/dashboard/components/ChatListHeader.vue
++++ b/app/javascript/dashboard/components/ChatListHeader.vue
+@@ -14,6 +14,7 @@
+   contactFilter: { type: Object, default: null },
+   hasAppliedFilters: { type: Boolean, required: true },
+   hasActiveFolders: { type: Boolean, required: true },
++  folderLocked: { type: Boolean, default: false },
+   isOnExpandedLayout: { type: Boolean, required: true },
+   conversationStats: { type: Object, required: true },
+   isListLoading: { type: Boolean, required: true },
+@@ -118,7 +119,8 @@
+           />
+         </div>
+       </template>
+-      <template v-if="hasActiveFolders">
++      <template v-if="folderLocked" />
++      <template v-else-if="hasActiveFolders">
+         <div class="relative">
+           <NextButton
+             id="toggleConversationFilterButton"

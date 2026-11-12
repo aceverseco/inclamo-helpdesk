@@ -62,6 +62,10 @@ namespace :api, defaults: { format: 'json' } do
             end
           end
           resources :rule_presets, only: [:index, :update]
+          resources :team_queues, only: [:index, :update] do
+            post :reorder, on: :collection
+            post :restore, on: :member
+          end
           resources :macro_previews, only: [:create]
           resources :macro_confirmations, only: [:create]
           resources :discount_presets, only: [:index, :create, :update, :destroy]

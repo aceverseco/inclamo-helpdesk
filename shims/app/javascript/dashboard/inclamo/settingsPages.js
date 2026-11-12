@@ -2,7 +2,7 @@
 // entry a route and a line in the sidebar's Settings group. Load the page
 // only when its route opens: the settings frame itself imports the router.
 import { t } from './i18n';
-import { ORDER_ROLES_ROUTE, RULE_PRESETS_ROUTE, DISCOUNT_SETTINGS_ROUTE, SLA_POLICIES_ROUTE, AI_AGENT_ROUTE, SETUP_ROUTE } from './routes';
+import { ORDER_ROLES_ROUTE, RULE_PRESETS_ROUTE, DISCOUNT_SETTINGS_ROUTE, SLA_POLICIES_ROUTE, AI_AGENT_ROUTE, SETUP_ROUTE, TEAM_QUEUES_ROUTE } from './routes';
 
 export default [
   {
@@ -51,6 +51,14 @@ export default [
     label: () => t('SETTINGS.DISCOUNTS.MENU'),
     icon: 'i-lucide-ticket-percent',
     component: () => import('./components/DiscountSettingsPage.vue'),
+    permissions: ['administrator'],
+  },
+  {
+    name: TEAM_QUEUES_ROUTE,
+    path: 'team-queues',
+    label: () => t('SETTINGS.TEAM_QUEUES.MENU'),
+    icon: 'i-lucide-list-tree',
+    component: () => import('./components/TeamQueuesPage.vue'),
     permissions: ['administrator'],
   },
   {

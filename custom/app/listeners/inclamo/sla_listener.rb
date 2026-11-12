@@ -18,6 +18,8 @@ class Inclamo::SlaListener < BaseListener
   def conversation_resolved(event)
     conversation, = extract_conversation_and_account(event)
     safely(conversation.account) { Inclamo::Sla::Timers.resolved!(conversation, event.timestamp || Time.current) }
+    # A resolved conversation is not listed as overdue, whatever its timer says.
+    Inclamo::TeamQueues::Markers.sync_overdue(conversation.id)
   end
 
   private

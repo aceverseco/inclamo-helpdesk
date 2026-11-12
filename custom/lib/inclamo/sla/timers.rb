@@ -55,14 +55,18 @@ module Inclamo
       # Inclamo::SlaCheckJob, and for the timers of a policy being deleted. A
       # target that cannot be marked is reported and left for the next run; the
       # others are checked all the same.
-      def check_due!(now = Time.current, timers = Inclamo::SlaTimer.all)
+      def check_due!(now = Time.current, timers = nil)
         computed_at = Time.current
-        timers.maybe_due(now).includes(conversation: { inbox: :working_hours }).find_each do |timer|
+        (timers || Inclamo::SlaTimer.all).maybe_due(now).includes(conversation: { inbox: :working_hours }).find_each do |timer|
           Inclamo::SlaTimer::TARGETS.each { |target| check!(timer, target, now) }
           # Its deadlines as now computed: later runs leave it alone until then
           # (SlaTimer.maybe_due), unless the inbox's hours change.
           timer.store_due!(computed_at) if timer.business_hours_only?
         end
+        # The team queue "Overdue": its label is brought in step with the
+        # timers, a bounded number of conversations a run. Nothing is written
+        # where nothing changed.
+        Inclamo::TeamQueues::Markers.reconcile_overdue unless timers
       end
 
       def check!(timer, target, now)
@@ -92,6 +96,8 @@ module Inclamo
           deadline = timer.deadline(target)
           missed!(timer, target, deadline, reached: true) if deadline && at > deadline
         end
+        # A target met, in time or late, is no longer overdue (team queue "Overdue").
+        Inclamo::TeamQueues::Markers.sync_overdue(timer.conversation_id)
       end
 
       # Sets the moment the target passed, then adds the label and the note, in
@@ -105,8 +111,9 @@ module Inclamo
         unmarked[reached_column(target)] = nil unless reached
         Inclamo::SlaTimer.transaction(requires_new: true) do
           marked = Inclamo::SlaTimer.where(unmarked).update_all(column => at, updated_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
-          mark_conversation!(timer, target) if marked.positive?
+          mark_conversation!(timer, target, overdue: !reached) if marked.positive?
         end
+        Inclamo::TeamQueues::Markers.sync_overdue(timer.conversation_id)
       end
 
       def running?(timer, target)
@@ -149,11 +156,23 @@ module Inclamo
       end
 
       # The label `sla-missed` and a private note naming the target and its length.
-      def mark_conversation!(timer, target)
+      # A target the check found unmet (`overdue`) also gets the team queues'
+      # `sla-overdue` in the same write, so the conversation changes once and
+      # the store's automation rules see one update, not two.
+      def mark_conversation!(timer, target, overdue: false)
         # A fresh record: Chatwoot's label persistence must not reuse an instance.
         conversation = Conversation.find(timer.conversation_id)
         label!(conversation.account)
-        conversation.add_labels([LABEL]) unless conversation.label_list.include?(LABEL)
+        Inclamo::TeamQueues::Installer.label!(conversation.account, Inclamo::TeamQueues::OVERDUE_LABEL) if overdue
+        # Under the row lock, which reloads the conversation, so a label added
+        # by somebody else at this moment is kept (as Inclamo::Ai::Labels.add).
+        conversation.with_lock do
+          wanted = [LABEL]
+          wanted << Inclamo::TeamQueues::OVERDUE_LABEL if overdue && !conversation.resolved?
+          current = conversation.label_list.to_a
+          missing = wanted - current
+          conversation.update!(label_list: current + missing) if missing.any?
+        end
         note = I18n.t("inclamo.sla.notes.#{target}", policy: timer.policy_name, target: Sla.duration_words(timer.target_seconds(target)))
         Messages::MessageBuilder.new(nil, conversation, { content: note, private: true }).perform
       end

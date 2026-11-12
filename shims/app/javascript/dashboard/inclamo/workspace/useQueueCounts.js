@@ -4,6 +4,7 @@ import { useStore } from 'dashboard/composables/store';
 import { getMetaDebounceKey } from 'dashboard/store/modules/conversationStats';
 import { BUS_EVENTS } from 'shared/constants/busEvents';
 import { emitter } from 'shared/helpers/mitt';
+import { loadTeamQueues, resetTeamQueues } from '../teamQueues';
 
 // Navigation describes the account's open work, independently of list filters.
 export function useQueueCounts(accountId) {
@@ -12,8 +13,11 @@ export function useQueueCounts(accountId) {
 
   watch(
     accountId,
-    (id, _previous, onCleanup) => {
+    (id, previous, onCleanup) => {
       counts.value = null;
+      // Only another account's queues are forgotten: on a first load the
+      // route guard may have read this account's queues already.
+      if (previous !== undefined && previous !== id) resetTeamQueues();
       if (!id) return;
 
       let active = true;
@@ -39,6 +43,8 @@ export function useQueueCounts(accountId) {
           return;
         }
         inFlight = true;
+        // Team queues ride the same triggers; they keep their own last answer.
+        loadTeamQueues();
         try {
           const { data } = await ConversationApi.meta({ status: 'open' });
           if (active) {
