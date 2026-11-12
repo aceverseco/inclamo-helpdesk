@@ -52,7 +52,7 @@ other token, a user's included, is refused. The token is also taken as
 | `ended_at` | required; ISO 8601 with its zone (`Z` or an offset) |
 | `duration` | whole seconds as a number, up to 1,000,000, optional |
 | `outcome` | required; a word of the AI service, up to 50 lowercase letters, digits or `_` (`resolved`, `callback`, `parts_request`, `request`, `transfer_not_answered`, `failed`, `transferred`, `no_conversation`); a word the helpdesk does not know is shown as it is |
-| `needs_team` | required; `true`: the conversation is open; `false`: resolved |
+| `needs_team` | required, `true` or `false`; it does not set the conversation's status. **Every filed call is stored resolved**, also a call with a request for the team: the team finds those by their labels (`inclamo_handover`, `inclamo_escalation`, `inclamo_callback` and the like) and by `priority` |
 | `priority` | `low`, `medium`, `high`, `urgent`, or absent; send `urgent` for an urgent request |
 | `labels` | at most 20, each `inclamo_` plus lowercase letters, digits or `_`; a label the account does not list yet is added to its list |
 | `recording_url` | https only, up to 1,500 characters, optional; the helpdesk keeps the link and never fetches it |
@@ -111,8 +111,9 @@ is answered `401`, not `409`: the next connection has a new bot and a new token.
 - Send a message, email or webhook to the caller. The Phone inbox has no
   webhook URL and no agent bot.
 - Wake the agent bot: no agent bot event for the messages of a filed call.
-- Notify a teammate per turn: the call gives the notifications of a new
-  conversation and of its assignment, as a chat does.
+- Notify a teammate per turn, or assign the call: it is filed resolved, so
+  Chatwoot's automatic assignment leaves it alone. A teammate who replies to
+  the caller or reopens the conversation takes it from there.
 - Store a payment card number: digit runs of 13 to 19, with nothing or up to
   three spaces, dashes, dots, commas or slashes between the digits, that pass
   the Luhn check are stored as
@@ -125,8 +126,8 @@ and its record note, not each turn.
 ## What the team sees
 
 The conversation in the Phone inbox, on the caller's contact next to their
-chats; the turns as a chat; the record as the last private note; labels,
-status and priority as sent; and a "Call" section in the conversation sidebar
+chats, resolved; the turns as a chat; the record as the last private note;
+labels and priority as sent; and a "Call" section in the conversation sidebar
 with the entry, the line, the caller's number, the duration, the end time, the
 outcome in words, how the contact was found, and the recording link.
 
