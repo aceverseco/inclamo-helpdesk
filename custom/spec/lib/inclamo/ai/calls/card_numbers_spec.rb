@@ -32,6 +32,18 @@ RSpec.describe Inclamo::Ai::Calls::CardNumbers do
     expect(mask('it is 4111 1111 1111 1111 123')).to eq('it is [card number removed] 123')
   end
 
+  it 'removes a card number written the way a transcript may group it' do
+    ['4111  1111  1111  1111', '4111.1111.1111.1111', '4111, 1111, 1111, 1111', '4111 - 1111 - 1111 - 1111', '4111/1111/1111/1111',
+     "4111\n1111\n1111\n1111", "4111\u00A01111\u00A01111\u00A01111", '4 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'].each do |written|
+      expect(mask("card #{written} ok")).to eq('card [card number removed] ok')
+    end
+  end
+
+  it 'keeps prices, dates and lists of short numbers' do
+    text = 'paid 1,234.56 on 2026-11-07 at 14:03, items 12, 14, 16, 18, 20, 22 and 24'
+    expect(mask(text)).to eq(text)
+  end
+
   it 'removes every card number of a text' do
     expect(mask('first 4111 1111 1111 1111 then 5500-0000-0000-0004.')).to eq('first [card number removed] then [card number removed].')
   end

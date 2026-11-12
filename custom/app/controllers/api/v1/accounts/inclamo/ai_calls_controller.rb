@@ -12,6 +12,8 @@ class Api::V1::Accounts::Inclamo::AiCallsController < Api::V1::Accounts::BaseCon
   skip_before_action :validate_bot_access_token!
   before_action :require_connected_bot
   rescue_from ::Inclamo::Ai::Calls::Refused, with: :refused
+  # Chatwoot's own answer to a record it refuses would name the field's content.
+  rescue_from(ActiveRecord::RecordInvalid) { refused(::Inclamo::Ai::Calls::Refused.new(:invalid_call)) }
 
   def create
     filing = ::Inclamo::Ai::Calls::Filing.read(request.request_parameters)

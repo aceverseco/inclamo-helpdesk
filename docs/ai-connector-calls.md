@@ -49,14 +49,14 @@ other token, a user's included, is refused. The token is also taken as
 | `caller.phone` | E.164, or absent when the call came without a number |
 | `caller.email` | the email of the store's customer with that number, when the AI service knows it; used to find the contact, and kept on a new contact when no contact has it |
 | `caller.name` | optional, up to 255 characters; used for a new contact only |
-| `ended_at` | required; ISO 8601 |
-| `duration` | whole seconds as a number, optional |
+| `ended_at` | required; ISO 8601 with its zone (`Z` or an offset) |
+| `duration` | whole seconds as a number, up to 1,000,000, optional |
 | `outcome` | required; a word of the AI service, up to 50 lowercase letters, digits or `_` (`resolved`, `callback`, `parts_request`, `request`, `transfer_not_answered`, `failed`, `transferred`, `no_conversation`); a word the helpdesk does not know is shown as it is |
 | `needs_team` | required; `true`: the conversation is open; `false`: resolved |
 | `priority` | `low`, `medium`, `high`, `urgent`, or absent; send `urgent` for an urgent request |
 | `labels` | at most 20, each `inclamo_` plus lowercase letters, digits or `_`; a label the account does not list yet is added to its list |
-| `recording_url` | https only, up to 2,000 characters, optional; the helpdesk keeps the link and never fetches it |
-| `turns` | at most 500, in the call's order, or absent; `role` is `caller` or `agent`; `text` not empty, up to 10,000 characters; `at` optional, ISO 8601. The messages carry the turns' times when every turn has one; otherwise they are put one second apart, the last at `ended_at`. The order of the request is always kept |
+| `recording_url` | https only, up to 1,500 characters, optional; the helpdesk keeps the link and never fetches it |
+| `turns` | at most 500, in the call's order, or absent; `role` is `caller` or `agent`; `text` not empty, up to 10,000 characters; `at` optional, ISO 8601 with its zone; a time later than the filing is stored as the time of the filing. The messages carry the turns' times when every turn has one; otherwise they are put one second apart, the last at `ended_at`. The order of the request is always kept |
 | `record` | required; up to 8,000 characters; written as a private note of the AI agent after the turns |
 
 ## Which contact the call goes to
@@ -92,7 +92,7 @@ content differs: the first filing wins):
 
 Refusals carry the code as `code` and, like the other calls of the connector,
 as `error`, with a `message` for a person. They never echo the call's content,
-and the helpdesk's log keeps the call's id, the code and counts only:
+and the helpdesk's log never holds the turns, the record, the caller, the line or the recording link:
 
 | Status | `code` | Meaning | What the AI service does |
 | --- | --- | --- | --- |
@@ -113,8 +113,9 @@ is answered `401`, not `409`: the next connection has a new bot and a new token.
 - Wake the agent bot: no agent bot event for the messages of a filed call.
 - Notify a teammate per turn: the call gives the notifications of a new
   conversation and of its assignment, as a chat does.
-- Store a payment card number: digit runs of 13 to 19, with or without single
-  spaces or dashes between the digits, that pass the Luhn check are stored as
+- Store a payment card number: digit runs of 13 to 19, with nothing or up to
+  three spaces, dashes, dots, commas or slashes between the digits, that pass
+  the Luhn check are stored as
   `[card number removed]`, in a turn, the record and the caller's name.
 - Change an existing contact.
 

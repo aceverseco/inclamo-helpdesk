@@ -56,8 +56,12 @@ module Inclamo
             name: @filing.name || placeholder_name,
             phone_number: free?(:phone_number, @filing.phone) ? @filing.phone : nil,
             email: free_email? ? @filing.email : nil,
-            identifier: "inclamo:customer:#{@filing.call_id}"
+            identifier: free?(:identifier, identifier) ? identifier : nil
           )
+        end
+
+        def identifier
+          "inclamo:customer:#{@filing.call_id}"
         end
 
         def placeholder_name

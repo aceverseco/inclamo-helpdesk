@@ -48,14 +48,21 @@ module Inclamo
         def text(value, max: nil)
           return nil if value.nil? || value == ''
 
-          invalid! unless value.is_a?(String)
+          invalid! unless storable?(value)
           invalid! if max && value.length > max
           value
         end
 
+        # Text the database takes: Postgres refuses a NUL character.
+        def storable?(value)
+          value.is_a?(String) && value.valid_encoding? && value.exclude?("\u0000")
+        end
+
         def time(value)
-          invalid! unless value.is_a?(String)
-          Time.iso8601(value)
+          invalid! unless value.is_a?(String) && TIME_FORMAT.match?(value)
+          parsed = Time.iso8601(value)
+          invalid! unless YEARS.cover?(parsed.year)
+          parsed
         rescue ArgumentError
           invalid!
         end
@@ -74,7 +81,7 @@ module Inclamo
           @line = number(@body[:line])
           @ended_at = time(@body[:ended_at])
           @duration = @body[:duration]
-          invalid! unless @duration.nil? || (@duration.is_a?(Integer) && @duration >= 0)
+          invalid! unless @duration.nil? || (@duration.is_a?(Integer) && @duration.between?(0, MAX_DURATION))
           @recording_url = text(@body[:recording_url], max: MAX_URL_LENGTH)
           invalid! if @recording_url && !https?(@recording_url)
         end
@@ -117,14 +124,14 @@ module Inclamo
         def read_turn(turn)
           invalid! unless turn.is_a?(Hash)
           turn = turn.with_indifferent_access
-          invalid! unless ROLES.include?(turn[:role]) && turn[:text].is_a?(String) && turn[:text].present?
+          invalid! unless ROLES.include?(turn[:role]) && storable?(turn[:text]) && turn[:text].present?
           too_large! if turn[:text].length > MAX_TURN_LENGTH
           Turn.new(role: turn[:role], text: CardNumbers.mask(turn[:text]), at: turn[:at].nil? ? nil : time(turn[:at]))
         end
 
         def read_record
           record = @body[:record]
-          invalid! unless record.is_a?(String) && record.present?
+          invalid! unless storable?(record) && record.present?
           too_large! if record.length > MAX_RECORD_LENGTH
           @record = CardNumbers.mask(record)
         end

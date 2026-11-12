@@ -4,13 +4,15 @@ module Inclamo
   module Ai
     module Calls
       # Removes payment card numbers from a call's text before it is stored:
-      # 13 to 19 digits, single spaces or dashes allowed between them, that
-      # pass the Luhn check. A run of digit groups that is no card number as a
+      # 13 to 19 digits that pass the Luhn check, with nothing between them or
+      # up to three spaces, dashes, dots, commas or slashes, as a transcript
+      # writes a number read out in groups. A run of digit groups that is no card number as a
       # whole is searched for one made of whole groups, so a card number
       # followed by its security code is still removed.
       module CardNumbers
         PLACEHOLDER = '[card number removed]'
-        RUN = /(?<!\d)\d(?:[ -]?\d)*(?!\d)/
+        SEPARATOR = /[\s\u00A0.,\/\-]{1,3}/
+        RUN = /(?<!\d)\d(?:(?:#{SEPARATOR.source})?\d)*(?!\d)/
         LENGTHS = (13..19)
 
         module_function
@@ -25,7 +27,7 @@ module Inclamo
           return run if run.count('0-9') < LENGTHS.min
 
           # Groups of digits and the separators between them, in turn.
-          parts = run.split(/([ -])/)
+          parts = run.split(/(#{SEPARATOR.source})/)
           groups = parts.each_slice(2).map(&:first)
           result = +''
           index = 0

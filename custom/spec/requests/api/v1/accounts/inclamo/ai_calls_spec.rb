@@ -184,6 +184,18 @@ RSpec.describe 'Inclamo AI agent: filing a finished call', type: :request do
       file(turns: ahead, ended_at: 3.hours.from_now.utc.iso8601)
 
       expect(filed.messages.last).to have_attributes(private: true, content: call[:record])
+      expect(filed.messages.maximum(:created_at)).to be <= Time.current
+      expect(filed.messages.where(private: false).pluck(:content)).to eq(turns.pluck(:text))
+      expect(filed.reload.last_activity_at).to be <= Time.current
+    end
+
+    it 'takes a recording link of the longest length Chatwoot keeps' do
+      link = "https://ai.example.com/#{'a' * 1_477}"
+
+      file(recording_url: link)
+
+      expect(response).to have_http_status(:created)
+      expect(filed.custom_attributes['inclamo_call_recording']).to eq(link)
     end
 
     it 'opens a call that needs the team and resolves one that does not' do
@@ -331,6 +343,37 @@ RSpec.describe 'Inclamo AI agent: filing a finished call', type: :request do
       expect(looks).to eq(2)
     end
 
+    it 'answers a repeat with the contact the conversation is on now' do
+      file
+      conversation = filed
+      other = create(:contact, account: account)
+      conversation.update!(contact: other, contact_inbox: create(:contact_inbox, contact: other, inbox: phone_inbox))
+
+      file
+
+      expect(body).to include('found' => true, 'contact_id' => other.id)
+    end
+
+    it 'files a call again after its conversation was deleted' do
+      file
+      filed.destroy!
+
+      file
+
+      expect(response).to have_http_status(:created)
+      expect(body).to include('found' => false, 'matched_by' => 'phone')
+    end
+
+    it 'answers invalid_call, without the content, when Chatwoot refuses a record' do
+      allow_any_instance_of(Inclamo::Ai::Calls::FileCall).to receive(:file).and_raise(ActiveRecord::RecordInvalid.new(Contact.new.tap { |c| c.errors.add(:email, 'anna@example.com is taken') })) # rubocop:disable RSpec/AnyInstance
+
+      file
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(body).to include('code' => 'invalid_call')
+      expect(response.body).not_to include('anna@example.com')
+    end
+
     it 'keeps calls with the same id of two accounts apart' do
       file
       other = create(:account)
@@ -384,6 +427,13 @@ RSpec.describe 'Inclamo AI agent: filing a finished call', type: :request do
       refused('invalid_call', needs_team: nil)
       refused('invalid_call', priority: 'highest')
       refused('invalid_call', recording_url: 'http://ai.example.com/calls/c-17')
+      refused('invalid_call', recording_url: "https://ai.example.com/#{'a' * 1_500}")
+      refused('invalid_call', duration: 1_000_001)
+      refused('invalid_call', ended_at: '2026-11-07T14:03:12')
+      refused('invalid_call', ended_at: '999999-11-07T14:03:12Z')
+      refused('invalid_call', record: "Summary\u0000")
+      refused('invalid_call', turns: [{ role: 'caller', text: "Hi\u0000" }])
+      refused('invalid_call', caller: { name: "Anna\u0000" })
       refused('invalid_call', turns: [{ role: 'robot', text: 'Hi' }])
       refused('invalid_call', turns: [{ role: 'caller', text: '' }])
       refused('invalid_call', turns: [{ role: 'caller', text: 'Hi', at: 'noon' }])

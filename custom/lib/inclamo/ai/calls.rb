@@ -21,7 +21,13 @@ module Inclamo
       MAX_TURN_LENGTH = 10_000
       MAX_RECORD_LENGTH = 8_000
       MAX_NAME_LENGTH = 255
-      MAX_URL_LENGTH = 2_000
+      # Chatwoot refuses a custom attribute over 1,500 characters or a number of
+      # more than ten digits (app/models/jsonb_attributes_length_validator.rb).
+      MAX_URL_LENGTH = 1_500
+      MAX_DURATION = 1_000_000
+      # A time must name its zone, or it would be read in the server's.
+      TIME_FORMAT = /\A\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|[+-]\d\d:?\d\d)\z/
+      YEARS = (2000..2100)
 
       AMBIGUOUS_LABEL = 'inclamo_match_ambiguous'
       NO_CALLER_ID_LABEL = 'inclamo_no_caller_id'

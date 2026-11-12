@@ -32,10 +32,20 @@ module Inclamo
         end
 
         def call
-          earlier || file
-        rescue ActiveRecord::RecordNotUnique
-          # The same call was filed at the same moment: its transaction won.
-          earlier || raise
+          attempts = 0
+          begin
+            earlier || file
+          rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
+            # The same call was filed at the same moment: its transaction won.
+            found = earlier
+            return found if found
+
+            # Otherwise another request made the caller's contact at the same
+            # moment: the contact rule now finds it.
+            attempts += 1
+            retry if attempts < 2
+            raise
+          end
         end
 
         private
@@ -44,7 +54,7 @@ module Inclamo
           key = Inclamo::CallConversation.find_by(account_id: @account.id, call_id: @filing.call_id)
           return unless key&.conversation
 
-          Result.new(conversation: key.conversation, contact_id: key.contact_id, found: true, matched_by: key.matched_by, labels_added: [])
+          Result.new(conversation: key.conversation, contact_id: key.conversation.contact_id, found: true, matched_by: key.matched_by, labels_added: [])
         end
 
         def file
@@ -123,12 +133,14 @@ module Inclamo
         end
 
         # The times the turns were spoken, when the AI service sent every one;
-        # otherwise one second apart, the last at the call's end. Always in the
+        # otherwise one second apart, the last at the call's end. Never later
+        # than now, whatever the AI service's clock says, and always in the
         # call's order: a turn not later than the one before it is put just after it.
         def turn_times
           turns = @filing.turns
           given = turns.all?(&:at)
-          times = turns.each_with_index.map { |turn, index| given ? turn.at : @filing.ended_at - (turns.size - 1 - index) }
+          now = Time.current
+          times = turns.each_with_index.map { |turn, index| [given ? turn.at : @filing.ended_at - (turns.size - 1 - index), now].min }
           times.each_with_index do |time, index|
             times[index] = times[index - 1] + TURN_GAP if index.positive? && time <= times[index - 1]
           end
