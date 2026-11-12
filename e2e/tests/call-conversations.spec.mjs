@@ -82,8 +82,18 @@ const fileWithToken = async (token, call) => {
   });
   return { status: response.status, body: await response.json().catch(() => null) };
 };
-const turnsOf = async id => (await messagesOf(admin, id)).filter(message => !message.private && [INCOMING, OUTGOING].includes(message.message_type));
-const notesOf = async id => (await messagesOf(admin, id)).filter(message => message.private);
+// Every message of a conversation, read the way the dashboard does: the
+// latest page, then the pages before it.
+const allMessagesOf = async id => {
+  let messages = await messagesOf(admin, id);
+  for (;;) {
+    const earlier = (await admin.get(`/conversations/${id}/messages?before=${messages[0]?.id}`)).body.payload || [];
+    if (!messages.length || !earlier.length) return messages;
+    messages = [...earlier, ...messages];
+  }
+};
+const turnsOf = async id => (await allMessagesOf(id)).filter(message => !message.private && [INCOMING, OUTGOING].includes(message.message_type));
+const notesOf = async id => (await allMessagesOf(id)).filter(message => message.private);
 
 // The "Call" section of a conversation's sidebar, expanded the way a person would.
 const callHeader = page => page.locator('button.drag-handle').filter({ has: page.locator('h5', { hasText: /^Call$/ }) });
@@ -157,7 +167,7 @@ test("The connection's agent files a call", async () => {
 });
 
 test("An administrator's token", async () => {
-  const token = (await admin.get('/api/v1/profile')).body.access_token;
+  const token = (await admin.get(`${process.env.HELPDESK_URL}/api/v1/profile`)).body.access_token;
   expect(token).toBeTruthy();
 
   await refused(() => fileWithToken(token, callFixture('resolved-inbound', { call_id: callId('admin-token') })), 401);
@@ -289,6 +299,8 @@ test('The card of a call', async ({ page }) => {
   const link = section.getByTestId('inclamo-call-recording');
   await expect(link).toHaveAttribute('href', fixture.recording_url);
   await expect(link).toHaveAttribute('target', '_blank');
+  // Kept in the run's output for review; not published by CI.
+  await page.screenshot({ path: `${process.env.E2E_OUTPUT || './output'}/call-card.png` });
 });
 
 test('A chat has no card', async ({ page }) => {
@@ -328,7 +340,8 @@ test('The agent bot stays quiet', async () => {
 
   const answer = await filed('team-request', 'quiet', { turns });
 
-  expect(await turnsOf(answer.conversation_id)).toHaveLength(20);
+  // All twenty, once each and in the call's order, across the pages the dashboard reads.
+  expect((await turnsOf(answer.conversation_id)).map(message => message.content)).toEqual(turns.map(turn => turn.text));
   // Events are delivered in the background; none comes for this conversation.
   await new Promise(resolve => setTimeout(resolve, 8_000));
   expect(await standIn.deliveries(answer.conversation_id)).toEqual([]);
@@ -336,6 +349,14 @@ test('The agent bot stays quiet', async () => {
 });
 
 test('No notification for each turn', async ({ page }) => {
+  // Chatwoot assigns the oldest open conversations first and at most five to
+  // an agent in five minutes: the calls of the tests before this one are
+  // closed, so this call is the one the Phone inbox has to assign.
+  for (;;) {
+    const open = (await admin.get(`/conversations?inbox_id=${phoneInboxId}&status=open&assignee_type=all`)).body.data.payload;
+    if (!open.length) break;
+    for (const entry of open) await admin.post(`/conversations/${entry.id}/toggle_status`, { status: 'resolved' });
+  }
   // The Phone inbox assigns by itself to the agents of the inbox who are online.
   await admin.post('/inbox_members', { inbox_id: phoneInboxId, user_ids: [agent.userId] });
   await admin.patch(`/inboxes/${phoneInboxId}`, { enable_auto_assignment: true });
