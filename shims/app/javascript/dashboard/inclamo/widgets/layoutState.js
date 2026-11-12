@@ -36,8 +36,11 @@ export function useWorkspaceLayout() {
   const accountId = computed(() => route.params.accountId);
   const state = computed(() => stateFor(accountId.value, user.value?.id));
   let release = () => {};
+  // Each host counts once in its layout's users: a release runs at most once,
+  // whether the account or user changes, goes away, or the host unmounts.
   watch([accountId, () => user.value?.id], ([account, userId]) => {
     release();
+    release = () => {};
     if (!account || !userId) return;
     const current = state.value;
     const refresh = () => { if (!document.hidden) refreshLayout(account, current); };
