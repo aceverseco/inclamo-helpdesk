@@ -81,4 +81,58 @@ RSpec.describe 'Support recovery from failures' do
     expect(installation.reload).to have_attributes(cursor: 8, failures: 0)
     expect(local.messages.pluck(:central_message_id, :body)).to eq([['80', 'Public answer']])
   end
+
+  describe 'a reply notification that can no longer be sent' do
+    let(:support_account) { create(:account) }
+    let(:inbox) { create(:inbox, account: support_account, channel: create(:channel_api, account: support_account)) }
+    let(:conversation) { create(:conversation, account: support_account, inbox: inbox) }
+    let(:source) do
+      public_key = OpenSSL::PKey.generate_key('ED25519').public_to_pem
+      Inclamo::Support::Source.create!(reference: SecureRandom.uuid, public_key: public_key, base_url: 'https://synthetic.example.test',
+                                       fingerprint: Inclamo::Support::Authentication.fingerprint(public_key))
+    end
+    let(:mapping) do
+      source.requests.create!(reference: SecureRandom.uuid, local_reference: SecureRandom.uuid, account_key: 'account:1', author_key: 'user:1',
+                              author: { 'key' => 'user:1', 'name' => 'Synthetic Author' }, conversation: conversation)
+    end
+    let(:reply) do
+      create(:message, account: support_account, inbox: inbox, conversation: conversation,
+                       message_type: :outgoing, private: false, content: 'Public response')
+    end
+    let(:recipient) do
+      Inclamo::Support::Recipient.create!(source: source, account_key: 'account:1', actor_key: 'user:1', email: 'author@example.test',
+                                          verified_at: 1.hour.ago)
+    end
+    let!(:delivery) { Inclamo::Support::Delivery.create!(recipient: recipient, central_request: mapping, message_id: reply.id) }
+
+    before { allow(Inclamo::Support::Mailer).to receive(:notification).and_call_original }
+
+    def expect_closed
+      Inclamo::Support::NotifyJob.perform_now(delivery.id)
+
+      expect(Inclamo::Support::Delivery.exists?(delivery.id)).to be(false)
+      expect(Inclamo::Support::Mailer).not_to have_received(:notification)
+      with_modified_env(INCLAMO_SUPPORT_CENTRAL: 'true') do
+        expect { Inclamo::Support::DispatchJob.perform_now }.not_to have_enqueued_job(Inclamo::Support::NotifyJob)
+      end
+    end
+
+    it 'is closed once the author turned email notifications off' do
+      recipient.update!(active: false, verified_at: nil)
+
+      expect_closed
+    end
+
+    it 'is closed once the reply is made private' do
+      reply.update!(private: true)
+
+      expect_closed
+    end
+
+    it 'is closed once the source is revoked' do
+      source.update!(revoked_at: Time.current)
+
+      expect_closed
+    end
+  end
 end
