@@ -14,12 +14,22 @@ class Inclamo::Support::DeliverJob < ApplicationJob
     end
     Inclamo::Support::Transport.new.deliver!(submission)
     Inclamo::Support::SyncJob.perform_later
+  rescue Inclamo::Support::Rejected
+    # Central refusing this installation is retried like an outage: intake may
+    # be halted on purpose, with outboxes kept queued until it resumes.
+    retry_later(submission)
   rescue Inclamo::Support::Unauthorized
     submission&.update!(state: 'failed', error_code: 'access_changed', lease_until: nil, next_attempt_at: nil)
   rescue Inclamo::Support::Conflict
     submission&.update!(state: 'failed', error_code: 'submission_conflict', lease_until: nil, next_attempt_at: nil)
   rescue StandardError => error
     Rails.logger.warn("Inclamo support delivery failed: #{error.class}")
+    retry_later(submission)
+  end
+
+  private
+
+  def retry_later(submission)
     return unless submission
 
     delay = [15 * (2**[submission.attempts, 8].min), 3600].min
