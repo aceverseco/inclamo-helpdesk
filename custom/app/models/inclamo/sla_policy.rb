@@ -91,6 +91,9 @@ class Inclamo::SlaPolicy < ApplicationRecord
   def stop_running_timers
     now = Time.current
     Inclamo::Sla::Timers.check_due!(now, timers)
+    stopped = timers.running.pluck(:conversation_id)
     timers.running.update_all(stopped_at: now, updated_at: now) # rubocop:disable Rails/SkipsModelValidations
+    # A stopped timer is not overdue any more (team queue "Overdue").
+    stopped.each { |conversation_id| Inclamo::TeamQueues::Markers.sync_overdue(conversation_id) }
   end
 end

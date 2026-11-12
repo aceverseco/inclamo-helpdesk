@@ -9,6 +9,8 @@ RSpec.describe 'Inclamo preset rules API', type: :request do
   let!(:agent) { create(:user, account: account, role: :agent) }
   let(:path) { "/api/v1/accounts/#{account.id}/inclamo/rule_presets" }
   let(:rules) { account.automation_rules.order(:id) }
+  # Every account starts with the labels of the ready team queues; these are the others.
+  let(:own_labels) { account.labels.where.not(title: Inclamo::TeamQueues.labels) }
 
   def presets
     response.parsed_body['presets'].index_by { |preset| preset['key'] }
@@ -62,7 +64,7 @@ RSpec.describe 'Inclamo preset rules API', type: :request do
                                        'query_operator' => nil, 'custom_attribute_type' => 'conversation_attribute' }])
       expect(rule.actions).to eq([{ 'action_name' => 'change_priority', 'action_params' => ['high'] }, { 'action_name' => 'add_label', 'action_params' => ['vip'] }])
       expect(rule.description.lines.last).to eq('inclamo-preset: vip')
-      expect(account.labels.pluck(:title)).to eq(['vip'])
+      expect(own_labels.pluck(:title)).to eq(['vip'])
       expect(presets['vip']).to include('on' => true, 'rule_id' => rule.id, 'rule_name' => 'VIP customers first', 'value' => '500')
     end
 
@@ -82,7 +84,7 @@ RSpec.describe 'Inclamo preset rules API', type: :request do
       expect(rules.first.conditions.pluck('attribute_key', 'filter_operator', 'values')).to eq([['shopify_last_order_fulfillment_status', 'equal_to', ['unfulfilled']]])
       expect(rules.last.conditions.pluck('attribute_key', 'filter_operator', 'values', 'query_operator'))
         .to eq([['shopify_is_customer', 'equal_to', ['no'], 'OR'], ['shopify_customer_orders', 'is_less_than', ['1'], nil]])
-      expect(account.labels.pluck(:title)).to eq(%w[awaiting-shipment pre-sale])
+      expect(own_labels.pluck(:title)).to eq(%w[awaiting-shipment pre-sale])
     end
 
     it 'creates one rule however often it is asked, and keeps a label that was there' do
@@ -91,7 +93,7 @@ RSpec.describe 'Inclamo preset rules API', type: :request do
       2.times { switch('vip', true, value: '500') }
 
       expect(rules.count).to eq(1)
-      expect(account.labels.sole.color).to eq('#ff0000')
+      expect(own_labels.sole.color).to eq('#ff0000')
     end
 
     it 'needs an amount for the VIP preset: zero or more' do
@@ -117,7 +119,7 @@ RSpec.describe 'Inclamo preset rules API', type: :request do
 
       expect(response).to have_http_status(:forbidden)
       expect(rules.count).to eq(0)
-      expect(account.labels.count).to eq(0)
+      expect(own_labels.count).to eq(0)
     end
 
     it 'knows nothing of a preset that does not exist' do

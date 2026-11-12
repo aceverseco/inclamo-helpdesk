@@ -76,6 +76,10 @@ body.inclamo-dashboard-theme .inclamo-ref {
   .queue-nav {
     margin: 1px 0 12px;
   }
+  // The account's team queues continue the list of the three native ones.
+  .queue-nav.team-queue-nav {
+    margin-top: -8px;
+  }
   .queue-nav .nav-row {
     height: 34px;
     padding-left: 18px;

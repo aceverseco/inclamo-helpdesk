@@ -3,6 +3,7 @@ import ConversationApi from 'dashboard/api/inbox/conversation';
 import { emitter } from 'shared/helpers/mitt';
 import { BUS_EVENTS } from 'shared/constants/busEvents';
 import { useQueueCounts } from '../workspace/useQueueCounts';
+import { loadTeamQueues, resetTeamQueues } from '../teamQueues';
 
 const { subscribeAction, unsubscribe } = vi.hoisted(() => ({
   subscribeAction: vi.fn(),
@@ -10,6 +11,10 @@ const { subscribeAction, unsubscribe } = vi.hoisted(() => ({
 }));
 vi.mock('dashboard/api/inbox/conversation', () => ({
   default: { meta: vi.fn() },
+}));
+vi.mock('../teamQueues', () => ({
+  loadTeamQueues: vi.fn(),
+  resetTeamQueues: vi.fn(),
 }));
 vi.mock('dashboard/composables/store', () => ({
   useStore: () => ({ subscribeAction }),
@@ -132,5 +137,19 @@ describe('navigation queue counts', () => {
     expect(ConversationApi.meta).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1);
     expect(ConversationApi.meta).toHaveBeenCalledTimes(2);
+  });
+
+  it('refreshes the team queues on the same triggers and forgets them on an account switch', async () => {
+    start();
+    await settle();
+    expect(resetTeamQueues).toHaveBeenCalledTimes(1);
+    expect(loadTeamQueues).toHaveBeenCalledTimes(1);
+    emitter.emit('fetch_conversation_stats');
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(loadTeamQueues).toHaveBeenCalledTimes(2);
+    accountId.value = 2;
+    await settle();
+    expect(resetTeamQueues).toHaveBeenCalledTimes(2);
+    expect(loadTeamQueues).toHaveBeenCalledTimes(3);
   });
 });
