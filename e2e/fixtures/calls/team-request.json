@@ -1,0 +1,19 @@
+{
+  "call_id": "fixture-team-request",
+  "entry": "inbound",
+  "line": "+12025550100",
+  "caller": { "phone": "+12025550102", "name": "Ben Example" },
+  "ended_at": "2026-11-07T15:10:40Z",
+  "duration": 192,
+  "outcome": "request",
+  "needs_team": true,
+  "labels": ["inclamo_call", "inclamo_inbound", "inclamo_handover", "inclamo_escalation"],
+  "recording_url": "https://example.com/calls/fixture-team-request",
+  "turns": [
+    { "role": "agent", "text": "Hello, you have reached the shop's assistant.", "at": "2026-11-07T15:07:30Z" },
+    { "role": "caller", "text": "A part is missing from my order.", "at": "2026-11-07T15:07:36Z" },
+    { "role": "agent", "text": "I am sorry. I have passed this to the team; they will write to you.", "at": "2026-11-07T15:07:44Z" },
+    { "role": "caller", "text": "Thank you.", "at": "2026-11-07T15:07:49Z" }
+  ],
+  "record": "Request for the team · Inbound call · 3 min 12 s · Inclamo AI agent\n\nSummary: a part is missing from the caller's order.\n\nRequest: send the missing part."
+}

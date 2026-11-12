@@ -11,8 +11,9 @@ module Inclamo
     #   4. register with the AI service;
     #   5. refused or unanswered: remove the bot and a Phone inbox made in 3;
     #   6. accepted: point the bot at the address the AI service gave, turn off
-    #      keep_pending_on_bot_failure, create the fixed labels, attach the bot
-    #      to the chosen inboxes and save the connection, all in one transaction.
+    #      keep_pending_on_bot_failure, create the fixed labels and the
+    #      attributes of a call, attach the bot to the chosen inboxes and save
+    #      the connection, all in one transaction.
     class Connect
       PHONE_INBOX_NAME = 'Phone'
 
@@ -72,6 +73,7 @@ module Inclamo
           @account.keep_pending_on_bot_failure = false
           @account.save!
           Labels.ensure_fixed!(@account)
+          Calls::Attributes.define!(@account)
           inboxes.each { |inbox| attach(bot, inbox) }
           record.update!(
             service_url: code.service_url, connection_id: registration.connection_id, agent_bot_id: bot.id,

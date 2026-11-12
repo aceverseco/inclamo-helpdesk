@@ -7,8 +7,9 @@
 //     takes its turn through the helpdesk's API with the bot's token,
 //     replying through the protected reply (§5.4) and ending the turn when it
 //     is refused with 409 conversation_not_pending;
-//   - a control API under /__e2e lets a test read what it received and make
-//     it answer 503.
+//   - a control API under /__e2e lets a test read what it received, make it
+//     answer 503, and file a finished call with the bot's token
+//     (docs/ai-connector-calls.md).
 // Rules on the shopper's text: "person" or "human" hands over with a note and
 // inclamo_handover; "urgent" raises the priority, adds inclamo_urgent and
 // hands over; "resolve" replies and resolves; "intent" adds
@@ -276,6 +277,16 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
       if (data.tool === 'execute' && !Number.isInteger(data.proposal_id)) return send(response, 400, { error: 'invalid_proposal' });
       const route = data.tool === 'context' ? `${root}/orders` : data.tool === 'propose' ? `${root}/proposals` : `${root}/proposals/${data.proposal_id}/execute`;
       return send(response, 200, await helpdesk(connection, data.tool === 'context' ? 'GET' : 'POST', route, data.payload));
+    }
+    // Files a finished call with the latest connection's token, even after it
+    // was removed (docs/ai-connector-calls.md). The log keeps the call's id
+    // and the answer's status, never the call.
+    if (request.method === 'POST' && path === '/__e2e/call') {
+      const connection = latest();
+      if (!connection) return send(response, 404, {});
+      const result = await helpdesk(connection, 'POST', '/inclamo/calls', data.call);
+      record({ kind: 'call_filed', connection_id: connection.id, call_id: typeof data.call?.call_id === 'string' ? data.call.call_id : null, status: result.status });
+      return send(response, 200, { status: result.status, body: result.body });
     }
     // A reply with the latest connection's token, even after it was removed:
     // through Chatwoot's message call, or the protected reply with `protected`.

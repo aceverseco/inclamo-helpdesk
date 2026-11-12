@@ -1,0 +1,22 @@
+{
+  "call_id": "fixture-resolved-inbound",
+  "entry": "inbound",
+  "line": "+12025550100",
+  "caller": { "phone": "+12025550101", "name": "Anna Example" },
+  "ended_at": "2026-11-07T14:03:12Z",
+  "duration": 192,
+  "outcome": "resolved",
+  "needs_team": false,
+  "labels": ["inclamo_call", "inclamo_inbound", "inclamo_resolved"],
+  "turns": [
+    { "role": "agent", "text": "Hello, you have reached the shop's assistant.", "at": "2026-11-07T14:00:01Z" },
+    { "role": "caller", "text": "Hi, when will my order arrive?", "at": "2026-11-07T14:00:06Z" },
+    { "role": "agent", "text": "Which order is it?", "at": "2026-11-07T14:00:11Z" },
+    { "role": "caller", "text": "Order 1042.", "at": "2026-11-07T14:00:15Z" },
+    { "role": "agent", "text": "Order 1042 was shipped on Monday and arrives on Thursday.", "at": "2026-11-07T14:00:24Z" },
+    { "role": "caller", "text": "Good, can I still change the address?", "at": "2026-11-07T14:00:31Z" },
+    { "role": "agent", "text": "Not after shipping. The carrier can hold the parcel for pickup.", "at": "2026-11-07T14:00:40Z" },
+    { "role": "caller", "text": "That is fine, thank you.", "at": "2026-11-07T14:00:46Z" }
+  ],
+  "record": "Resolved by the agent · Inbound call · 3 min 12 s · Inclamo AI agent\n\nSummary: the caller asked when order 1042 arrives; it was shipped on Monday and arrives on Thursday."
+}

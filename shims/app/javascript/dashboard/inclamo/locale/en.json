@@ -646,6 +646,39 @@
       "SECONDS": "{count} s"
     }
   },
+  "CALL": {
+    "TITLE": "Call",
+    "LINE": "Shop line",
+    "CALLER": "Caller",
+    "NO_NUMBER": "No number",
+    "DURATION": "Duration",
+    "ENDED": "Ended",
+    "RESULT": "Outcome",
+    "CONTACT": "Contact",
+    "RECORDING": "Open the recording",
+    "ENTRY": {
+      "inbound": "Call to the shop's number",
+      "outbound": "Call the agent made",
+      "web": "Call from the storefront button"
+    },
+    "OUTCOME": {
+      "resolved": "Resolved by the agent",
+      "request": "Request for the team",
+      "callback": "Callback requested",
+      "parts_request": "Parts request",
+      "transferred": "Transferred to a person",
+      "transfer_not_answered": "Transfer not answered",
+      "no_conversation": "No conversation",
+      "failed": "The agent failed"
+    },
+    "MATCHED_BY": {
+      "phone": "Found by number",
+      "email": "Found by email",
+      "created": "New contact",
+      "anonymous": "New contact, no caller id",
+      "ambiguous": "New contact: not told apart from another"
+    }
+  },
   "ACTION_RIGHTS": {
     "address": "Change shipping address",
     "edit_items": "Edit items and quantities",
