@@ -116,12 +116,32 @@ RSpec.describe 'Inclamo team queues SLA overview API', type: :request do
     expect(queue(body, 'delivery')).to include('total' => 1, 'overdue' => 0, 'soon' => 0, 'other' => 1)
   end
 
-  it 'counts a long queue for its first conversations and says so' do
+  it 'looks at the unmet timers of a queue only, so conversations with nothing to watch do not use up the limit' do
+    policy!
+    4.times { conversation(labels: ['delivery'], timed: false) }
+    2.times { conversation(labels: ['delivery'], ago: 20.minutes) }
+    stub_const('Inclamo::TeamQueues::SlaOverview::CAP', 2)
+
+    expect(queue(overview, 'delivery')).to include('total' => 6, 'overdue' => 2, 'other' => 4, 'capped' => false)
+  end
+
+  it 'counts a queue with more unmet timers than the limit for that many, and says so' do
     policy!
     3.times { conversation(labels: ['delivery'], ago: 20.minutes) }
     stub_const('Inclamo::TeamQueues::SlaOverview::CAP', 2)
 
-    expect(queue(overview, 'delivery')).to include('total' => 3, 'overdue' => 2, 'capped' => true)
+    expect(queue(overview, 'delivery')).to include('total' => 3, 'overdue' => 2, 'other' => 1, 'capped' => true)
+  end
+
+  it 'never shows a number below zero when the queue changes between its count and its timers' do
+    policy!
+    conversation(labels: ['delivery'], ago: 20.minutes)
+    allow(Inclamo::TeamQueues::SlaOverview).to receive(:listed).and_wrap_original do |original, *arguments|
+      _total, relation = original.call(*arguments)
+      [0, relation]
+    end
+
+    expect(queue(overview, 'delivery')).to include('overdue' => 1, 'other' => 0)
   end
 
   it 'lists a queue Chatwoot cannot filter with unknown numbers, and counts the others' do

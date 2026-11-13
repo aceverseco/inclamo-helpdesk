@@ -11,8 +11,9 @@ module Inclamo
     # payload, for the same person, so the three numbers add up to the count
     # the navigation shows next to the queue.
     module SlaOverview
-      # Conversations looked at per queue. A longer queue is counted for its
-      # first CAP conversations and says so (`capped`).
+      # Timers with an unmet target looked at per queue. A queue with more of
+      # them is counted for CAP of them and says so (`capped`): its overdue and
+      # soon numbers are then at least what is shown.
       CAP = 2_000
 
       module_function
@@ -27,40 +28,44 @@ module Inclamo
       # one such queue must not take the widget down (as TeamQueues.count).
       def row(queue, user, now)
         shown = { id: queue.id, key: queue.key, name: queue.name }
-        total, ids = listed(queue, user)
+        total, relation = listed(queue, user)
         return shown.merge(total: nil, overdue: nil, soon: nil, other: nil, capped: false) if total.nil?
 
-        levels = levels_of(ids, now)
+        levels, capped = levels_of(relation, now)
+        # The count and the timers are read a moment apart: never below zero.
         shown.merge(total: total, overdue: levels['overdue'], soon: levels['soon'],
-                    other: total - levels['overdue'] - levels['soon'], capped: total > ids.size)
+                    other: [total - levels['overdue'] - levels['soon'], 0].max, capped: capped)
       rescue StandardError => e
         Rails.logger.error("[inclamo] team queue #{queue.id} not counted by SLA: #{e.class.name}: #{e.message}")
         ChatwootExceptionTracker.new(e, account: queue.account).capture_exception
         shown.merge(total: nil, overdue: nil, soon: nil, other: nil, capped: false)
       end
 
-      # The queue's count and the ids of (at most CAP of) its conversations,
-      # from one run of Chatwoot's filter. The service keeps its unpaged
-      # relation in @conversations; the contract spec of the queues fails the
-      # build of an upgrade that changes this.
+      # The queue's count and its conversations, from one run of Chatwoot's
+      # filter. The service keeps its unpaged relation in @conversations; the
+      # contract spec of the queues fails the build of an upgrade that changes
+      # this.
       def listed(queue, user)
         payload = queue.query.is_a?(Hash) ? queue.query['payload'] : nil
-        return [nil, []] unless payload.is_a?(Array) && payload.any? && payload.all?(Hash)
+        return [nil, nil] unless payload.is_a?(Array) && payload.any? && payload.all?(Hash)
 
         service = ::Conversations::FilterService.new({ payload: payload, page: 1 }.with_indifferent_access, user, queue.account)
         total = service.perform[:count][:all_count]
-        relation = service.instance_variable_get(:@conversations)
-        [total, relation.except(:includes, :preload, :order).limit(CAP).pluck('conversations.id')]
+        [total, service.instance_variable_get(:@conversations).except(:includes, :preload, :order)]
       end
 
-      # Only a timer with a target still unmet can be overdue or soon.
-      def levels_of(conversation_ids, now)
+      # Only a timer with a target still unmet can be overdue or soon, so only
+      # those are read: every one of the queue's, whatever its length, up to
+      # CAP. The presenter's clock reads the inbox and its business hours.
+      def levels_of(conversations, now)
         levels = { 'overdue' => 0, 'soon' => 0 }
-        Inclamo::SlaTimer.unfinished.where(conversation_id: conversation_ids).includes(conversation: :inbox).find_each do |timer|
+        timers = Inclamo::SlaTimer.unfinished.where(conversation_id: conversations.select('conversations.id'))
+                                  .includes(conversation: { inbox: :working_hours }).order(:id).limit(CAP + 1).to_a
+        timers.first(CAP).each do |timer|
           level = Inclamo::Sla::Urgency.level(timer, now: now)
           levels[level] += 1 if levels.key?(level)
         end
-        levels
+        [levels, timers.size > CAP]
       end
     end
   end

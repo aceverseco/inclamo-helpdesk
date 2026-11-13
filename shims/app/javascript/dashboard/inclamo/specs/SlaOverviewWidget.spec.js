@@ -86,7 +86,8 @@ describe('SlaOverviewWidget', () => {
 
     const wrapper = await show();
 
-    expect(count(wrapper, 'delivery', 'other').text()).toBe('2500+');
+    expect(count(wrapper, 'delivery', 'overdue').text()).toBe('3+');
+    expect(count(wrapper, 'delivery', 'other').text()).toBe('2500');
     expect(count(wrapper, '9', 'overdue').text()).toBe('–');
     expect(entry(wrapper, '9').attributes('aria-label')).toBe('Own: could not be counted. Open the queue.');
   });

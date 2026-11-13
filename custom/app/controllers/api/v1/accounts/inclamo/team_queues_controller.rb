@@ -36,6 +36,9 @@ class Api::V1::Accounts::Inclamo::TeamQueuesController < Api::V1::Accounts::Base
   SLA_OVERVIEW_FOR = 30.seconds
 
   def sla_overview
+    # The numbers are a staff member's: a bot's token has none.
+    return head :forbidden unless Current.user.is_a?(User)
+
     key = "inclamo:sla_overview:#{Current.account.id}:#{Current.user.id}"
     render json: Rails.cache.fetch(key, expires_in: SLA_OVERVIEW_FOR) { ::Inclamo::TeamQueues::SlaOverview.call(Current.account, Current.user) }
   end

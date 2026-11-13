@@ -60,7 +60,8 @@ const queues = computed(() =>
     levels: LEVELS.map(level => ({
       level,
       count: queue[level],
-      text: shown(queue[level]) + (level === 'other' && queue.capped ? '+' : ''),
+      // A queue counted only in part: overdue and soon are at least this many.
+      text: shown(queue[level]) + (level !== 'other' && queue.capped ? '+' : ''),
       words: queue[level] === null ? '' : t(`SLA_OVERVIEW.${level.toUpperCase()}`, { count: queue[level] }),
     })),
   }))

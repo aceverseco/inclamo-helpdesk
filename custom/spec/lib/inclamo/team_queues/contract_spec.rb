@@ -46,10 +46,11 @@ RSpec.describe Inclamo::TeamQueues do
       end
       create(:conversation, account: account, inbox: inbox, status: :resolved).update_labels(definition[:labels].to_a.first(1))
 
-      total, ids = Inclamo::TeamQueues::SlaOverview.listed(queues.fetch(key), admin)
+      total, relation = Inclamo::TeamQueues::SlaOverview.listed(queues.fetch(key), admin)
 
       expect(total).to eq(described_class.count(queues.fetch(key), admin)), "count of #{key}"
-      expect(ids).to match_array(listed.map(&:id)), "conversations of #{key}"
+      expect(relation.pluck('conversations.id')).to match_array(listed.map(&:id)), "conversations of #{key}"
+      expect(Conversation.where(id: relation.select('conversations.id')).count).to eq(total), "as a subquery, #{key}"
       listed.each(&:destroy!)
     end
   end
