@@ -66,6 +66,32 @@ RSpec.describe 'Inclamo conversation SLA batch API', type: :request do
     expect(body['timers'][second.display_id.to_s]).to include('policy_name' => 'Standard')
   end
 
+  it 'does not say a timer is on its way for a conversation that has been without one for minutes' do
+    policy!(created_at: 1.hour.ago)
+    old = create(:conversation, account: account, inbox: inbox, created_at: 10.minutes.ago)
+
+    expect(read(old.display_id.to_s)).to eq('timers' => { old.display_id.to_s => nil }, 'pending' => [])
+  end
+
+  it 'reads the inboxes and their business hours once for the whole answer' do
+    policy!(created_at: 1.hour.ago, business_hours_only: true)
+    inbox.update!(working_hours_enabled: true)
+    few = Array.new(2) { create(:conversation, account: account, inbox: inbox) }
+    few.each { |conversation| Inclamo::Sla::Timers.apply!(conversation) }
+    queries = lambda do |ids|
+      count = 0
+      counter = ActiveSupport::Notifications.subscribe('sql.active_record') { |*, payload| count += 1 unless payload[:name] == 'SCHEMA' || payload[:cached] }
+      read(ids.join(','))
+      ActiveSupport::Notifications.unsubscribe(counter)
+      count
+    end
+    baseline = queries.call(few.map(&:display_id))
+    more = Array.new(4) { create(:conversation, account: account, inbox: inbox) }
+    more.each { |conversation| Inclamo::Sla::Timers.apply!(conversation) }
+
+    expect(queries.call((few + more).map(&:display_id))).to be <= baseline + 1
+  end
+
   it 'leaves out a conversation of an inbox the agent is not a member of' do
     hidden = create(:conversation, account: account, inbox: closed_inbox)
     policy!(created_at: 1.hour.ago)
@@ -76,11 +102,13 @@ RSpec.describe 'Inclamo conversation SLA batch API', type: :request do
   end
 
   it "leaves out another account's conversation, and ids that are not numbers" do
-    other = create(:conversation, account: create(:account))
-    # Display ids start at 1 in every account: ask for one this account does not have.
-    missing = [first.display_id, other.display_id].max + 50
+    first
+    # A display id that exists only in the other account.
+    foreign = create(:account)
+    theirs = Array.new(3) { create(:conversation, account: foreign) }.last
+    expect(account.conversations.where(display_id: theirs.display_id)).to be_empty
 
-    body = read("#{first.display_id},#{missing},abc,-3")
+    body = read("#{first.display_id},#{theirs.display_id},abc,-3")
 
     expect(response).to have_http_status(:success)
     expect(body['timers'].keys).to eq([first.display_id.to_s])

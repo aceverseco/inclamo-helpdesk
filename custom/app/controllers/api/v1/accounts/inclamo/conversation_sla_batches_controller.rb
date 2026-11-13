@@ -7,6 +7,10 @@
 class Api::V1::Accounts::Inclamo::ConversationSlaBatchesController < Api::V1::Accounts::BaseController
   # A page of a list is 25 rows; several lists may ask together.
   MAX_IDS = 100
+  # A timer is applied within moments of the conversation's creation. An older
+  # conversation without one will not get one (its inbox joined a policy
+  # later): it is not reported as on its way, or the list would keep asking.
+  PENDING_FOR = 2.minutes
 
   # `ids`: display ids, as a list or separated by commas. Answers, per id the
   # member may see, the timer as the single read gives it (nil when none), and
@@ -16,7 +20,9 @@ class Api::V1::Accounts::Inclamo::ConversationSlaBatchesController < Api::V1::Ac
     return render json: { error: 'too_many_ids', limit: MAX_IDS }, status: :unprocessable_entity if ids.size > MAX_IDS
 
     conversations = visible(Current.account.conversations.where(display_id: ids))
-    timers = ::Inclamo::SlaTimer.where(conversation_id: conversations.map(&:id)).index_by(&:conversation_id)
+    # The presenter's clock reads the inbox and its business hours.
+    timers = ::Inclamo::SlaTimer.where(conversation_id: conversations.map(&:id))
+                                .includes(conversation: { inbox: :working_hours }).index_by(&:conversation_id)
     render json: {
       timers: conversations.to_h { |conversation| [conversation.display_id.to_s, shown(timers[conversation.id])] },
       pending: conversations.reject { |conversation| timers.key?(conversation.id) }.select { |conversation| covered?(conversation) }.map(&:display_id)
@@ -47,6 +53,8 @@ class Api::V1::Accounts::Inclamo::ConversationSlaBatchesController < Api::V1::Ac
 
   # As Inclamo::SlaPolicy.covering, with the account's policies read once.
   def covered?(conversation)
+    return false if conversation.created_at < PENDING_FOR.ago
+
     @policies ||= ::Inclamo::SlaPolicy.where(account_id: Current.account.id).ordered.to_a
     @policies.any? { |policy| policy.created_at <= conversation.created_at && policy.covers?(conversation.inbox_id) }
   end
