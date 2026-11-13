@@ -42,8 +42,8 @@ RSpec.describe 'Inclamo team queues API', type: :request do
           'payload' => [
             { 'attribute_key' => 'status', 'filter_operator' => 'equal_to', 'values' => ['open'], 'attribute_model' => 'standard',
               'custom_attribute_type' => '', 'query_operator' => 'and' },
-            { 'attribute_key' => 'labels', 'filter_operator' => 'equal_to', 'values' => %w[return inclamo_intent_return], 'attribute_model' => 'standard',
-              'custom_attribute_type' => '' }
+            { 'attribute_key' => 'labels', 'filter_operator' => 'equal_to', 'values' => %w[return inclamo_intent_return inclamo_intent_exchange],
+              'attribute_model' => 'standard', 'custom_attribute_type' => '' }
           ]
         )
       end

@@ -16,11 +16,11 @@ Eight ready queues, installed for new and existing accounts:
 | Urgent | have urgent priority |
 | Handed over by AI | carry one of the AI agent's hand-over labels: `inclamo_handover`, `inclamo_error`, `inclamo_limit` |
 | Overdue | carry the label `sla-overdue` |
-| Delivery | carry `delivery` or `inclamo_intent_delivery` |
-| Cancellation | carry `cancellation` or `inclamo_intent_cancellation` |
-| Damage | carry `damage` or `inclamo_intent_damage` |
-| Missing parts | carry `missing-parts` or `inclamo_intent_missing_parts` |
-| Return | carry `return` or `inclamo_intent_return` |
+| Delivery | carry `delivery`, `inclamo_intent_delivery`, `inclamo_intent_shipping_problem` or `inclamo_intent_order_status` |
+| Cancellation | carry `cancellation`, `inclamo_intent_cancellation` or `inclamo_intent_cancel_order` |
+| Damage | carry `damage`, `inclamo_intent_damage`, `inclamo_intent_damaged_in_transit` or `inclamo_intent_claim` |
+| Missing parts | carry `missing-parts`, `inclamo_intent_missing_parts` or `inclamo_parts_request` |
+| Return | carry `return`, `inclamo_intent_return` or `inclamo_intent_exchange` |
 
 The helpdesk keeps `sla-overdue` itself, from the SLA timers: it is added when
 a target is missed and removed when that target is no longer unmet (the first
@@ -60,6 +60,10 @@ duplicates a queue or a reply, never changes what the store edited, and never
 brings back what the store hid or deleted. If the store already used one of the
 category labels for something else, the queue of that name lists those
 conversations; hide the queue if that is not wanted.
+
+A queue that is already installed keeps the labels it was installed with: a
+release that changes the labels of a ready queue changes them for accounts
+created afterwards. "Restore" on the queue gives an older account the current ones.
 
 ## How it is built
 
