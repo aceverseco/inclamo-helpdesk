@@ -15,16 +15,18 @@ module Inclamo
     # conversation with any one of them is listed (Chatwoot's filter matches a
     # label condition with several values as "any of"). Labels starting with
     # `inclamo_` are the AI agent's own (Inclamo::Ai::LABELS, and the labels it
-    # adds per request type); the installer does not create those.
+    # adds per request type); the installer does not create those. Each
+    # category lists the label named after it and the labels the Inclamo AI
+    # agent sets for requests of that category.
     READY = {
       'urgent' => { priority: 'urgent' },
       'ai_handover' => { labels: %w[inclamo_handover inclamo_error inclamo_limit] },
       'overdue' => { labels: [OVERDUE_LABEL] },
-      'delivery' => { labels: %w[delivery inclamo_intent_delivery] },
-      'cancellation' => { labels: %w[cancellation inclamo_intent_cancellation] },
-      'damage' => { labels: %w[damage inclamo_intent_damage] },
-      'missing_parts' => { labels: %w[missing-parts inclamo_intent_missing_parts] },
-      'return' => { labels: %w[return inclamo_intent_return] }
+      'delivery' => { labels: %w[delivery inclamo_intent_delivery inclamo_intent_shipping_problem inclamo_intent_order_status] },
+      'cancellation' => { labels: %w[cancellation inclamo_intent_cancellation inclamo_intent_cancel_order] },
+      'damage' => { labels: %w[damage inclamo_intent_damage inclamo_intent_damaged_in_transit inclamo_intent_claim] },
+      'missing_parts' => { labels: %w[missing-parts inclamo_intent_missing_parts inclamo_parts_request] },
+      'return' => { labels: %w[return inclamo_intent_return inclamo_intent_exchange] }
     }.freeze
 
     module_function
