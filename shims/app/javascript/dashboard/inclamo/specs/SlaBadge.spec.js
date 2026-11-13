@@ -123,6 +123,19 @@ describe('SlaBadge', () => {
     expect(badge(wrapper).exists()).toBe(false);
   });
 
+  it('reads once more a few seconds after a change: the timer follows a reply in the background', async () => {
+    const wrapper = await show(timer());
+    await wrapper.setProps({ activity: 101 });
+    await wait(30);
+    expect(badge(wrapper).exists()).toBe(true);
+    answers({ 7: timer({ first_response: target({ state: 'met', took_seconds: 100, counting: false }) }) });
+
+    await wait(5_100);
+
+    expect(InclamoAPI.getConversationSlas).toHaveBeenCalledTimes(3);
+    expect(badge(wrapper).exists()).toBe(false);
+  });
+
   it('does not keep asking for a conversation with nothing to watch', async () => {
     await show(null);
 
