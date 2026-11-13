@@ -27,6 +27,10 @@ const now = ref(Date.now());
 const shownDetails = ref(false);
 let ticker = null;
 let refresher = null;
+let follower = null;
+// A reply or a resolution reaches the timer in the background, a moment after
+// the list hears of it: the timer is read at once and once more shortly after.
+const FOLLOW_UP_MS = 5_000;
 
 const known = computed(() => timerOf(props.conversationId));
 const badge = computed(() => badgeOf(known.value, { now: now.value, resolved: props.status === 'resolved' }));
@@ -87,13 +91,20 @@ const schedule = () => {
 watch(known, schedule);
 watch(
   () => [props.conversationId, props.status, props.activity],
-  () => wantTimer(props.conversationId)
+  () => {
+    wantTimer(props.conversationId);
+    clearTimeout(follower);
+    follower = setTimeout(() => wantTimer(props.conversationId), FOLLOW_UP_MS);
+  }
 );
 onMounted(() => {
   if (known.value) schedule();
   wantTimer(props.conversationId);
 });
-onBeforeUnmount(stopClocks);
+onBeforeUnmount(() => {
+  stopClocks();
+  clearTimeout(follower);
+});
 </script>
 
 <template>
