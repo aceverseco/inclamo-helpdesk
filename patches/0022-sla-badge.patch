@@ -1,0 +1,50 @@
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue b/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
+@@ -9,6 +9,7 @@
+ import CardLabels from './conversationCardComponents/CardLabels.vue';
+ import CardPriorityIcon from 'dashboard/components-next/Conversation/ConversationCard/CardPriorityIcon.vue';
+ import SLACardLabel from './components/SLACardLabel.vue';
++import InclamoSlaBadge from 'dashboard/inclamo/components/SlaBadge.vue';
+ import VoiceCallStatus from './VoiceCallStatus.vue';
+ import Checkbox from 'dashboard/components-next/checkbox/Checkbox.vue';
+ 
+@@ -155,6 +156,13 @@
+         />
+         <span v-else>{{ $t('CHAT_LIST.NO_MESSAGES') }}</span>
+       </template>
++      <template #sla>
++        <InclamoSlaBadge
++          :conversation-id="chat.id"
++          :status="chat.status"
++          :activity="chat.timestamp"
++        />
++      </template>
+       <template #labels>
+         <CardLabels v-if="showLabelsSection" :conversation-labels="chat.labels">
+           <template v-if="hasSlaPolicyId" #before>
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue b/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue
+@@ -9,6 +9,7 @@
+ import SidepanelSwitch from 'dashboard/components-next/Conversation/SidepanelSwitch.vue';
+ import Avatar from 'next/avatar/Avatar.vue';
+ import SLACardLabel from './components/SLACardLabel.vue';
++import InclamoSlaBadge from 'dashboard/inclamo/components/SlaBadge.vue';
+ import ConversationCallButton from './ConversationCallButton.vue';
+ import wootConstants from 'dashboard/constants/globals';
+ import { conversationListPageURL } from 'dashboard/helper/URLHelper';
+@@ -192,6 +193,13 @@
+         :parent-width="width"
+         class="hidden md:flex"
+       />
++      <InclamoSlaBadge
++        v-if="chat.id"
++        :conversation-id="chat.id"
++        :status="currentChat.status"
++        :activity="currentChat.timestamp"
++        detailed
++      />
+       <ConversationCallButton :inbox="inbox" :chat="currentChat" />
+       <MoreActions :conversation-id="currentChat.id" />
+       <SidepanelSwitch v-if="currentChat.id" />

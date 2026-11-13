@@ -155,6 +155,11 @@ class InclamoAPI extends ApiClient {
     return axios.get(`${this.url}/conversations/${conversationId}/sla`);
   }
 
+  // The timers of several conversations (at most 100 display ids).
+  getConversationSlas(ids) {
+    return axios.get(`${this.url}/conversation_slas`, { params: { ids: ids.join(',') } });
+  }
+
   // `accountUrl` keeps a page read in one account from landing in another
   // after the agent switches accounts.
   getPanel(conversationId, after, accountUrl = this.url) {

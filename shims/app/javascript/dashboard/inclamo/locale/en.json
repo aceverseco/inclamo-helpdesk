@@ -656,6 +656,20 @@
     "MET": "Met in {time}",
     "MISSED": "Missed by {time}",
     "STOPPED": "Stopped",
+    "BADGE": {
+      "TARGETS": {
+        "first_response": "First reply",
+        "resolution": "Resolution"
+      },
+      "LEFT": "{target} · {time}",
+      "OVERDUE": "{target} · overdue {time}",
+      "PAUSED": "{target} · paused, {time}",
+      "LABEL_LEFT": "SLA: {target} due in {time}",
+      "LABEL_OVERDUE": "SLA: {target} overdue by {time}",
+      "LABEL_PAUSED": "SLA: {target} paused with {time} left",
+      "DETAILS": "SLA \"{policy}\"",
+      "DUE": "due {when}"
+    },
     "SHORT": {
       "DAYS": "{count} d",
       "HOURS": "{count} h",

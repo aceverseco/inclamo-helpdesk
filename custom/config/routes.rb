@@ -77,6 +77,8 @@ namespace :api, defaults: { format: 'json' } do
             end
           end
           get 'conversations/:conversation_id/sla', to: '/api/v1/accounts/inclamo/conversation_slas#show'
+          # The timers of a page of a conversation list, for the SLA badge.
+          get 'conversation_slas', to: '/api/v1/accounts/inclamo/conversation_sla_batches#index'
           # A finished call of the AI phone agent (docs/ai-connector-calls.md).
           post 'calls', to: '/api/v1/accounts/inclamo/ai_calls#create'
           namespace :ai do

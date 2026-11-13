@@ -69,10 +69,57 @@ export const hasTimer = id => {
   return Boolean(known?.timer);
 };
 
+// For the SLA badge of list rows: the timers of many conversations in one
+// request. Ids asked for within a moment of each other (a page of rows
+// mounting, a minute's refresh of all of them) go out together. A failed
+// read leaves what was known and is not reported: a row is then simply
+// without a fresh badge.
+const BATCH_WAIT_MS = 25;
+export const BATCH_SIZE = 100;
+const wanted = new Set();
+let batchTimer = null;
+
+const sendBatch = ids => {
+  const request = InclamoAPI.getConversationSlas(ids).then(({ data }) => {
+    const timers = data.timers || {};
+    const pending = new Set((data.pending || []).map(String));
+    const readAt = Date.now();
+    ids.forEach(id => {
+      // An id the answer leaves out is a conversation this member may not see.
+      read[id] = { timer: timers[id] ?? null, readAt };
+      retryWhilePending(id, !read[id].timer && pending.has(String(id)));
+    });
+  });
+  ids.forEach(id => {
+    const one = request.then(() => read[id]).finally(() => {
+      if (reading.get(id) === one) reading.delete(id);
+    });
+    one.catch(() => {});
+    reading.set(id, one);
+  });
+};
+
+const flushBatch = () => {
+  batchTimer = null;
+  const ids = [...wanted];
+  wanted.clear();
+  for (let at = 0; at < ids.length; at += BATCH_SIZE) sendBatch(ids.slice(at, at + BATCH_SIZE));
+};
+
+// Asks for a conversation's timer with the next batch, unless it is being read.
+export const wantTimer = id => {
+  if (id === undefined || id === null || reading.has(id)) return;
+  wanted.add(id);
+  if (!batchTimer) batchTimer = setTimeout(flushBatch, BATCH_WAIT_MS);
+};
+
 // For the specs.
 export const forgetTimers = () => {
   Object.keys(read).forEach(id => delete read[id]);
   reading.clear();
   [...retries.keys()].forEach(stopRetrying);
   retried.clear();
+  wanted.clear();
+  clearTimeout(batchTimer);
+  batchTimer = null;
 };
