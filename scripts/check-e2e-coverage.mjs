@@ -37,6 +37,7 @@ const FILES = {
   'order-item-editing': ['order-item-editing.spec.mjs'],
   'reply-inserts': ['reply-inserts.spec.mjs'],
   'sla-timers': ['sla-timers.spec.mjs'],
+  'sla-badge': ['sla-badge.spec.mjs'],
   'ai-agent-connection': ['ai-agent-connection.spec.mjs'],
   'call-conversations': ['call-conversations.spec.mjs'],
   'ai-order-authority': ['ai-order-authority.spec.mjs'],

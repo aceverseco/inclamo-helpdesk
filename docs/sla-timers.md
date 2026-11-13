@@ -70,6 +70,30 @@ helpdesk is busy and records them a little later.
 
 A target reached in time shows as **Met**, with the time it took.
 
+## Where staff see the timer
+
+Three places, all from the same timer:
+
+- **On the conversation's row in every list** (All, Mine, Unassigned, team
+  queues, folders): one badge with the target that needs attention.
+  "First reply · 9 min" while nobody has replied; after the first reply the
+  resolution target, but only once it is soon or overdue, so that a deadline a
+  day away does not sit on every row. No badge when the conversation has no
+  timer, is resolved, or has nothing left to watch.
+- **In the header of the open conversation**: the same badge; pointing at it or
+  focusing it lists both targets with their state and exact deadline.
+- **In the sidebar**, "Manage" → "SLA": the detailed section described above.
+
+The badge has three looks. Calm: time left. Soon: the last quarter of the
+target, and never less than its last five minutes. Overdue: the target passed
+and is still unmet; the badge says "overdue" and by how much. A timer outside
+business hours says "paused". The badge counts down by itself and follows a
+reply, a resolution or a passed deadline within about a minute, without a
+reload. Its behavior is specified in [sla-badge](behavior/sla-badge/spec.md).
+
+The list is not sorted by deadline; the team queue "Overdue"
+([team queues](team-queues.md)) lists what is past its target.
+
 ## Business hours
 
 With **Count business hours only**, a timer advances only while the
@@ -106,4 +130,19 @@ notified; build a rule on the label if you want that.
   `PATCH/DELETE .../sla_policies/:policy_id`, `POST .../sla_policies/reorder`
   (`ids` in the new order), `GET .../sla_policies/summary?days=7` (or 30).
   Targets are in seconds. For anyone who may see the conversation:
-  `GET /api/v1/accounts/:id/inclamo/conversations/:display_id/sla`.
+  `GET /api/v1/accounts/:id/inclamo/conversations/:display_id/sla`. The timers of
+  up to 100 conversations at once, for the badges of a list:
+  `GET /api/v1/accounts/:id/inclamo/conversation_slas?ids=1,2,3`; a conversation
+  the caller may not see is left out of the answer.
+
+## Seam: `patches/0022-sla-badge.patch`
+
+Two hunks of one import and one element each; all logic is in
+`shims/app/javascript/dashboard/inclamo/components/SlaBadge.vue`,
+`inclamo/slaBadge.js` (which target, which look) and `inclamo/slaTimers.js`
+(reading the timers of a page of rows in one request).
+
+| File | Change | Why the existing code was not enough | Covered by |
+| --- | --- | --- | --- |
+| `components/widgets/conversation/ConversationCard.vue` | the badge in the row's meta slot | the row's own SLA label reads Chatwoot's paid SLA data, which this edition does not have | `specs/SlaBadge.spec.js`, e2e `sla-badge.spec.mjs` (rows) |
+| `components/widgets/conversation/ConversationHeader.vue` | the badge, with details, before the header's actions | the same | e2e "Agent opens an overdue conversation" |
