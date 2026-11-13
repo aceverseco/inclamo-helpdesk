@@ -38,6 +38,7 @@ const FILES = {
   'reply-inserts': ['reply-inserts.spec.mjs'],
   'sla-timers': ['sla-timers.spec.mjs'],
   'sla-badge': ['sla-badge.spec.mjs'],
+  'sla-urgency-widget': ['sla-urgency-widget.spec.mjs'],
   'ai-agent-connection': ['ai-agent-connection.spec.mjs'],
   'call-conversations': ['call-conversations.spec.mjs'],
   'ai-order-authority': ['ai-order-authority.spec.mjs'],

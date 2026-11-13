@@ -1,0 +1,338 @@
+{
+  "comment": "Cases of the SLA badge rule, run by the Ruby spec of Inclamo::Sla::Urgency and by the JavaScript test of badgeOf: the two must agree.",
+  "cases": [
+    {
+      "name": "first response with time to spare",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "running",
+          "target_seconds": 900,
+          "remaining_seconds": 600,
+          "counting": true
+        },
+        "resolution": {
+          "state": "running",
+          "target_seconds": 86400,
+          "remaining_seconds": 72000,
+          "counting": true
+        }
+      },
+      "expect": [
+        "first_response",
+        "calm"
+      ]
+    },
+    {
+      "name": "one second before the last five minutes",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "running",
+          "target_seconds": 900,
+          "remaining_seconds": 301,
+          "counting": true
+        }
+      },
+      "expect": [
+        "first_response",
+        "calm"
+      ]
+    },
+    {
+      "name": "the last five minutes of a short target",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "running",
+          "target_seconds": 900,
+          "remaining_seconds": 300,
+          "counting": true
+        }
+      },
+      "expect": [
+        "first_response",
+        "soon"
+      ]
+    },
+    {
+      "name": "one second before the last quarter of a day",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "running",
+          "target_seconds": 86400,
+          "remaining_seconds": 21601,
+          "counting": true
+        }
+      },
+      "expect": [
+        "first_response",
+        "calm"
+      ]
+    },
+    {
+      "name": "the last quarter of a day",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "running",
+          "target_seconds": 86400,
+          "remaining_seconds": 21600,
+          "counting": true
+        }
+      },
+      "expect": [
+        "first_response",
+        "soon"
+      ]
+    },
+    {
+      "name": "a target shorter than five minutes is soon from the start",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "running",
+          "target_seconds": 120,
+          "remaining_seconds": 120,
+          "counting": true
+        }
+      },
+      "expect": [
+        "first_response",
+        "soon"
+      ]
+    },
+    {
+      "name": "missed and unmet",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "missed",
+          "target_seconds": 900,
+          "over_seconds": 720,
+          "counting": true
+        }
+      },
+      "expect": [
+        "first_response",
+        "overdue"
+      ]
+    },
+    {
+      "name": "running with no time left",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "running",
+          "target_seconds": 900,
+          "remaining_seconds": 0,
+          "counting": true
+        }
+      },
+      "expect": [
+        "first_response",
+        "overdue"
+      ]
+    },
+    {
+      "name": "replied, resolution far away",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "met",
+          "target_seconds": 900,
+          "remaining_seconds": null,
+          "counting": false,
+          "took_seconds": 120
+        },
+        "resolution": {
+          "state": "running",
+          "target_seconds": 86400,
+          "remaining_seconds": 72000,
+          "counting": true
+        }
+      },
+      "expect": null
+    },
+    {
+      "name": "replied, resolution soon",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "met",
+          "target_seconds": 900,
+          "remaining_seconds": null,
+          "counting": false,
+          "took_seconds": 120
+        },
+        "resolution": {
+          "state": "running",
+          "target_seconds": 86400,
+          "remaining_seconds": 7200,
+          "counting": true
+        }
+      },
+      "expect": [
+        "resolution",
+        "soon"
+      ]
+    },
+    {
+      "name": "replied, resolution overdue",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "met",
+          "target_seconds": 900,
+          "remaining_seconds": null,
+          "counting": false,
+          "took_seconds": 120
+        },
+        "resolution": {
+          "state": "missed",
+          "target_seconds": 86400,
+          "over_seconds": 600,
+          "counting": true
+        }
+      },
+      "expect": [
+        "resolution",
+        "overdue"
+      ]
+    },
+    {
+      "name": "resolution only, far away",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "resolution": {
+          "state": "running",
+          "target_seconds": 86400,
+          "remaining_seconds": 80000,
+          "counting": true
+        }
+      },
+      "expect": null
+    },
+    {
+      "name": "resolution only, soon",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "resolution": {
+          "state": "running",
+          "target_seconds": 86400,
+          "remaining_seconds": 600,
+          "counting": true
+        }
+      },
+      "expect": [
+        "resolution",
+        "soon"
+      ]
+    },
+    {
+      "name": "late reply: missed but reached",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "missed",
+          "target_seconds": 900,
+          "took_seconds": 1500,
+          "over_seconds": 600,
+          "counting": false
+        },
+        "resolution": {
+          "state": "running",
+          "target_seconds": 86400,
+          "remaining_seconds": 72000,
+          "counting": true
+        }
+      },
+      "expect": null
+    },
+    {
+      "name": "paused with little left",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "paused",
+          "target_seconds": 7200,
+          "remaining_seconds": 1800,
+          "counting": false
+        }
+      },
+      "expect": [
+        "first_response",
+        "soon"
+      ]
+    },
+    {
+      "name": "paused with much left",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": false,
+        "next_change_at": null,
+        "first_response": {
+          "state": "paused",
+          "target_seconds": 7200,
+          "remaining_seconds": 7200,
+          "counting": false
+        }
+      },
+      "expect": [
+        "first_response",
+        "calm"
+      ]
+    },
+    {
+      "name": "stopped timer",
+      "timer": {
+        "policy_name": "Standard",
+        "stopped": true,
+        "next_change_at": null,
+        "first_response": {
+          "state": "stopped",
+          "target_seconds": 900,
+          "remaining_seconds": 540,
+          "counting": false
+        }
+      },
+      "expect": null
+    },
+    {
+      "name": "no timer",
+      "timer": null,
+      "expect": null
+    }
+  ]
+}

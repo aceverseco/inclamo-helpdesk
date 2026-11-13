@@ -16,7 +16,7 @@ describe('compiled widget catalog', () => {
     const extended = createRegistry({ ...manifest, widgets: [...manifest.widgets, fixture] }, { ...loaders, fixture: async () => ({ render: () => h('span') }) });
     const layout = productLayout();
     layout.placements['workspace-header'].push({ id: 'fixture', collapsed: false });
-    expect(entriesFor(layout, 'workspace-header', extended).map(entry => entry.id)).toEqual(['notifications', 'fixture']);
+    expect(entriesFor(layout, 'workspace-header', extended).map(entry => entry.id)).toEqual(['sla-overview', 'notifications', 'fixture']);
     expect(() => createRegistry({ ...manifest, widgets: [...manifest.widgets, manifest.widgets[0]] }, loaders)).toThrow('duplicate_widget');
     expect(() => createRegistry({ ...manifest, widgets: [{ ...manifest.widgets[0], placement: 'unknown' }] }, loaders)).toThrow('unsupported_placement');
   });
@@ -41,7 +41,10 @@ describe('compiled widget catalog', () => {
     await items[2].trigger('dragstart');
     await items[0].trigger('drop');
     expect(wrapper.props('modelValue').placements['conversation-sidebar'][0].id).toBe('purchase-statistics');
-    expect(wrapper.props('modelValue').placements['workspace-header']).toEqual([{ id: 'notifications', collapsed: false }]);
+    expect(wrapper.props('modelValue').placements['workspace-header']).toEqual([
+      { id: 'sla-overview', collapsed: false },
+      { id: 'notifications', collapsed: false },
+    ]);
   });
 
   it('contains a broken widget without hiding a sibling', async () => {

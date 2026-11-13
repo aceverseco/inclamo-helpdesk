@@ -65,6 +65,8 @@ namespace :api, defaults: { format: 'json' } do
           resources :team_queues, only: [:index, :update] do
             post :reorder, on: :collection
             post :restore, on: :member
+            # Per queue: overdue, soon and other conversations, for the header widget.
+            get :sla_overview, on: :collection
           end
           resources :macro_previews, only: [:create]
           resources :macro_confirmations, only: [:create]
