@@ -31,7 +31,7 @@ export async function signIn(page, session) {
 }
 export const product = () => ({ schema_version: 1, placements: {
   'conversation-sidebar': ['customer-profile', 'purchase-statistics', 'orders'].map(id => ({ id, collapsed: false })),
-  'workspace-header': [{ id: 'notifications', collapsed: false }],
+  'workspace-header': ['sla-overview', 'notifications'].map(id => ({ id, collapsed: false })),
 } });
 export const empty = () => ({ schema_version: 1, placements: { 'conversation-sidebar': [], 'workspace-header': [] } });
 export async function resetLayouts(admin) {
