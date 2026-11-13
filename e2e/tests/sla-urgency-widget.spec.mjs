@@ -33,12 +33,12 @@ test.beforeAll(async ({ playwright }) => {
   // The agent is not a member of this one.
   inboxes.hidden = await inbox('E2E SLA widget hidden', [admin.userId]);
   await removePolicies(() => true);
-  await agent.delete('/inclamo/workspace_layout');
+  await resetLayout(agent);
 });
 
 test.afterAll(async () => {
   await removePolicies(one => one.name.startsWith(PREFIX));
-  await agent.delete('/inclamo/workspace_layout');
+  await resetLayout(agent);
 });
 
 // An inbox of the API channel with the given users as its members.
@@ -47,6 +47,12 @@ async function inbox(name, memberIds) {
   const made = existing || (await admin.post('/inboxes', { name, channel: { type: 'api', webhook_url: '' } })).body;
   await admin.post('/inbox_members', { inbox_id: made.id, user_ids: memberIds });
   return made;
+}
+
+// Back to the account's default layout: the reset names the revision it replaces.
+async function resetLayout(who) {
+  const { revision } = (await who.get('/inclamo/workspace_layout')).body;
+  return who.delete(`/inclamo/workspace_layout?revision=${encodeURIComponent(revision)}`);
 }
 
 async function removePolicies(which) {
@@ -139,7 +145,7 @@ test.describe('The widget follows the workspace widget rules', () => {
     await other.close();
 
     // The agent restores the widget: the account's default has it.
-    expect((await agent.delete('/inclamo/workspace_layout')).status).toBeLessThan(300);
+    expect((await resetLayout(agent)).status).toBe(200);
     await page.reload();
     await expect(widget(page)).toBeVisible({ timeout: 60_000 });
   });
