@@ -92,7 +92,9 @@ reply, a resolution or a passed deadline within about a minute, without a
 reload. Its behavior is specified in [sla-badge](behavior/sla-badge/spec.md).
 
 The list is not sorted by deadline; the team queue "Overdue"
-([team queues](team-queues.md)) lists what is past its target.
+([team queues](team-queues.md)) lists what is past its target. The header widget
+"SLA overview" ([workspace widgets](workspace-widgets-and-support.md)) counts,
+per team queue, what is overdue and what is due soon.
 
 ## Business hours
 

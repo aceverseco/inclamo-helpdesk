@@ -991,6 +991,8 @@
     "ORDERS_DESCRIPTION": "Customer orders, matching and permitted order actions.",
     "NOTIFICATIONS": "Notifications",
     "NOTIFICATIONS_DESCRIPTION": "Your unread notifications and inbox shortcut.",
+    "SLA_OVERVIEW": "SLA overview",
+    "SLA_OVERVIEW_DESCRIPTION": "Per team queue: conversations overdue against their SLA, due soon, and the others.",
     "FAILED": "This widget could not load.",
     "RETRY": "Try again",
     "HEADER": "Workspace header",
@@ -1221,6 +1223,27 @@
     "COPIED": "Copied",
     "COPY_INSTALLATION_CODE": "Copy installation code",
     "LIVE_PREVIEW": "Live preview"
+  },
+  "SLA_OVERVIEW": {
+    "TITLE": "SLA overview",
+    "SHORT": "SLA",
+    "SUMMARY": "SLA overview: {overdue} overdue, {soon} due soon. Show the queues.",
+    "COLUMNS": {
+      "OVERDUE": "Overdue",
+      "SOON": "Soon",
+      "OTHER": "Others"
+    },
+    "LOADING": "Loading the SLA overview…",
+    "FAILED": "The SLA overview could not be loaded.",
+    "RETRY": "Try again",
+    "NO_POLICIES": "No SLA policy yet: nothing can be overdue.",
+    "SET_UP": "Set up SLA",
+    "OVERDUE": "{count} overdue",
+    "SOON": "{count} due soon",
+    "OTHER": "{count} others",
+    "QUEUE": "{name}: {overdue} overdue, {soon} due soon, {other} others. Open the queue.",
+    "QUEUE_UNKNOWN": "{name}: could not be counted. Open the queue.",
+    "UNKNOWN": "–"
   },
   "TEAM_QUEUES": {
     "HEADING": "Team queues",

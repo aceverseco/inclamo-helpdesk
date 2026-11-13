@@ -249,6 +249,11 @@ class InclamoAPI extends ApiClient {
     return axios.get(`${this.url}/team_queues`, { params: all ? { all: 1 } : {} });
   }
 
+  // Per visible queue: overdue, soon and other conversations, for this member.
+  getSlaOverview() {
+    return axios.get(`${this.url}/team_queues/sla_overview`);
+  }
+
   updateTeamQueue(id, payload) {
     return axios.patch(`${this.url}/team_queues/${id}`, payload);
   }

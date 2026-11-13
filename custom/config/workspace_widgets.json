@@ -5,6 +5,7 @@
     { "id": "customer-profile", "placement": "conversation-sidebar", "label": "WIDGETS.PROFILE", "description": "WIDGETS.PROFILE_DESCRIPTION" },
     { "id": "purchase-statistics", "placement": "conversation-sidebar", "label": "WIDGETS.STATISTICS", "description": "WIDGETS.STATISTICS_DESCRIPTION" },
     { "id": "orders", "placement": "conversation-sidebar", "label": "WIDGETS.ORDERS", "description": "WIDGETS.ORDERS_DESCRIPTION" },
+    { "id": "sla-overview", "placement": "workspace-header", "label": "WIDGETS.SLA_OVERVIEW", "description": "WIDGETS.SLA_OVERVIEW_DESCRIPTION" },
     { "id": "notifications", "placement": "workspace-header", "label": "WIDGETS.NOTIFICATIONS", "description": "WIDGETS.NOTIFICATIONS_DESCRIPTION" }
   ]
 }

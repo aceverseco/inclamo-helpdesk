@@ -1,4 +1,5 @@
 import { badgeOf, nextReadIn, soonFrom } from '../slaBadge';
+import shared from '../../../../../custom/spec/fixtures/sla_urgency_cases.json';
 
 const NOW = new Date('2026-11-13T12:00:00Z').getTime();
 const target = (overrides = {}) => ({ state: 'running', target_seconds: 900, remaining_seconds: 540, counting: true, ...overrides });
@@ -88,6 +89,16 @@ describe('badgeOf', () => {
     expect(badgeOf(undefined, { now: NOW })).toBeNull();
     expect(badge({ stopped: true, first_response: target({ state: 'stopped', counting: false }) })).toBeNull();
     expect(badge({ first_response: target() }, { resolved: true })).toBeNull();
+  });
+});
+
+// The server counts conversations by the same rule (Inclamo::Sla::Urgency);
+// its spec runs these cases too.
+describe('badgeOf agrees with the server on the shared cases', () => {
+  it.each(shared.cases.map(one => [one.name, one]))('%s', (_, one) => {
+    const shown = badgeOf({ timer: one.timer, readAt: NOW }, { now: NOW });
+
+    expect(shown ? [shown.target, shown.look] : null).toEqual(one.expect);
   });
 });
 

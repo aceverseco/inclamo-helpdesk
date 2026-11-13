@@ -24,11 +24,12 @@ RSpec.describe 'Workspace layout isolation and revisions', type: :request do
                              headers: admin.create_new_auth_token, as: :json
   end
 
-  it 'starts with all four widgets and persists an intentionally empty personal layout without touching profile preferences' do
+  it 'starts with all five widgets and persists an intentionally empty personal layout without touching profile preferences' do
     original = author.ui_settings
     initial = read
     expect(initial['source']).to eq('product')
-    expect(initial['layout']['placements'].values.flatten.size).to eq(4)
+    expect(initial['layout']['placements'].values.flatten.size).to eq(5)
+    expect(initial['layout']['placements']['workspace-header'].pluck('id')).to eq(%w[sla-overview notifications])
     save(empty, initial['revision'])
     expect(response).to have_http_status(:ok)
     expect(read['layout']).to eq(empty)

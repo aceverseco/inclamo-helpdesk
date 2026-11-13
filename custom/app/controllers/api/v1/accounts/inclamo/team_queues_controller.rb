@@ -4,7 +4,7 @@
 # reads the visible ones with their own counts; administrators rename,
 # reorder, hide and restore them.
 class Api::V1::Accounts::Inclamo::TeamQueuesController < Api::V1::Accounts::BaseController
-  before_action :require_administrator, except: :index
+  before_action :require_administrator, except: [:index, :sla_overview]
   before_action :set_queue, only: [:update, :restore]
 
   # `all=1`, for administrators, adds the hidden queues (without a count).
@@ -28,6 +28,19 @@ class Api::V1::Accounts::Inclamo::TeamQueuesController < Api::V1::Accounts::Base
     return refuse(@queue.errors.of_kind?(:hidden, :too_many_visible) ? :too_many_visible : :name_invalid) unless @queue.save
 
     render json: listing(queues)
+  end
+
+  # The "SLA overview" widget: the visible queues with their conversations
+  # counted as overdue, soon and other, for this member. The answer is kept
+  # for half a minute per member: every open workspace asks once a minute.
+  SLA_OVERVIEW_FOR = 30.seconds
+
+  def sla_overview
+    # The numbers are a staff member's: a bot's token has none.
+    return head :forbidden unless Current.user.is_a?(User)
+
+    key = "inclamo:sla_overview:#{Current.account.id}:#{Current.user.id}"
+    render json: Rails.cache.fetch(key, expires_in: SLA_OVERVIEW_FOR) { ::Inclamo::TeamQueues::SlaOverview.call(Current.account, Current.user) }
   end
 
   # `ids`: every queue of the account, in the new order.

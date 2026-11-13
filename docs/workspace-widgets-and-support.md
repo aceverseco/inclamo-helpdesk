@@ -1,6 +1,6 @@
 # Workspace widgets and Inclamo support
 
-This overlay targets the pinned Chatwoot Community Edition in `custom/CHATWOOT_VERSION`. The four initial widgets are Customer, Purchase statistics, Orders and Notifications. Support is a permanent header/profile action, independent of which widgets an agent keeps.
+This overlay targets the pinned Chatwoot Community Edition in `custom/CHATWOOT_VERSION`. The four initial widgets are Customer, Purchase statistics, Orders and Notifications. A fifth, SLA overview, sits in the workspace header (see below). Support is a permanent header/profile action, independent of which widgets an agent keeps.
 
 ## Personal and administrator layouts
 
@@ -9,6 +9,14 @@ Open **Customize widgets** beside either surface or in the customer pane header.
 Under **Settings → Workspace widgets**, an administrator can change the default, assign a layout to one current member or replace all members' layouts. The last operation explicitly confirms the affected membership count. Defaults preserve personal overrides. After an administrator replacement, members can personalize again. Concurrent changes require reloading the editor; an old editor cannot silently restore overwritten settings. Layouts belong to an account membership, not the user's global profile.
 
 Removing Customer or Orders retains permitted access through Manage. Conversation labels remain available. Commerce cards and the composer share one account/conversation/contact provider; cached data expires after 60 seconds and mutations refresh it. Header Notifications uses Chatwoot's existing store and destination.
+
+## SLA overview
+
+The header widget "SLA overview" is a button with two numbers: the conversations overdue against their SLA and those due soon, across the visible team queues, each conversation counted once. A click opens the account's visible team queues, in the account's order, each with three numbers for the open conversations the queue lists for the person looking: overdue against their SLA, due soon, and the others. Overdue and soon mean what the SLA badge of a conversation means by them ([SLA timers](sla-timers.md)); a conversation without a timer is one of the others. The three numbers add up to the count next to the queue in the navigation. A queue's entry opens the queue.
+
+The numbers are computed on the server for that staff member (`GET /api/v1/accounts/:id/inclamo/team_queues/sla_overview`), kept for half a minute, and asked for once a minute while the tab is visible. Only conversations with an SLA target still unmet are looked at; a queue with more than 2,000 of them is counted for 2,000, and its overdue and soon numbers are followed by "+". An account with no SLA policy sees a short explanation instead of rows of zeros, with a link to the SLA settings for administrators. A conversation that is in two queues is counted in both.
+
+The widget is in the product's default header. Staff who saved a personal layout before it existed do not get it by themselves (the rule for every new widget): they add it under **Customize widgets**, or an administrator replaces everyone's layout. Behavior is specified in [sla-urgency-widget](behavior/sla-urgency-widget/spec.md).
 
 ## Adding or retiring a widget
 

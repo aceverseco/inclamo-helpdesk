@@ -6,6 +6,7 @@ const loaders = {
   'customer-profile': () => import('./CustomerProfileWidget.vue'),
   'purchase-statistics': () => import('./PurchaseStatisticsWidget.vue'),
   orders: () => import('./OrdersWidget.vue'),
+  'sla-overview': () => import('./SlaOverviewWidget.vue'),
   notifications: () => import('./NotificationsWidget.vue'),
 };
 

@@ -38,6 +38,7 @@ const FILES = {
   'reply-inserts': ['reply-inserts.spec.mjs'],
   'sla-timers': ['sla-timers.spec.mjs'],
   'sla-badge': ['sla-badge.spec.mjs'],
+  'sla-urgency-widget': ['sla-urgency-widget.spec.mjs'],
   'ai-agent-connection': ['ai-agent-connection.spec.mjs'],
   'call-conversations': ['call-conversations.spec.mjs'],
   'ai-order-authority': ['ai-order-authority.spec.mjs'],
@@ -56,6 +57,8 @@ const ELSEWHERE = {
     'needs a new account; covered by custom/spec/lib/inclamo/presets_spec.rb (an account gets the eight queues when it is created)',
   'team-queues › Ready queues exist for every account › An existing account gets the ready queues on upgrade':
     'needs an upgrade of an installation with accounts; covered by custom/spec/lib/inclamo/presets_spec.rb, which runs the install migration itself on an account without queues',
+  "sla-urgency-widget › The widget counts each queue's conversations by SLA urgency › Conversation in two queues":
+    'the totals of the test installation move with every other file; covered by custom/spec/requests/api/v1/accounts/inclamo/team_queue_sla_overview_spec.rb ("totals each conversation once") and, for the header showing the totals, by the end-to-end test "Mixed queue"',
   'team-queues › Queues work without the AI subscription › Account without an AI agent':
     'the test installation keeps its AI agent connected for other files; covered by custom/spec/requests/api/v1/accounts/inclamo/team_queues_spec.rb ("an account with no AI agent connected")',
   'team-queues › Installing the ready queues is repeatable › Second installation changes nothing':
