@@ -99,8 +99,11 @@ onBeforeUnmount(stopClocks);
 <template>
   <span
     v-if="badge"
-    class="inclamo-sla-badge relative inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs leading-4 whitespace-nowrap shrink-0"
+    class="inclamo-sla-badge relative inline-flex items-center gap-1 rounded whitespace-nowrap shrink-0"
     :class="{
+      // A row's bottom line is 15px high and clips what does not fit.
+      'px-1.5 py-0.5 text-xs leading-4': detailed,
+      'px-1 text-[10px] leading-[13px]': !detailed,
       'bg-n-alpha-2 text-n-slate-11': badge.look === 'calm',
       'bg-n-amber-3 text-n-amber-11': badge.look === 'soon',
       'bg-n-ruby-3 text-n-ruby-11 font-medium': badge.look === 'overdue',

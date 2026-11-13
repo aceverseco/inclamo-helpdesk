@@ -9,18 +9,20 @@ diff --git a/app/javascript/dashboard/components/widgets/conversation/Conversati
  import VoiceCallStatus from './VoiceCallStatus.vue';
  import Checkbox from 'dashboard/components-next/checkbox/Checkbox.vue';
  
-@@ -168,6 +169,11 @@
-         >
+@@ -155,6 +156,13 @@
+         />
+         <span v-else>{{ $t('CHAT_LIST.NO_MESSAGES') }}</span>
        </template>
-       <template #meta>
++      <template #sla>
 +        <InclamoSlaBadge
 +          :conversation-id="chat.id"
 +          :status="chat.status"
 +          :activity="chat.timestamp"
 +        />
-         <Icon
-           v-if="showAssignee && assignee.name"
-           :icon="isAIAssignee ? 'i-lucide-bot' : 'i-lucide-user-round'"
++      </template>
+       <template #labels>
+         <CardLabels v-if="showLabelsSection" :conversation-labels="chat.labels">
+           <template v-if="hasSlaPolicyId" #before>
 diff --git a/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue b/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue
 --- a/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue
 +++ b/app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue

@@ -33,6 +33,7 @@ const icon = computed(
         <div v-if="subject" class="row-subject">{{ subject }}</div>
         <div class="row-preview"><slot name="preview" /></div>
         <div class="row-bottom">
+          <slot name="sla" />
           <slot name="labels" />
           <slot name="meta" />
           <i v-if="unread" class="unread-dot" />

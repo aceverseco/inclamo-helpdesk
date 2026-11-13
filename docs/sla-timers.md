@@ -144,5 +144,5 @@ Two hunks of one import and one element each; all logic is in
 
 | File | Change | Why the existing code was not enough | Covered by |
 | --- | --- | --- | --- |
-| `components/widgets/conversation/ConversationCard.vue` | the badge in the row's meta slot | the row's own SLA label reads Chatwoot's paid SLA data, which this edition does not have | `specs/SlaBadge.spec.js`, e2e `sla-badge.spec.mjs` (rows) |
+| `components/widgets/conversation/ConversationCard.vue` | the badge in the row's `sla` slot, ahead of the labels (the row clips what does not fit its bottom line) | the row's own SLA label reads Chatwoot's paid SLA data, which this edition does not have | `specs/SlaBadge.spec.js`, e2e `sla-badge.spec.mjs` (rows) |
 | `components/widgets/conversation/ConversationHeader.vue` | the badge, with details, before the header's actions | the same | e2e "Agent opens an overdue conversation" |
