@@ -35,6 +35,25 @@ RSpec.describe Inclamo::TeamQueues do
     end
   end
 
+  # The SLA overview reads the conversations of a queue from the same run of
+  # Chatwoot's filter (its unpaged relation): as many as the queue counts.
+  it "the SLA overview finds every shipped queue's conversations where Chatwoot's filter counts them" do
+    described_class::READY.each do |key, definition|
+      listed = Array.new(2) { create(:conversation, account: account, inbox: inbox) }
+      listed.each do |conversation|
+        conversation.update!(priority: definition[:priority]) if definition[:priority]
+        conversation.update_labels([definition[:labels].first]) if definition[:labels]
+      end
+      create(:conversation, account: account, inbox: inbox, status: :resolved).update_labels(definition[:labels].to_a.first(1))
+
+      total, ids = Inclamo::TeamQueues::SlaOverview.listed(queues.fetch(key), admin)
+
+      expect(total).to eq(described_class.count(queues.fetch(key), admin)), "count of #{key}"
+      expect(ids).to match_array(listed.map(&:id)), "conversations of #{key}"
+      listed.each(&:destroy!)
+    end
+  end
+
   it 'ships the queues on the labels the product already sets' do
     expect(described_class::READY.transform_values { |definition| definition[:labels] }).to eq(
       'urgent' => nil, 'ai_handover' => %w[inclamo_handover inclamo_error inclamo_limit], 'overdue' => %w[sla-overdue],
