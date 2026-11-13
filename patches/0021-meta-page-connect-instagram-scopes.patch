@@ -1,3 +1,15 @@
+diff --git a/app/javascript/dashboard/composables/spec/useFacebookPageConnect.spec.js b/app/javascript/dashboard/composables/spec/useFacebookPageConnect.spec.js
+--- a/app/javascript/dashboard/composables/spec/useFacebookPageConnect.spec.js
++++ b/app/javascript/dashboard/composables/spec/useFacebookPageConnect.spec.js
+@@ -71,7 +71,7 @@ describe('useFacebookPageConnect', () => {
+     );
+     expect(window.FB.login).toHaveBeenCalledWith(expect.any(Function), {
+       scope:
+-        'pages_manage_metadata,business_management,pages_messaging,pages_show_list,pages_read_engagement',
++        'pages_manage_metadata,business_management,pages_messaging,pages_show_list,pages_read_engagement,instagram_basic,instagram_manage_messages',
+     });
+   });
+ 
 diff --git a/app/javascript/dashboard/composables/useFacebookPageConnect.js b/app/javascript/dashboard/composables/useFacebookPageConnect.js
 --- a/app/javascript/dashboard/composables/useFacebookPageConnect.js
 +++ b/app/javascript/dashboard/composables/useFacebookPageConnect.js

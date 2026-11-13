@@ -71,6 +71,16 @@ const ELSEWHERE = {
     'needs two database transactions at the same instant; covered by custom/spec/lib/inclamo/ai/protected_reply_ordering_spec.rb on two connections',
   "call-conversations › The call lands on the caller's contact › Two contacts share the number":
     "Chatwoot's API refuses a second contact with a number another holds, so the tests cannot make two; covered by custom/spec/requests/api/v1/accounts/inclamo/ai_calls_spec.rb on rows written past that check",
+  'meta-page-connection › Page connection requests Instagram messaging permissions › First-time client connects a Page with a linked Instagram account':
+    'the permission set requested is covered by shims/app/javascript/dashboard/inclamo/specs/MetaPageConnectScopes.spec.js; receiving and answering Instagram direct messages needs a real Meta login, which the tests cannot perform; no automated test covers it, and it is checked by hand on a live instance before release',
+  'meta-page-connection › Page connection requests Instagram messaging permissions › Connection from the onboarding form':
+    'the test installation has no Meta app, so the form cannot start the login; covered by shims/app/javascript/dashboard/inclamo/specs/MetaPageConnectScopes.spec.js (the settings screen and the onboarding form take the login from one flow, and that flow requests the Page and Instagram permissions)',
+  'meta-page-connection › Messenger works without Instagram › Administrator declines the Instagram permissions':
+    "declining permissions in Meta's dialog and Messenger delivery need a real Meta login, which the tests cannot perform; no automated test covers them, and they are checked by hand on a live instance before release",
+  'meta-page-connection › Messenger works without Instagram › Page without Instagram':
+    'connecting a real Page and Messenger delivery need a real Meta login, which the tests cannot perform; no automated test covers them, and they are checked by hand on a live instance before release',
+  'meta-page-connection › Reauthorization requests the same permissions as connection › Instagram added after the first connection':
+    'the permission set requested is covered by shims/app/javascript/dashboard/inclamo/specs/MetaPageConnectScopes.spec.js (reauthorizing requests the same set as connecting, with or without a stored Instagram account); Instagram messages arriving afterwards need a real Meta login, which the tests cannot perform; no automated test covers them, and they are checked by hand on a live instance before release',
   'shopify-connection › The credentials are a secret › Installation without encryption keys':
     'needs an installation without encryption keys; covered by the request spec and the component test',
 };
