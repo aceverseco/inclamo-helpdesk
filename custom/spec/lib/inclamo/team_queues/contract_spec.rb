@@ -58,8 +58,11 @@ RSpec.describe Inclamo::TeamQueues do
   it 'ships the queues on the labels the product already sets' do
     expect(described_class::READY.transform_values { |definition| definition[:labels] }).to eq(
       'urgent' => nil, 'ai_handover' => %w[inclamo_handover inclamo_error inclamo_limit], 'overdue' => %w[sla-overdue],
-      'delivery' => %w[delivery inclamo_intent_delivery], 'cancellation' => %w[cancellation inclamo_intent_cancellation],
-      'damage' => %w[damage inclamo_intent_damage], 'missing_parts' => %w[missing-parts inclamo_intent_missing_parts], 'return' => %w[return inclamo_intent_return]
+      'delivery' => %w[delivery inclamo_intent_delivery inclamo_intent_shipping_problem inclamo_intent_order_status],
+      'cancellation' => %w[cancellation inclamo_intent_cancellation inclamo_intent_cancel_order],
+      'damage' => %w[damage inclamo_intent_damage inclamo_intent_damaged_in_transit inclamo_intent_claim],
+      'missing_parts' => %w[missing-parts inclamo_intent_missing_parts inclamo_parts_request],
+      'return' => %w[return inclamo_intent_return inclamo_intent_exchange]
     )
     expect(described_class::READY.values.flat_map { |definition| definition[:labels].to_a }).to all(match(/\A[a-z0-9_-]+\z/))
     expect(described_class.labels).to eq(%w[sla-overdue delivery cancellation damage missing-parts return])
