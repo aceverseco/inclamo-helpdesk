@@ -67,6 +67,7 @@ describe('SlaBadge', () => {
     await wait(30);
 
     expect(badge(wrapper).exists()).toBe(false);
+    expect(InclamoAPI.getConversationSlas).toHaveBeenCalledWith([7]);
   });
 
   it('counts down, turns soon and then overdue in words, without a new read', async () => {
@@ -109,6 +110,21 @@ describe('SlaBadge', () => {
     await wait(60_100);
 
     expect(InclamoAPI.getConversationSlas).toHaveBeenCalledTimes(2);
+    expect(badge(wrapper).exists()).toBe(false);
+  });
+
+  it('keeps asking every minute after a read that failed, and follows the next one that succeeds', async () => {
+    const wrapper = await show(timer());
+    InclamoAPI.getConversationSlas.mockRejectedValueOnce(new Error('offline'));
+
+    await wait(60_100);
+    expect(InclamoAPI.getConversationSlas).toHaveBeenCalledTimes(2);
+    expect(badge(wrapper).exists()).toBe(true);
+
+    answers({ 7: timer({ first_response: target({ state: 'met', took_seconds: 100, counting: false }) }) });
+    await wait(60_100);
+
+    expect(InclamoAPI.getConversationSlas).toHaveBeenCalledTimes(3);
     expect(badge(wrapper).exists()).toBe(false);
   });
 

@@ -11,7 +11,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { t } from '../i18n';
 import { duration } from '../sla';
 import { timerOf, wantTimer } from '../slaTimers';
-import { badgeOf, nextReadIn } from '../slaBadge';
+import { badgeOf, nextReadIn, REFRESH_MS } from '../slaBadge';
 
 const props = defineProps({
   conversationId: { type: [Number, String], required: true },
@@ -77,7 +77,14 @@ const stopClocks = () => {
   refresher = null;
 };
 
-// Ticks while a badge is shown, and asks for the timer again when it is due.
+// Ticks while a target is open (a hidden calm resolution turns soon by the
+// clock too), and asks for the timer again when it is due. A read that fails
+// changes nothing here, so the asking repeats by itself every minute until
+// one succeeds and this is scheduled anew.
+const ask = () => {
+  wantTimer(props.conversationId);
+  refresher = setTimeout(ask, REFRESH_MS);
+};
 const schedule = () => {
   stopClocks();
   const wait = nextReadIn(known.value);
@@ -85,7 +92,7 @@ const schedule = () => {
   ticker = setInterval(() => {
     now.value = Date.now();
   }, 1000);
-  refresher = setTimeout(() => wantTimer(props.conversationId), wait);
+  refresher = setTimeout(ask, wait);
 };
 
 watch(known, schedule);
