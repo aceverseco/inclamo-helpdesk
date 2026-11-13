@@ -1,0 +1,24 @@
+diff --git a/app/javascript/dashboard/composables/useFacebookPageConnect.js b/app/javascript/dashboard/composables/useFacebookPageConnect.js
+--- a/app/javascript/dashboard/composables/useFacebookPageConnect.js
++++ b/app/javascript/dashboard/composables/useFacebookPageConnect.js
+@@ -47,7 +47,7 @@ export function useFacebookPageConnect() {
+               : null
+           );
+         },
+-        { scope: buildFacebookLoginScopes() }
++        { scope: buildFacebookLoginScopes({ includeInstagramScopes: true }) }
+       );
+     });
+ 
+diff --git a/app/javascript/dashboard/routes/dashboard/settings/inbox/facebook/Reauthorize.vue b/app/javascript/dashboard/routes/dashboard/settings/inbox/facebook/Reauthorize.vue
+--- a/app/javascript/dashboard/routes/dashboard/settings/inbox/facebook/Reauthorize.vue
++++ b/app/javascript/dashboard/routes/dashboard/settings/inbox/facebook/Reauthorize.vue
+@@ -23,7 +23,7 @@ export default {
+     },
+     facebookLoginScopes() {
+       return buildFacebookLoginScopes({
+-        includeInstagramScopes: !!this.inbox.instagram_id,
++        includeInstagramScopes: true,
+       });
+     },
+   },

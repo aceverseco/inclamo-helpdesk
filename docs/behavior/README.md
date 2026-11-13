@@ -21,6 +21,7 @@ the alternative coverage in the checker. No private workspace is required.
 - [in-product-support](in-product-support/spec.md)
 - [inclamo-product-design](inclamo-product-design/spec.md)
 - [macro-order-actions](macro-order-actions/spec.md)
+- [meta-page-connection](meta-page-connection/spec.md)
 - [order-creation](order-creation/spec.md)
 - [order-item-editing](order-item-editing/spec.md)
 - [order-tags-and-notes](order-tags-and-notes/spec.md)
