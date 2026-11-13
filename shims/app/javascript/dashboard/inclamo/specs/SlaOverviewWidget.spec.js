@@ -11,13 +11,25 @@ vi.mock('dashboard/composables/store', () => ({
 }));
 
 const queue = (id, key, name, overdue, soon, other, more = {}) => ({ id, key, name, total: overdue + soon + other, overdue, soon, other, capped: false, ...more });
-const answer = (queues, policies = true) => ({ data: { queues, policies, cap: 2000 } });
+const answer = (queues, policies = true, totals = { overdue: 0, soon: 0 }) => ({ data: { queues, totals, policies, cap: 2000 } });
 const mounted = [];
-const show = async () => {
-  const wrapper = mount(SlaOverviewWidget, { global: { stubs: { RouterLink: RouterLinkStub } } });
-  mounted.push(wrapper);
+const settle = async () => {
   await vi.advanceTimersByTimeAsync(0);
   await nextTick();
+};
+// The widget as it sits in the header: the summary only.
+const place = async () => {
+  const wrapper = mount(SlaOverviewWidget, { attachTo: document.body, global: { stubs: { RouterLink: RouterLinkStub } } });
+  mounted.push(wrapper);
+  await settle();
+  return wrapper;
+};
+const toggle = wrapper => wrapper.find('[data-testid="inclamo-sla-overview-toggle"]');
+// With its queues opened, as after a click on the summary.
+const show = async () => {
+  const wrapper = await place();
+  await toggle(wrapper).trigger('click');
+  await settle();
   return wrapper;
 };
 const entry = (wrapper, key) => wrapper.find(`[data-testid="inclamo-sla-overview-queue"][data-queue="${key}"]`);
@@ -38,6 +50,42 @@ describe('SlaOverviewWidget', () => {
     expect(registry.get('sla-overview')).toMatchObject({ placement: 'workspace-header', label: 'WIDGETS.SLA_OVERVIEW' });
     expect(productLayout().placements['workspace-header'].map(one => one.id)).toEqual(['sla-overview', 'notifications']);
     expect(manifest.widgets.filter(one => one.id === 'sla-overview')).toHaveLength(1);
+  });
+
+  it('shows a summary in the header: each overdue and each soon conversation once', async () => {
+    InclamoAPI.getSlaOverview.mockResolvedValue(answer([queue(4, 'delivery', 'Delivery', 2, 1, 4), queue(8, 'return', 'Return', 1, 0, 0)], true, { overdue: 2, soon: 1 }));
+
+    const wrapper = await place();
+
+    expect(toggle(wrapper).text()).toContain('SLA');
+    expect(toggle(wrapper).find('[data-total="overdue"]').text()).toBe('2');
+    expect(toggle(wrapper).find('[data-total="soon"]').text()).toBe('1');
+    expect(toggle(wrapper).attributes('aria-label')).toBe('SLA overview: 2 overdue, 1 due soon. Show the queues.');
+    expect(toggle(wrapper).attributes('aria-expanded')).toBe('false');
+    expect(wrapper.find('[data-testid="inclamo-sla-overview-queues"]').exists()).toBe(false);
+  });
+
+  it('opens the queues on the summary, with fresh numbers, and closes on Escape, on a click outside and on a queue', async () => {
+    InclamoAPI.getSlaOverview.mockResolvedValue(answer([queue(4, 'delivery', 'Delivery', 2, 1, 4)], true, { overdue: 2, soon: 1 }));
+    const wrapper = await show();
+    const list = () => wrapper.find('[data-testid="inclamo-sla-overview-queues"]');
+
+    expect(list().exists()).toBe(true);
+    expect(toggle(wrapper).attributes('aria-expanded')).toBe('true');
+    expect(InclamoAPI.getSlaOverview).toHaveBeenCalledTimes(2);
+
+    await wrapper.trigger('keydown', { key: 'Escape' });
+    expect(list().exists()).toBe(false);
+
+    await toggle(wrapper).trigger('click');
+    document.body.click();
+    await settle();
+    expect(list().exists()).toBe(false);
+
+    await toggle(wrapper).trigger('click');
+    await settle();
+    await entry(wrapper, 'delivery').trigger('click');
+    expect(list().exists()).toBe(false);
   });
 
   it('lists the queues in the order given, each with its three numbers', async () => {
@@ -100,7 +148,7 @@ describe('SlaOverviewWidget', () => {
     await vi.advanceTimersByTimeAsync(60_000);
     await nextTick();
 
-    expect(InclamoAPI.getSlaOverview).toHaveBeenCalledTimes(2);
+    expect(InclamoAPI.getSlaOverview).toHaveBeenCalledTimes(3);
     expect(count(wrapper, 'return', 'overdue').text()).toBe('1');
   });
 
@@ -144,7 +192,7 @@ describe('SlaOverviewWidget', () => {
 
   it('stops refreshing when it leaves the header', async () => {
     InclamoAPI.getSlaOverview.mockResolvedValue(answer([]));
-    const wrapper = await show();
+    const wrapper = await place();
     wrapper.unmount();
 
     await vi.advanceTimersByTimeAsync(180_000);

@@ -5,11 +5,15 @@ Behavior contract for this source revision.
 Shows staff, at the top of the workspace, where the time-critical work is: for each team queue, how many open conversations are overdue against their SLA, how many are due soon, and how many are neither.
 
 ### Requirement: The widget counts each queue's conversations by SLA urgency
-The "SLA overview" widget in the workspace header SHALL list the account's visible team queues in the account's order. For each queue it SHALL show three numbers for the open conversations that queue lists for the staff member: overdue, soon, and the others. Overdue and soon SHALL be decided by the same rule as the SLA badge of a conversation. A conversation without a timer SHALL be counted among the others. The three numbers of a queue SHALL add up to the count shown next to that queue in the navigation.
+The "SLA overview" widget in the workspace header SHALL show a summary: how many conversations are overdue and how many are due soon across the visible team queues, each conversation counted once however many queues list it. Activating the summary SHALL open the list of the account's visible team queues in the account's order. For each queue it SHALL show three numbers for the open conversations that queue lists for the staff member: overdue, soon, and the others. Overdue and soon SHALL be decided by the same rule as the SLA badge of a conversation. A conversation without a timer SHALL be counted among the others. The three numbers of a queue SHALL add up to the count shown next to that queue in the navigation.
 
 #### Scenario: Mixed queue
 - **WHEN** the queue "Delivery" lists seven open conversations for an agent: two with an overdue first response, one whose first response is due in three minutes of fifteen, and four with nothing pressing
 - **THEN** the widget shows for "Delivery" 2 overdue, 1 soon and 4 others
+
+#### Scenario: Conversation in two queues
+- **WHEN** one overdue conversation is listed by both "Delivery" and "Return"
+- **THEN** each of the two queues counts it as overdue and the summary counts it once
 
 #### Scenario: Conversation without a timer
 - **WHEN** a queue lists a conversation created before any SLA policy existed

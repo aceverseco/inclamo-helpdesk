@@ -104,10 +104,15 @@ const moved = (who, key, before, added) =>
 const widget = page => page.locator('[data-widget="sla-overview"]');
 const entry = (page, key) => widget(page).locator(`[data-testid="inclamo-sla-overview-queue"][data-queue="${key}"]`);
 const shownNumbers = async (page, key) => Promise.all(LEVELS.map(level => entry(page, key).locator(`[data-level="${level}"]`).textContent()));
-async function workspace(page, user) {
+const toggle = page => widget(page).getByTestId('inclamo-sla-overview-toggle');
+// The workspace with the widget in its header; `open`: with the widget's queues shown.
+async function workspace(page, user, { open = true } = {}) {
   await signIn(page, user);
   await page.goto(`/app/accounts/${account}/dashboard`);
-  await widget(page).waitFor({ timeout: 60_000 });
+  await toggle(page).waitFor({ timeout: 60_000 });
+  if (!open) return;
+  await toggle(page).click();
+  await widget(page).getByTestId('inclamo-sla-overview-queues').locator('[data-testid="inclamo-sla-overview-queue"], [data-testid="inclamo-sla-overview-no-policies"]').first().waitFor({ timeout: 30_000 });
 }
 
 test.describe('The widget follows the workspace widget rules', () => {
@@ -126,7 +131,7 @@ test.describe('The widget follows the workspace widget rules', () => {
   test('Agent removes the widget', async ({ page, browser }) => {
     test.setTimeout(180_000);
     await policies();
-    await workspace(page, users.agent);
+    await workspace(page, users.agent, { open: false });
 
     await page.locator('[data-widget-host="workspace-header"]').getByTestId('configure-widgets').click();
     const editor = page.getByTestId('widget-layout-editor');
@@ -140,8 +145,8 @@ test.describe('The widget follows the workspace widget rules', () => {
     // Other staff still see it.
     const other = await browser.newContext({ baseURL: process.env.HELPDESK_URL });
     const theirs = await other.newPage();
-    await workspace(theirs, users.admin);
-    await expect(widget(theirs)).toBeVisible();
+    await workspace(theirs, users.admin, { open: false });
+    await expect(toggle(theirs)).toBeVisible();
     await other.close();
 
     // The agent restores the widget: the account's default has it.
@@ -162,6 +167,10 @@ test.describe("The widget counts each queue's conversations by SLA urgency", () 
     await workspace(page, users.agent);
     expect(await shownNumbers(page, 'delivery')).toEqual(numbers(after).map(String));
     await expect(entry(page, 'delivery')).toContainText('Delivery');
+    // The header itself shows each overdue and each soon conversation once.
+    const { totals } = await overviewOf(agent);
+    await expect(toggle(page).locator('[data-total="overdue"]')).toHaveText(String(totals.overdue));
+    await expect(toggle(page).locator('[data-total="soon"]')).toHaveText(String(totals.soon));
     // The three numbers add up to the count next to the queue in the navigation.
     const counted = (await agent.get('/inclamo/team_queues')).body.queues.find(one => one.key === 'delivery').count;
     expect(after.overdue + after.soon + after.other).toBe(counted);

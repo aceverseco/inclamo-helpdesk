@@ -1226,6 +1226,13 @@
   },
   "SLA_OVERVIEW": {
     "TITLE": "SLA overview",
+    "SHORT": "SLA",
+    "SUMMARY": "SLA overview: {overdue} overdue, {soon} due soon. Show the queues.",
+    "COLUMNS": {
+      "OVERDUE": "Overdue",
+      "SOON": "Soon",
+      "OTHER": "Others"
+    },
     "LOADING": "Loading the SLA overview…",
     "FAILED": "The SLA overview could not be loaded.",
     "RETRY": "Try again",

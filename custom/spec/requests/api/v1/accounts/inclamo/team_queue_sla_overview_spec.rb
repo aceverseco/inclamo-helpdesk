@@ -52,6 +52,21 @@ RSpec.describe 'Inclamo team queues SLA overview API', type: :request do
     expect(body).to include('policies' => true, 'cap' => 2_000)
   end
 
+  it 'totals each conversation once, whatever number of queues lists it' do
+    policy!
+    both = conversation(labels: %w[delivery return], ago: 20.minutes)
+    both.update!(priority: :urgent)
+    conversation(labels: ['delivery'], ago: 20.minutes)
+    conversation(labels: ['damage'], ago: 12.minutes)
+
+    body = overview
+
+    expect(queue(body, 'urgent')).to include('overdue' => 1)
+    expect(queue(body, 'delivery')).to include('overdue' => 2)
+    expect(queue(body, 'return')).to include('overdue' => 1)
+    expect(body['totals']).to eq('overdue' => 2, 'soon' => 1)
+  end
+
   it 'adds up to the count the list of queues shows for the same member' do
     policy!
     conversation(labels: ['delivery'], ago: 20.minutes)
