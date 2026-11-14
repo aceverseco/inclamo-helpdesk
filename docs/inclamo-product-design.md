@@ -59,6 +59,20 @@ Coverage includes actual replies, private notes and attachments, drafts, order-a
 No data migration is needed. Deploy the checked product image through the existing installation process; rollback is the preceding image. Mobile APIs are unchanged, so future iOS/Android applications remain possible. The web presentation itself is not a native mobile implementation.
 
 
+## Screens the overlay owns
+
+Three screens are the overlay's own components, not changes inside Chatwoot's files. Chatwoot's file stays as shipped; the component that mounts it imports the overlay's instead (`patches/0015-overlay-screens.patch`, one import line each).
+
+| Chatwoot's screen, left untouched | The overlay's component | Mounted by |
+| --- | --- | --- |
+| `routes/dashboard/conversation/ContactPanel.vue` | `inclamo/workspace/CustomerSidePanel.vue` | `ConversationSidebar.vue` |
+| `routes/dashboard/conversation/contact/ContactInfo.vue` | `inclamo/workspace/CustomerContact.vue` | `CustomerSidePanel.vue` |
+| `components/widgets/conversation/ConversationCard.vue` | `inclamo/workspace/ConversationCard.vue` | `ConversationItem.vue`, `ContactConversations.vue` |
+
+They keep Chatwoot's data, events, dialogs and words: the store getters and actions, the sections under Manage, the contact's actions and Chatwoot's locale keys. Because an untouched file raises no patch conflict, `patches/overlay-screens.txt` records each replaced file as it is at the pinned tag, and `scripts/assemble.sh` stops when Chatwoot changes one. Then: read their change, carry over what the overlay's component needs, record the new id. `node scripts/check-ui-strings.mjs --chatwoot build/chatwoot` fails when a Chatwoot key these screens use is gone, and `specs/OverlayScreens.spec.js` when a component they import has moved.
+
+A screen whose layout the overlay redraws goes this way. A patch is for a point of integration: an import, a mount, a class, a registry entry.
+
 ## Additional native seams
 
 Application entry points and server layouts activate the owned scope. Sidebar components carry the logo and retain native navigation/account controls. Conversation hooks distinguish list, header, message, editor and customer presentation without new state. Shared button/input and context-menu hooks support contrast; existing props/events remain intact. Settings/contact layout hooks carry the same frame into secondary screens. The controller and installation locale/view changes replace only default staff identity.
@@ -78,15 +92,12 @@ Application entry points and server layouts activate the owned scope. Sidebar co
 - `app/javascript/dashboard/components/ChatList.vue`
 - `app/javascript/dashboard/components/ChatListHeader.vue`
 - `app/javascript/dashboard/components/buttons/ResolveAction.vue`
-- `app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue`
 - `app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue`
 - `app/javascript/dashboard/components/widgets/conversation/ConversationSidebar.vue`
 - `app/javascript/dashboard/components/widgets/conversation/ReplyBox.vue`
 - `app/javascript/dashboard/components/widgets/conversation/contextMenu/menuItem.vue`
 - `app/javascript/dashboard/routes/dashboard/Dashboard.vue`
-- `app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue`
 - `app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue`
-- `app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue`
 - `app/javascript/dashboard/routes/dashboard/settings/SettingsHeader.vue`
 - `app/javascript/dashboard/routes/dashboard/settings/SettingsWrapper.vue`
 - `app/javascript/entrypoints/superadmin.scss`
@@ -108,7 +119,6 @@ Application entry points and server layouts activate the owned scope. Sidebar co
 - `app/javascript/dashboard/components/ChatList.vue`
 - `app/javascript/dashboard/components/ChatListHeader.vue`
 - `app/javascript/dashboard/components/widgets/ChatTypeTabs.vue`
-- `app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue`
 - `app/javascript/dashboard/components-next/sidebar/Sidebar.vue`
 - `app/javascript/dashboard/components-next/sidebar/SidebarGroup.vue`
 - `app/javascript/dashboard/components-next/sidebar/SidebarGroupLeaf.vue`
@@ -116,8 +126,6 @@ Application entry points and server layouts activate the owned scope. Sidebar co
 - `app/javascript/dashboard/components/widgets/conversation/ResizableEditorWrapper.vue`
 - `app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue`
 - `app/javascript/dashboard/components-next/message/Message.vue`
-- `app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue`
-- `app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue`
 - `app/javascript/dashboard/components/widgets/WootWriter/ReplyTopPanel.vue`
 - `app/javascript/dashboard/components-next/Conversation/SidepanelSwitch.vue`
 - `app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue`

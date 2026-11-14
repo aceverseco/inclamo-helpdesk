@@ -1,0 +1,9 @@
+# Chatwoot screens the overlay stands in for. Each line: the file's blob id at
+# the pinned Chatwoot tag, its path, and the overlay component mounted in its
+# place (see 0015-overlay-screens.patch). The file itself is left untouched.
+# scripts/assemble.sh stops when a blob id no longer matches: Chatwoot changed
+# the screen, so read their change, carry over what the overlay's component
+# needs, and record the new id (git rev-parse <tag>:<path>).
+6d50e9dee5628ddf92fea8a245cdeee7aa4d2425 app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue shims/app/javascript/dashboard/inclamo/workspace/CustomerSidePanel.vue
+e98d605c83f1defc4f56bf4392e5d07ad16500be app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue shims/app/javascript/dashboard/inclamo/workspace/CustomerContact.vue
+bc7aa62e62eb5ac5d80a97b2a77c7db46e1cec6f app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue shims/app/javascript/dashboard/inclamo/workspace/ConversationCard.vue

@@ -1,5 +1,5 @@
-// The sections the overlay adds to the conversation sidebar. Chatwoot's
-// ContactPanel renders every entry of this list like one of its own sections,
+// The sections the overlay adds to the conversation sidebar. The customer panel
+// (workspace/CustomerSidePanel.vue) renders every entry like one of its own,
 // and hides one whose `visible` says no.
 import CallSection from './components/CallSection.vue';
 import OrdersSection from './components/OrdersSection.vue';

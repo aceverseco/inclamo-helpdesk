@@ -155,6 +155,9 @@ jobs:
         working-directory: build/chatwoot
         run: pnpm install --frozen-lockfile
 
+      - name: The screens that stand in for Chatwoot's use words Chatwoot has
+        run: node scripts/check-ui-strings.mjs --chatwoot build/chatwoot
+
       - name: Run the overlay's component tests
         working-directory: build/chatwoot
         run: >-

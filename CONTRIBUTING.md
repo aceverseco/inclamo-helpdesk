@@ -9,3 +9,6 @@ Rules that apply to all code in this repository:
 - Features live in our own code (`custom/` overlay and our services). A change
   to a Chatwoot core file is accepted only as a small seam, recorded in the
   change's design and carried as a patch in `patches/`.
+- A screen the overlay redraws is the overlay's own component, mounted in
+  place of Chatwoot's and recorded in `patches/overlay-screens.txt`; Chatwoot's
+  file is not rewritten in a patch.

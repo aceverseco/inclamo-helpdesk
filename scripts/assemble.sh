@@ -33,6 +33,23 @@ rm -rf custom
 rm -rf enterprise spec/enterprise
 printf '\nENV CW_EDITION="ce"\n' >> docker/Dockerfile
 
+# Screens the overlay stands in for: Chatwoot's own file is not patched, so a
+# change of theirs would pass unnoticed. Stop when one differs from the record.
+if [ -f "$here/patches/overlay-screens.txt" ]; then
+  grep -v '^#' "$here/patches/overlay-screens.txt" | while read -r blob path ours; do
+    [ -n "$blob" ] || continue
+    if [ ! -f "$here/$ours" ]; then
+      echo "assemble: $ours, which stands in for $path, is missing" >&2
+      exit 1
+    fi
+    found_blob=$(git rev-parse --quiet --verify "HEAD:$path" || echo missing)
+    if [ "$found_blob" != "$blob" ]; then
+      echo "assemble: Chatwoot $tag changed $path, which $ours stands in for (patches/overlay-screens.txt)" >&2
+      exit 1
+    fi
+  done
+fi
+
 # Seam patches. A patch that no longer applies stops the build.
 for patch in "$here"/patches/*.patch; do
   [ -e "$patch" ] || continue

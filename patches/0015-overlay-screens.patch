@@ -1,0 +1,35 @@
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ConversationSidebar.vue b/app/javascript/dashboard/components/widgets/conversation/ConversationSidebar.vue
+--- a/app/javascript/dashboard/components/widgets/conversation/ConversationSidebar.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ConversationSidebar.vue
+@@ -1,6 +1,6 @@
+ <script setup>
+ import { computed } from 'vue';
+-import ContactPanel from 'dashboard/routes/dashboard/conversation/ContactPanel.vue';
++import ContactPanel from 'dashboard/inclamo/workspace/CustomerSidePanel.vue';
+ import { useUISettings } from 'dashboard/composables/useUISettings';
+ import { useWindowSize } from '@vueuse/core';
+ import { vOnClickOutside } from '@vueuse/components';
+diff --git a/app/javascript/dashboard/components/ConversationItem.vue b/app/javascript/dashboard/components/ConversationItem.vue
+--- a/app/javascript/dashboard/components/ConversationItem.vue
++++ b/app/javascript/dashboard/components/ConversationItem.vue
+@@ -3,7 +3,7 @@
+ import { useRouter } from 'vue-router';
+ import { useStore, useMapGetter } from 'dashboard/composables/store';
+ import { frontendURL, conversationUrl } from 'dashboard/helper/URLHelper';
+-import ConversationCard from './widgets/conversation/ConversationCard.vue';
++import ConversationCard from 'dashboard/inclamo/workspace/ConversationCard.vue';
+ import ConversationCardExpanded from 'dashboard/components-next/Conversation/ConversationCard/ConversationCardExpanded.vue';
+ import ContextMenu from 'dashboard/components/ui/ContextMenu.vue';
+ import ConversationContextMenu from './widgets/conversation/contextMenu/Index.vue';
+diff --git a/app/javascript/dashboard/routes/dashboard/conversation/ContactConversations.vue b/app/javascript/dashboard/routes/dashboard/conversation/ContactConversations.vue
+--- a/app/javascript/dashboard/routes/dashboard/conversation/ContactConversations.vue
++++ b/app/javascript/dashboard/routes/dashboard/conversation/ContactConversations.vue
+@@ -3,7 +3,7 @@
+ import { useRouter } from 'vue-router';
+ import { useStore, useMapGetter } from 'dashboard/composables/store';
+ import { useConversationRoutePath } from 'dashboard/composables/useConversationRoutePath';
+-import ConversationCard from 'dashboard/components/widgets/conversation/ConversationCard.vue';
++import ConversationCard from 'dashboard/inclamo/workspace/ConversationCard.vue';
+ import ContextMenu from 'dashboard/components/ui/ContextMenu.vue';
+ import ConversationContextMenu from 'dashboard/components/widgets/conversation/contextMenu/Index.vue';
+ import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
