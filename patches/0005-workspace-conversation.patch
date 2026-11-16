@@ -1,0 +1,142 @@
+diff --git a/app/javascript/dashboard/components-next/sidebar/SidebarAccountSwitcher.vue b/app/javascript/dashboard/components-next/sidebar/SidebarAccountSwitcher.vue
+index 605d3be..7ce7c79 100644
+--- a/app/javascript/dashboard/components-next/sidebar/SidebarAccountSwitcher.vue
++++ b/app/javascript/dashboard/components-next/sidebar/SidebarAccountSwitcher.vue
+@@ -1,5 +1,6 @@
+ <script setup>
+ import { computed } from 'vue';
++import { t as inclamoT } from 'dashboard/inclamo/i18n';
+ import { useAccount } from 'dashboard/composables/useAccount';
+ import { useMapGetter } from 'dashboard/composables/store';
+ import { useI18n } from 'vue-i18n';
+@@ -79,12 +80,16 @@ const emitNewAccount = () => {
+         ]"
+         @click="() => showAccountSwitcher && toggle()"
+       >
++        <span class="inclamo-account-mark" aria-hidden="true">{{ currentAccount.name?.slice(0, 1).toLowerCase() }}</span>
++        <span class="inclamo-account-label">
+         <span
+           class="text-sm font-medium leading-5 text-n-slate-12 truncate"
+           aria-live="polite"
+         >
+           {{ currentAccount.name }}
+         </span>
++        <small>{{ inclamoT('WORKSPACE.SUPPORT') }}</small>
++        </span>
+ 
+         <span
+           v-if="showAccountSwitcher"
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ConversationBox.vue b/app/javascript/dashboard/components/widgets/conversation/ConversationBox.vue
+index 362e70a..860869c 100644
+--- a/app/javascript/dashboard/components/widgets/conversation/ConversationBox.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ConversationBox.vue
+@@ -1,6 +1,7 @@
+ <script>
+ import { mapGetters } from 'vuex';
+ import ConversationHeader from './ConversationHeader.vue';
++import ConversationContext from 'dashboard/inclamo/components/ConversationContext.vue';
+ import DashboardAppFrame from '../DashboardApp/Frame.vue';
+ import EmptyState from './EmptyState/EmptyState.vue';
+ import MessagesView from './MessagesView.vue';
+@@ -8,6 +9,7 @@ import MessagesView from './MessagesView.vue';
+ export default {
+   components: {
+     ConversationHeader,
++    ConversationContext,
+     DashboardAppFrame,
+     EmptyState,
+     MessagesView,
+@@ -107,6 +109,7 @@ export default {
+         'border-b border-b-n-weak !pt-2': !dashboardApps.length,
+       }"
+     />
++    <ConversationContext v-if="currentChat.id" :chat="currentChat" />
+     <woot-tabs
+       v-if="dashboardApps.length && currentChat.id"
+       :index="activeIndex"
+diff --git a/app/javascript/dashboard/components/widgets/conversation/MessagesView.vue b/app/javascript/dashboard/components/widgets/conversation/MessagesView.vue
+index f4025a0..43999f2 100644
+--- a/app/javascript/dashboard/components/widgets/conversation/MessagesView.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/MessagesView.vue
+@@ -24,6 +24,7 @@ import { CONTACT_CONVERSATION_NAVIGATION } from 'dashboard/composables/useContac
+ // components
+ import ReplyBox from './ReplyBox.vue';
+ import MessageList from 'next/message/MessageList.vue';
++import ThreadTitle from 'dashboard/inclamo/workspace/ThreadTitle.vue';
+ import ContactConversationLink from './ContactConversationLink.vue';
+ import Banner from 'dashboard/components/ui/Banner.vue';
+ import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
+@@ -76,6 +77,7 @@ const FOLD_TRANSITION = {
+ export default {
+   components: {
+     MessageList,
++    ThreadTitle,
+     ReplyBox,
+     Banner,
+     ContactConversationLink,
+@@ -584,10 +586,12 @@ export default {
+       @retry="handleMessageRetry"
+     >
+       <template #beforeAll>
++        <ThreadTitle />
+         <transition name="slide-up">
+           <!-- eslint-disable-next-line vue/require-toggle-inside-transition -->
+           <li
+-            class="min-h-[4rem] flex flex-shrink-0 flex-grow-0 items-center flex-auto justify-center max-w-full mt-0 mr-0 mb-1 ml-0 relative first:mt-auto last:mb-0"
++            v-if="shouldShowSpinner"
++            class="reference-history-loader flex justify-center py-3"
+           >
+             <Spinner v-if="shouldShowSpinner" class="text-n-brand" />
+           </li>
+diff --git a/app/javascript/dashboard/components/widgets/conversation/ResizableEditorWrapper.vue b/app/javascript/dashboard/components/widgets/conversation/ResizableEditorWrapper.vue
+index 6c1eca7..f9bd21d 100644
+--- a/app/javascript/dashboard/components/widgets/conversation/ResizableEditorWrapper.vue
++++ b/app/javascript/dashboard/components/widgets/conversation/ResizableEditorWrapper.vue
+@@ -17,8 +17,8 @@ const props = defineProps({
+ 
+ const emit = defineEmits(['collapse']);
+ 
+-const DEFAULT_HEIGHT = 120;
+-const MIN_HEIGHT = 80;
++const DEFAULT_HEIGHT = 68;
++const MIN_HEIGHT = 64;
+ const MIN_MESSAGES_HEIGHT = 200;
+ const EXPAND_RATIO = 0.5;
+ const RESET_DELAY_MS = 120;
+diff --git a/app/javascript/dashboard/components/widgets/conversation/specs/ResizableEditorWrapper.spec.js b/app/javascript/dashboard/components/widgets/conversation/specs/ResizableEditorWrapper.spec.js
+index 0f6c829..b71d1f2 100644
+--- a/app/javascript/dashboard/components/widgets/conversation/specs/ResizableEditorWrapper.spec.js
++++ b/app/javascript/dashboard/components/widgets/conversation/specs/ResizableEditorWrapper.spec.js
+@@ -8,8 +8,8 @@ vi.mock('@vueuse/core', () => ({
+ }));
+ 
+ const CONTAINER_HEIGHT = 800;
+-const DEFAULT_HEIGHT = 120;
+-const MIN_HEIGHT = 80;
++const DEFAULT_HEIGHT = 68;
++const MIN_HEIGHT = 64;
+ const COLLAPSE_DISTANCE = 48;
+ const START_Y = 500;
+ 
+diff --git a/app/javascript/dashboard/routes/dashboard/inbox/InboxView.vue b/app/javascript/dashboard/routes/dashboard/inbox/InboxView.vue
+index 48b0a2e..7d5f8e1 100644
+--- a/app/javascript/dashboard/routes/dashboard/inbox/InboxView.vue
++++ b/app/javascript/dashboard/routes/dashboard/inbox/InboxView.vue
+@@ -11,7 +11,6 @@ import {
+ import { BUS_EVENTS } from 'shared/constants/busEvents';
+ import { INBOX_EVENTS } from 'dashboard/helper/AnalyticsHelper/events';
+ import { emitter } from 'shared/helpers/mitt';
+-import SidepanelSwitch from 'dashboard/components-next/Conversation/SidepanelSwitch.vue';
+ 
+ import InboxItemHeader from './components/InboxItemHeader.vue';
+ import ConversationBox from 'dashboard/components/widgets/conversation/ConversationBox.vue';
+@@ -217,8 +216,7 @@ onMounted(async () => {
+           :inbox-id="inboxId"
+           :is-on-expanded-layout="false"
+         >
+-          <SidepanelSwitch v-if="currentChat.id" />
+-        </ConversationBox>
++            </ConversationBox>
+         <ConversationSidebar
+           v-if="isContactPanelOpen"
+           :current-chat="currentChat"

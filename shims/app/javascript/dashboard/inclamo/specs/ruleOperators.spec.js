@@ -1,6 +1,6 @@
 import { generateCustomAttributeTypes, getOperators } from 'dashboard/helper/automationHelper';
 import { OPERATOR_TYPES_1, OPERATOR_TYPES_3 } from 'dashboard/routes/dashboard/settings/automation/operators';
-import registry from 'dashboard/extensions/ruleOperators';
+import registry from 'dashboard/inclamo/ruleOperators';
 import ruleOperators from '../ruleOperators';
 
 const definition = (key, type) => ({ attribute_key: key, attribute_display_name: key, attribute_display_type: type });

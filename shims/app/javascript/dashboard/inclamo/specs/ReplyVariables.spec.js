@@ -1,5 +1,5 @@
 // Order variables in Chatwoot's own variable list and reply box, through the
-// reply variables seam (patches/0003-reply-variables.patch).
+// reply variables seam (patches/0002-reply-variables.patch and the stand-in for editorHelper.js).
 import { mount, shallowMount, enableAutoUnmount } from '@vue/test-utils';
 import { createStore } from 'vuex';
 import { getUndefinedVariablesInMessage } from '@chatwoot/utils';

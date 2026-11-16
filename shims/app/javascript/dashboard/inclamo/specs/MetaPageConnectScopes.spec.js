@@ -5,9 +5,10 @@ import { useFacebookPageConnect } from 'dashboard/composables/useFacebookPageCon
 import Reauthorize from 'dashboard/routes/dashboard/settings/inbox/facebook/Reauthorize.vue';
 import { flush } from './helpers';
 
-// The connect composable and the reauthorize screen are Chatwoot's, changed by
-// patches/0021-meta-page-connect-instagram-scopes.patch (the tests run from the
-// assembled Chatwoot root). Meta's SDK is replaced by a stub that records what
+// The connect composable and the reauthorize screen are Chatwoot's, untouched;
+// the scopes they ask for come from the overlay's stand-in for
+// dashboard/helper/facebookScopes.js (the tests run from the assembled
+// Chatwoot root). Meta's SDK is replaced by a stub that records what
 // FB.login is asked for; no request leaves the test.
 vi.mock('dashboard/composables/store', () => ({ useMapGetter: () => ({ value: 1 }) }));
 vi.mock('dashboard/api/channels', () => ({

@@ -1,0 +1,202 @@
+diff --git a/app/javascript/dashboard/routes/dashboard/settings/inbox/Settings.vue b/app/javascript/dashboard/routes/dashboard/settings/inbox/Settings.vue
+index 9f32a84..69ddd83 100644
+--- a/app/javascript/dashboard/routes/dashboard/settings/inbox/Settings.vue
++++ b/app/javascript/dashboard/routes/dashboard/settings/inbox/Settings.vue
+@@ -1070,6 +1070,8 @@ export default {
+               </template>
+             </SettingsFieldSection>
+ 
++            <router-link v-if="isAWebWidgetInbox" :to="`/app/accounts/${$route.params.accountId}/settings/website-widget?inbox=${inbox.id}`" class="inline-block my-4 text-n-blue-11 underline">Website widget →</router-link>
++
+             <SettingsAccordion
+               v-if="isAWebWidgetInbox"
+               :title="$t('INBOX_MGMT.WIDGET_FEATURES')"
+diff --git a/app/javascript/sdk/IFrameHelper.js b/app/javascript/sdk/IFrameHelper.js
+index e38f4e0..862d9af 100644
+--- a/app/javascript/sdk/IFrameHelper.js
++++ b/app/javascript/sdk/IFrameHelper.js
+@@ -1,4 +1,9 @@
+ import Cookies from 'js-cookie';
++import {
++  applySettings,
++  decorateLauncher,
++  updatePageVisibility,
++} from './inclamoWidget';
+ import {
+   addClasses,
+   loadCSS,
+@@ -153,11 +158,14 @@ export const IFrameHelper = {
+ 
+   events: {
+     loaded: message => {
++      applySettings(message.config.channelConfig);
++      updatePageVisibility();
+       updateAuthCookie(message.config.authToken, window.$chatwoot.baseDomain);
+       window.$chatwoot.hasLoaded = true;
+       const campaignsSnoozedTill = Cookies.get('cw_snooze_campaigns_till');
+       IFrameHelper.sendMessage('config-set', {
+         locale: window.$chatwoot.locale,
++        inclamoPageAllowed: window.$chatwoot.inclamoPageAllowed,
+         position: window.$chatwoot.position,
+         hideMessageBubble: window.$chatwoot.hideMessageBubble,
+         showPopoutButton: window.$chatwoot.showPopoutButton,
+@@ -176,6 +184,7 @@ export const IFrameHelper = {
+       IFrameHelper.onLoad({
+         widgetColor: message.config.channelConfig.widgetColor,
+       });
++      decorateLauncher();
+       IFrameHelper.toggleCloseButton();
+ 
+       if (window.$chatwoot.user) {
+@@ -224,6 +233,7 @@ export const IFrameHelper = {
+     toggleBubble: state => {
+       let bubbleState = {};
+       if (state === 'open') {
++        updatePageVisibility(window.location.href, true);
+         bubbleState.toggleValue = true;
+       } else if (state === 'close') {
+         bubbleState.toggleValue = false;
+@@ -244,13 +254,17 @@ export const IFrameHelper = {
+     },
+ 
+     onBubbleToggle: isOpen => {
++      if (!isOpen) updatePageVisibility();
+       IFrameHelper.sendMessage('toggle-open', { isOpen });
+       if (isOpen) {
+         IFrameHelper.pushEvent('webwidget.triggered');
+       }
+     },
+     onLocationChange: ({ referrerURL, referrerHost }) => {
++      const inclamoPageAllowed = updatePageVisibility(referrerURL);
++      if (!inclamoPageAllowed) onBubbleClick({ toggleValue: false });
+       IFrameHelper.sendMessage('change-url', {
++        inclamoPageAllowed,
+         referrerURL,
+         referrerHost,
+       });
+@@ -262,6 +276,7 @@ export const IFrameHelper = {
+     },
+ 
+     setUnreadMode: () => {
++      if (window.$chatwoot.inclamoPageAllowed === false) return;
+       addUnreadClass();
+       onBubbleClick({ toggleValue: true });
+     },
+diff --git a/app/javascript/widget/components/HeaderActions.vue b/app/javascript/widget/components/HeaderActions.vue
+index f29cad8..7e6449d 100644
+--- a/app/javascript/widget/components/HeaderActions.vue
++++ b/app/javascript/widget/components/HeaderActions.vue
+@@ -102,6 +102,7 @@ export default {
+     </button>
+     <button
+       class="button transparent compact close-button"
++      :aria-label="$t('UNREAD_VIEW.CLOSE_MESSAGES_BUTTON')"
+       :class="{
+         'rn-close-button': isRNWebView,
+       }"
+diff --git a/app/javascript/widget/components/PreChat/Form.vue b/app/javascript/widget/components/PreChat/Form.vue
+index 224f787..a095d65 100644
+--- a/app/javascript/widget/components/PreChat/Form.vue
++++ b/app/javascript/widget/components/PreChat/Form.vue
+@@ -1,4 +1,5 @@
+ <script>
++import { takeStarter } from 'widget/inclamo/starters';
+ import CustomButton from 'shared/components/Button.vue';
+ import Spinner from 'shared/components/Spinner.vue';
+ import { mapGetters } from 'vuex';
+@@ -37,7 +38,7 @@ export default {
+       locale: this.$root.$i18n.locale,
+       hasErrorInPhoneInput: false,
+       message: '',
+-      formValues: {},
++      formValues: { message: takeStarter() },
+       labels: {
+         emailAddress: 'EMAIL_ADDRESS',
+         fullName: 'FULL_NAME',
+diff --git a/app/javascript/widget/router.js b/app/javascript/widget/router.js
+index e8230c2..c4c422c 100755
+--- a/app/javascript/widget/router.js
++++ b/app/javascript/widget/router.js
+@@ -1,9 +1,15 @@
+-import { createRouter, createWebHashHistory } from 'vue-router';
++import {
++  createRouter,
++  createWebHashHistory,
++  createMemoryHistory,
++} from 'vue-router';
+ import ViewWithHeader from './components/layouts/ViewWithHeader.vue';
+ import store from './store';
+ 
+ const router = createRouter({
+-  history: createWebHashHistory(),
++  history: window.inclamoWidgetPreview
++    ? createMemoryHistory()
++    : createWebHashHistory(),
+   routes: [
+     {
+       path: '/unread-messages',
+diff --git a/app/javascript/widget/store/modules/conversation/actions.js b/app/javascript/widget/store/modules/conversation/actions.js
+index aa08af6..6dbea78 100644
+--- a/app/javascript/widget/store/modules/conversation/actions.js
++++ b/app/javascript/widget/store/modules/conversation/actions.js
+@@ -24,8 +24,9 @@ export const actions = {
+       dispatch('conversationAttributes/getAttributes', {}, { root: true });
+       // Emit event to notify that conversation is created and show the chat screen
+       emitter.emit(ON_CONVERSATION_CREATED);
++      return true;
+     } catch (error) {
+-      // Ignore error
++      return false;
+     } finally {
+       commit('setConversationUIFlag', { isCreating: false });
+     }
+@@ -34,7 +35,7 @@ export const actions = {
+     const { content, replyTo } = params;
+     const message = createTemporaryMessage({ content, replyTo });
+     const { pendingCustomAttributes, pendingLabels } = conversationState;
+-    dispatch('sendMessageWithData', {
++    return dispatch('sendMessageWithData', {
+       message,
+       pendingCustomAttributes,
+       pendingLabels,
+@@ -65,12 +66,14 @@ export const actions = {
+       // [VITE] Don't delete this manually, since `pushMessageToConversation` does the replacement for us anyway
+       // commit('deleteMessage', message.id);
+       commit('pushMessageToConversation', { ...data, status: 'sent' });
++      return true;
+     } catch (error) {
+       commit('pushMessageToConversation', { ...message, status: 'failed' });
+       commit('updateMessageMeta', {
+         id,
+         meta: { ...meta, error: '' },
+       });
++      return false;
+     }
+   },
+ 
+diff --git a/app/javascript/widget/views/Home.vue b/app/javascript/widget/views/Home.vue
+index 3327838..aeabfe2 100755
+--- a/app/javascript/widget/views/Home.vue
++++ b/app/javascript/widget/views/Home.vue
+@@ -1,4 +1,5 @@
+ <script>
++import HomeActions from 'widget/inclamo/HomeActions.vue';
+ import TeamAvailability from 'widget/components/TeamAvailability.vue';
+ import { mapGetters } from 'vuex';
+ import { useRouter } from 'vue-router';
+@@ -8,6 +9,7 @@ export default {
+   name: 'Home',
+   components: {
+     ArticleContainer,
++    HomeActions,
+     TeamAvailability,
+   },
+   mixins: [configMixin],
+@@ -42,6 +44,7 @@ export default {
+       @start-conversation="startConversation"
+     />
+ 
++    <HomeActions />
+     <ArticleContainer />
+   </div>
+ </template>

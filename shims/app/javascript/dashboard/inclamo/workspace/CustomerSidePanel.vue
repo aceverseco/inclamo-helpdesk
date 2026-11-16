@@ -30,7 +30,7 @@ import ConversationLabels from 'dashboard/routes/dashboard/conversation/labels/L
 import LinearIssuesList from 'dashboard/components/widgets/conversation/linear/IssuesList.vue';
 import LinearSetupCTA from 'dashboard/components/widgets/conversation/linear/LinearSetupCTA.vue';
 import StripeCustomer from 'dashboard/components/widgets/conversation/StripeCustomer.vue';
-import extensionSections from 'dashboard/extensions/conversationSidebarSections';
+import extensionSections from 'dashboard/inclamo/sidebarSections';
 
 const props = defineProps({
   conversationId: {

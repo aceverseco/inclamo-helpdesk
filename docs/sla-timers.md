@@ -137,10 +137,11 @@ notified; build a rule on the label if you want that.
   `GET /api/v1/accounts/:id/inclamo/conversation_slas?ids=1,2,3`; a conversation
   the caller may not see is left out of the answer.
 
-## Seam: `patches/0022-sla-badge.patch`
+## Where the badge is mounted
 
-One hunk of one import and one element; the row's badge needs no patch, the
-row being the overlay's own `inclamo/workspace/ConversationCard.vue`. All logic is in
+In the conversation header, which the overlay carries whole
+(`ConversationHeader.vue`, `docs/chatwoot-files.md`); the row's badge needs no
+change of Chatwoot either, the row being the overlay's own `inclamo/workspace/ConversationCard.vue`. All logic is in
 `shims/app/javascript/dashboard/inclamo/components/SlaBadge.vue`,
 `inclamo/slaBadge.js` (which target, which look) and `inclamo/slaTimers.js`
 (reading the timers of a page of rows in one request).

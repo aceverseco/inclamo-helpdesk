@@ -1,6 +1,8 @@
+diff --git a/app/javascript/dashboard/routes/dashboard/helpcenter/pages/PortalsArticlesEditPage.vue b/app/javascript/dashboard/routes/dashboard/helpcenter/pages/PortalsArticlesEditPage.vue
+index 794f8c8..bf2dd23 100644
 --- a/app/javascript/dashboard/routes/dashboard/helpcenter/pages/PortalsArticlesEditPage.vue
 +++ b/app/javascript/dashboard/routes/dashboard/helpcenter/pages/PortalsArticlesEditPage.vue
-@@ -5,11 +5,12 @@
+@@ -5,11 +5,12 @@ import { useI18n } from 'vue-i18n';
  import { useAlert, useTrack } from 'dashboard/composables';
  import { PORTALS_EVENTS } from 'dashboard/helper/AnalyticsHelper/events';
  import {
@@ -14,11 +16,10 @@
  
  import ArticleEditor from 'dashboard/components-next/HelpCenter/Pages/ArticleEditorPage/ArticleEditor.vue';
  
-@@ -30,19 +31,6 @@
- 
+@@ -31,19 +32,6 @@ const portal = computed(() => portalBySlug.value(portalSlug));
  const isUpdating = ref(false);
  const isSaved = ref(false);
--
+ 
 -const articleLink = computed(() => {
 -  const { slug: categorySlug, locale: categoryLocale } = article.value.category;
 -  const { slug: articleSlugValue } = article.value;
@@ -31,10 +32,11 @@
 -    portalCustomDomain
 -  );
 -});
- 
+-
  // On a published article, title/content edits stage into draft_* columns (kept
  // off the live site). Anywhere else they save straight to the live record — and
-@@ -142,8 +130,17 @@
+ // we drop any leftover draft (e.g. left behind when the card/bulk menu moved a
+@@ -142,8 +130,17 @@ const fetchArticleDetails = () => {
    });
  };
  

@@ -77,9 +77,11 @@ created afterwards. "Restore" on the queue gives an older account the current on
 - A queue opens on Chatwoot's folder route under an id no native folder has
   (`custom_view/q-<id>`).
 
-## Seam: `patches/0020-team-queues.patch`
+## Where the queues meet Chatwoot's screens
 
-Three hunks, each an import or a guarded expression; all logic is in
+In the overlay's stand-ins for `conversation.routes.js` (extended from
+outside) and for `ChatList.vue` and `ChatListHeader.vue` (carried whole), see
+`docs/chatwoot-files.md`: each an import or a guarded expression; all logic is in
 `shims/app/javascript/dashboard/inclamo/teamQueues.js`.
 
 | File | Change | Why the existing code was not enough | Covered by |

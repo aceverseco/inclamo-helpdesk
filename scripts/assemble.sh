@@ -84,6 +84,15 @@ for patch in "$here"/patches/*.patch; do
   echo "assemble: applied $(basename "$patch")"
 done
 
+# What is still changed inside Chatwoot's files may shrink, not grow: a change
+# that needs more belongs in a file of the overlay (custom/CHATWOOT_FILES).
+limit=$(cat "$here/patches/LIMIT")
+changed=$(cat "$here"/patches/*.patch | grep -c '^[+-][^+-]\|^[+-]$' || true)
+if [ "$changed" -gt "$limit" ]; then
+  echo "assemble: patches/ change $changed lines of Chatwoot, over the limit of $limit (patches/LIMIT)" >&2
+  exit 1
+fi
+
 # The overlay and its two loader files.
 cp -R "$here/custom" custom
 cp -R "$here/shims/." .

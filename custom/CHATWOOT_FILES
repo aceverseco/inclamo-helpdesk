@@ -89,6 +89,38 @@ de055f659b9ae35a054c5c23d3b7dfcde9ebdaeb app/javascript/entrypoints/superadmin.s
 108da3889eb11eb5b91a491492dd5db75d6e7eac app/javascript/dashboard/assets/scss/_base.scss
 4ec17e75382bbf210d7ba74199f62836a2cadbf2 app/javascript/dashboard/composables/spec/useFacebookPageConnect.spec.js
 
+# Components that only gain a label for the workspace theme: ours renders
+# Chatwoot's, passing everything through, with the label on its root.
+158235bf918a1cdda3c45a42556fcdd6bfd7c7f6 app/javascript/dashboard/routes/dashboard/settings/SettingsHeader.vue
+6474ab27615350bbe7961a3992f3cc2694c615ca app/javascript/dashboard/routes/dashboard/settings/SettingsWrapper.vue
+89b01cb8d85c1866e08eaefd3359dd63171c2a6d app/javascript/dashboard/components/widgets/conversation/ConversationSidebar.vue
+c2bb7dc9de5aec85c7d0a93ac610a2a1ed368b57 app/javascript/dashboard/components/widgets/conversation/contextMenu/menuItem.vue
+
+# Screens the workspace redraws, carried whole: each is Chatwoot's component
+# with the workspace's drawing in it (docs/inclamo-product-design.md).
+def75b2a2ae5c6f5d1b033bc7f797d170b076746 app/javascript/dashboard/components-next/sidebar/Sidebar.vue
+3f76b3aea1b437eacf766047cee57295e6781415 app/javascript/dashboard/components-next/sidebar/SidebarProfileMenu.vue
+a1eb1b828f2e60dfa32a79092fb94b6e684e9650 app/javascript/dashboard/components-next/sidebar/SidebarProfileMenuStatus.vue
+0f5e54553c8da09ad9264a0d96bab276881a416d app/javascript/dashboard/routes/dashboard/Dashboard.vue
+a73d23007e121cdab8f602b937b818b2a7c36e90 app/javascript/dashboard/components/ChatList.vue
+21ba33a1f5a9ac10ea0f030169aa1413a1dd3f9c app/javascript/dashboard/components/ChatListHeader.vue
+901cdc389d13d0cabdef8970de0d3e42194b5ca0 app/javascript/dashboard/components/widgets/ChatTypeTabs.vue
+40b5a5e9f9f757c9a4ebbf668c9acaef585ecb11 app/javascript/dashboard/components/widgets/conversation/ConversationBasicFilter.vue
+fefddb1755c099cf2210022eb93ca020d8974b5a app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue
+c9864d9b25abc12408060f7e02cee926b34a4875 app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue
+1e8766f6af082e1190dc11b7755a48d51439dcce app/javascript/dashboard/components-next/Conversation/SidepanelSwitch.vue
+28f2cd6d2a44f9078c5df7eafecca8c879a5c8bd app/javascript/dashboard/components-next/message/Message.vue
+bfea5799c0958d61a9fca6e79fb8243d85c94acf app/javascript/dashboard/components-next/message/MessageList.vue
+c5f125ff7796c38f4fe400720ff6df51869a309a app/javascript/dashboard/components-next/message/bubbles/Base.vue
+bf45cdc1cc5a371862a995804ffefbf73b83ff11 app/javascript/dashboard/components/widgets/WootWriter/ReplyTopPanel.vue
+16d541182e22ff33d88d927de8501ea6b5ed6d5e app/javascript/dashboard/components/widgets/WootWriter/ReplyBottomPanel.vue
+fa81253b8662966aa7e2975aa6051e8e9ffb4866 app/javascript/dashboard/components-next/button/Button.vue
+4a9e2cf33cfc3d880cbe9a7d050bb04e4049acc1 app/javascript/dashboard/components-next/input/Input.vue
+8d47649d21c6e372cb697e024a70fec39554187b app/javascript/dashboard/components-next/avatar/Avatar.vue
+181574bef1c1f5bcc76a14a224837d2ee9fa6f76 app/javascript/v3/views/login/Index.vue
+1ac36dfdf71a73331149a29c14ce622de16c4fdb app/javascript/widget/App.vue
+5bbac05969113639d67138e58adcb00ff6c962b9 app/javascript/widget/views/PreChatForm.vue
+
 # Screens redrawn for the workspace (dashboard/inclamo/workspace). The first two
 # are mounted through a stand-in at Chatwoot's path; the contact block is used
 # by the overlay's panel directly, and Chatwoot's own stays for its other users.
