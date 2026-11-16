@@ -17,6 +17,17 @@ const locale = JSON.parse(readFileSync(join(root, 'locale', 'en.json'), 'utf8'))
 const problems = [];
 
 const repository = join(dirname(fileURLToPath(import.meta.url)), '..');
+// A stand-in without a template of its own hands over to a component of the
+// overlay (`import X from 'dashboard/inclamo/...vue'; export default X`); that
+// component is the screen, so it is a stand-in too.
+const handedOverTo = file => {
+  if (!file.endsWith('.vue') || !existsSync(file)) return [];
+  const source = readFileSync(file, 'utf8');
+  if (source.includes('<template')) return [];
+  return [...source.matchAll(/from 'dashboard\/(inclamo\/[^']+\.vue)'/g)].map(match =>
+    join(repository, 'shims', 'app', 'javascript', 'dashboard', match[1])
+  );
+};
 const record = join(repository, 'custom', 'CHATWOOT_FILES');
 const standIns = existsSync(record)
   ? readFileSync(record, 'utf8')
@@ -24,6 +35,7 @@ const standIns = existsSync(record)
       .filter(line => line.trim() && !line.startsWith('#'))
       .map(line => line.trim().split(/\s+/))
       .map(([, path, ours]) => join(repository, ours || join('shims', path)))
+      .flatMap(file => [file, ...handedOverTo(file)])
   : [];
 const flag = process.argv.indexOf('--chatwoot');
 const chatwootRoot = flag > -1 ? process.argv[flag + 1] : null;
