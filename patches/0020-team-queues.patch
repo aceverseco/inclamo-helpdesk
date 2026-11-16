@@ -1,25 +1,3 @@
-diff --git a/app/javascript/dashboard/routes/dashboard/conversation/conversation.routes.js b/app/javascript/dashboard/routes/dashboard/conversation/conversation.routes.js
---- a/app/javascript/dashboard/routes/dashboard/conversation/conversation.routes.js
-+++ b/app/javascript/dashboard/routes/dashboard/conversation/conversation.routes.js
-@@ -2,6 +2,10 @@
- import { frontendURL } from '../../../helper/URLHelper';
- import store from '../../../store';
- import ConversationView from './ConversationView.vue';
-+import {
-+  isTeamQueueId,
-+  teamQueueAvailable,
-+} from 'dashboard/inclamo/teamQueues';
- 
- const CONVERSATION_PERMISSIONS = [
-   'administrator',
-@@ -12,6 +16,7 @@
- ];
- 
- const isFolderAvailable = async folderId => {
-+  if (isTeamQueueId(folderId)) return teamQueueAvailable(folderId);
-   let folders = store.getters['customViews/getConversationCustomViews'];
-   if (!folders.length) {
-     await store.dispatch('customViews/get', 'conversation');
 diff --git a/app/javascript/dashboard/components/ChatList.vue b/app/javascript/dashboard/components/ChatList.vue
 --- a/app/javascript/dashboard/components/ChatList.vue
 +++ b/app/javascript/dashboard/components/ChatList.vue

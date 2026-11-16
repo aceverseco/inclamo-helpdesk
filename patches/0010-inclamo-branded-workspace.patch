@@ -1,14 +1,3 @@
-diff --git a/app/controllers/dashboard_controller.rb b/app/controllers/dashboard_controller.rb
---- a/app/controllers/dashboard_controller.rb
-+++ b/app/controllers/dashboard_controller.rb
-@@ -50,6 +50,7 @@
- 
-   def set_global_config
-     @global_config = GlobalConfig.get(*GLOBAL_CONFIG_KEYS).merge(app_config)
-+    @global_config['INSTALLATION_NAME'] = 'Inclamo' if @global_config['INSTALLATION_NAME'] == 'Chatwoot'
-   end
- 
-   def set_dashboard_scripts
 diff --git a/app/javascript/dashboard/App.vue b/app/javascript/dashboard/App.vue
 --- a/app/javascript/dashboard/App.vue
 +++ b/app/javascript/dashboard/App.vue
@@ -166,18 +155,6 @@ diff --git a/app/javascript/dashboard/components-next/sidebar/SidebarGroupLeaf.v
        :class="{
          'text-n-slate-12 bg-n-alpha-2 active': active,
        }"
-diff --git a/app/javascript/dashboard/components-next/sidebar/provider.js b/app/javascript/dashboard/components-next/sidebar/provider.js
---- a/app/javascript/dashboard/components-next/sidebar/provider.js
-+++ b/app/javascript/dashboard/components-next/sidebar/provider.js
-@@ -5,7 +5,7 @@
- 
- const SidebarControl = Symbol('SidebarControl');
- 
--const DEFAULT_WIDTH = 200;
-+const DEFAULT_WIDTH = 218;
- const MIN_WIDTH = 56;
- const COLLAPSED_THRESHOLD = 160;
- const MAX_WIDTH = 320;
 diff --git a/app/javascript/dashboard/components/ChatList.vue b/app/javascript/dashboard/components/ChatList.vue
 --- a/app/javascript/dashboard/components/ChatList.vue
 +++ b/app/javascript/dashboard/components/ChatList.vue
@@ -457,74 +434,3 @@ diff --git a/app/javascript/v3/views/login/Index.vue b/app/javascript/v3/views/l
    >
      <section class="max-w-5xl mx-auto">
        <img
-diff --git a/app/views/installation/onboarding/index.html.erb b/app/views/installation/onboarding/index.html.erb
---- a/app/views/installation/onboarding/index.html.erb
-+++ b/app/views/installation/onboarding/index.html.erb
-@@ -1,4 +1,4 @@
--<%= render "super_admin/application/standalone", heading: t("installation.onboarding.heading") do %>
-+<%= render "super_admin/application/standalone", heading: t("inclamo.brand.welcome") do %>
-   <%= form_tag('/installation/onboarding', class: 'space-y-4') do %>
-     <div>
-       <label for="user_name" class="text-label"><%= t("installation.onboarding.name") %></label>
-diff --git a/app/views/layouts/super_admin/application.html.erb b/app/views/layouts/super_admin/application.html.erb
---- a/app/views/layouts/super_admin/application.html.erb
-+++ b/app/views/layouts/super_admin/application.html.erb
-@@ -15,7 +15,7 @@
-   <%= csrf_meta_tags %>
-   <%= render "prefetch" %>
- </head>
--<body class="min-h-full bg-n-background font-inter text-n-slate-12 antialiased">
-+<body class="inclamo-administration min-h-full bg-n-background font-inter text-n-slate-12 antialiased">
-   <div class="pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 origin-left scale-x-0 bg-n-brand" data-page-progress></div>
-   <div class="lg:flex">
-     <%= render "navigation" %>
-diff --git a/app/views/super_admin/application/_brand.html.erb b/app/views/super_admin/application/_brand.html.erb
---- a/app/views/super_admin/application/_brand.html.erb
-+++ b/app/views/super_admin/application/_brand.html.erb
-@@ -12,7 +12,7 @@
-   <%= link_to image_tag("/brand-assets/logo_thumbnail.svg", alt: "", class: "size-8"), super_admin_root_path, class: "shrink-0", tabindex: -1, aria: { hidden: true } %>
-   <div class="min-w-0 whitespace-nowrap">
-     <div class="flex items-baseline gap-1.5 leading-5">
--      <%= link_to "Chatwoot", super_admin_root_path, class: "text-sm font-medium text-n-slate-12" %>
-+      <%= link_to "Inclamo", super_admin_root_path, class: "text-sm font-medium text-n-slate-12" %>
-       <%= link_to "https://github.com/chatwoot/chatwoot/releases/tag/v#{version}",
-                   target: "_blank", rel: "noopener noreferrer",
-                   title: update_available ? t("super_admin.navigation.update_available", version: latest_version) : t("super_admin.navigation.release_notes"),
-diff --git a/app/views/super_admin/application/_standalone.html.erb b/app/views/super_admin/application/_standalone.html.erb
---- a/app/views/super_admin/application/_standalone.html.erb
-+++ b/app/views/super_admin/application/_standalone.html.erb
-@@ -5,18 +5,18 @@
-     <meta charset="utf-8">
-     <meta name="robots" content="noindex">
-     <meta name="viewport" content="width=device-width, initial-scale=1">
--    <title>SuperAdmin | Chatwoot</title>
-+    <title>SuperAdmin | Inclamo</title>
-     <%= render "super_admin/application/theme" %>
-     <%= render "super_admin/application/font_preload", file: "Inter/InterVariable.woff2" %>
-     <%= render "super_admin/application/font_preload", file: "InterDisplay/InterDisplay-SemiBold.woff2" %>
-     <%= vite_client_tag %>
-     <%= vite_stylesheet_tag 'superadmin.scss' %>
-   </head>
--  <body class="min-h-full bg-n-background text-n-slate-12 antialiased">
-+  <body class="inclamo-administration min-h-full bg-n-background text-n-slate-12 antialiased">
-     <div class="fixed inset-x-0 top-0 h-64 bg-pixel-band [mask-image:linear-gradient(to_bottom,black,transparent)]"></div>
-     <main class="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-10">
--      <img src="/brand-assets/logo.svg" alt="Chatwoot" class="mx-auto h-8 w-auto dark:hidden">
--      <img src="/brand-assets/logo_dark.svg" alt="Chatwoot" class="mx-auto hidden h-8 w-auto dark:block">
-+      <img src="/brand-assets/logo.svg" alt="Inclamo" class="mx-auto h-8 w-auto dark:hidden">
-+      <img src="/brand-assets/logo_dark.svg" alt="Inclamo" class="mx-auto hidden h-8 w-auto dark:block">
-       <h1 class="mt-6 text-center font-interDisplay text-2xl font-semibold tracking-tight"><%= heading %></h1>
-       <div class="rounded-xl border border-n-weak bg-n-solid-1 mt-8 p-6 sm:p-8">
-         <% if flash[:error].present? %>
-diff --git a/config/installation_config.yml b/config/installation_config.yml
---- a/config/installation_config.yml
-+++ b/config/installation_config.yml
-@@ -15,7 +15,7 @@
- 
- # ------- Branding Related Config ------- #
- - name: INSTALLATION_NAME
--  value: 'Chatwoot'
-+  value: 'Inclamo'
-   display_title: 'Installation Name'
-   description: 'The installation wide name that would be used in the dashboard, title etc.'
- - name: LOGO_THUMBNAIL

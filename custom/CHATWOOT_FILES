@@ -1,0 +1,48 @@
+# Chatwoot files the overlay stands in for, at the pinned tag (CHATWOOT_VERSION).
+# The overlay never edits a file of Chatwoot. Where it needs one to behave
+# differently, it supplies its own file and scripts/assemble.sh puts that in
+# use. Each line:
+#
+#   <blob id> <Chatwoot path>              shims/<path> takes the file's place;
+#                                          Chatwoot's own stays beside it, byte
+#                                          for byte, as <name>.chatwoot.<ext>
+#   <blob id> <Chatwoot path> <our file>   the Chatwoot file stays where it is;
+#                                          <our file> is used instead of it (a
+#                                          view found first, a component mounted)
+#
+# The blob id is the file's at the pinned tag (git rev-parse <tag>:<path>).
+# assemble.sh stops when it no longer matches: Chatwoot changed the file, so
+# read their change, carry over what our file needs, record the new id.
+
+# Server templates, found first through the overlay's view path.
+de13de212b98465358108df2fdee17922c5ceab7 app/views/super_admin/application/_standalone.html.erb custom/app/views/super_admin/application/_standalone.html.erb
+95a4ece6d700b75d2c2c3b1abbc62fc5a89f1fbd app/views/super_admin/application/_brand.html.erb custom/app/views/super_admin/application/_brand.html.erb
+0672b2e54fa2cf28a40ea317a3ae9a6fb874522c app/views/super_admin/devise/sessions/new.html.erb custom/app/views/super_admin/devise/sessions/new.html.erb
+84a6384f42ce0bdf59874b04537c06b1104eab11 app/views/layouts/super_admin/application.html.erb custom/app/views/layouts/super_admin/application.html.erb
+d967dbc1cad5f055ebf6e444661a3164ddc351e3 app/views/widgets/show.html.erb custom/app/views/widgets/show.html.erb
+8d3d9e267384d3ca511223d0d1b634410ae23fed app/views/installation/onboarding/index.html.erb custom/app/views/installation/onboarding/index.html.erb
+
+# Brand images.
+d8715e7225ba4ed904a653f3a10baa9073c01dd4 public/brand-assets/logo_thumbnail.svg
+63adcde76d3a85b5a938d1fe5b25bca39845ba52 public/brand-assets/logo.svg
+679ae46873e1d7aeedd34d44261a7ea26bf0357d public/brand-assets/logo_dark.svg
+
+# Modules extended from outside: ours imports Chatwoot's and adds to it.
+35edbbd325b4d5e32d5a22cea9de892138196014 app/javascript/dashboard/composables/useUISettings.js
+f0bc12b859197bc0317778584aa67a66d6b76c56 app/javascript/dashboard/composables/chatlist/useBulkActions.js
+80410035d6c0774b5dc097822c7429a46977009a app/javascript/dashboard/helper/editorHelper.js
+9a11f204eaf6f105de49a2faff21f1648a32243c app/javascript/dashboard/helper/automationHelper.js
+956852e596eb8e8c57c7ce9c4fe0032d2e11bf57 app/javascript/dashboard/helper/validations.js
+755b3f4657fa48aea23bff28e351b06d41d22e59 app/javascript/dashboard/helper/facebookScopes.js
+b9c0f01dafc52665b8bf1faf090aaa1ca7f84529 app/javascript/dashboard/routes/dashboard/settings/settings.routes.js
+d58617f302eb29986da809d8fdb8ca257964dba9 app/javascript/dashboard/routes/dashboard/conversation/conversation.routes.js
+dc844201c7c178779497c2f4ff50351f3e4e1819 app/javascript/dashboard/components-next/sidebar/provider.js
+
+# Files carried whole: Chatwoot's with our change inside.
+1e0cc94f57a8f4182843b4218e89aca1d69387ae app/javascript/dashboard/composables/useMacroExecution.js
+4ec17e75382bbf210d7ba74199f62836a2cadbf2 app/javascript/dashboard/composables/spec/useFacebookPageConnect.spec.js
+
+# Screens redrawn for the workspace, mounted by 0015-overlay-screens.patch.
+6d50e9dee5628ddf92fea8a245cdeee7aa4d2425 app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue shims/app/javascript/dashboard/inclamo/workspace/CustomerSidePanel.vue
+e98d605c83f1defc4f56bf4392e5d07ad16500be app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue shims/app/javascript/dashboard/inclamo/workspace/CustomerContact.vue
+bc7aa62e62eb5ac5d80a97b2a77c7db46e1cec6f app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue shims/app/javascript/dashboard/inclamo/workspace/ConversationCard.vue

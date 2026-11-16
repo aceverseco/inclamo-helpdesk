@@ -1,26 +1,3 @@
-diff --git a/app/views/widgets/show.html.erb b/app/views/widgets/show.html.erb
---- a/app/views/widgets/show.html.erb
-+++ b/app/views/widgets/show.html.erb
-@@ -6,14 +6,15 @@
-     <meta name="robots" content="noindex">
-     <script>
-       window.chatwootWebChannel = {
--        avatarUrl: '<%= @web_widget.inbox.avatar_url %>',
-+        avatarUrl: <%= raw ERB::Util.json_escape(@web_widget.inbox.avatar_url.to_json) %>,
-         hasAConnectedAgentBot: '<%= @web_widget.inbox.agent_bot&.name %>',
-         locale: '<%= @web_widget.account.locale %>',
--        websiteName: '<%= @web_widget.inbox.name %>',
-+        websiteName: <%= raw ERB::Util.json_escape(@web_widget.inbox.name.to_json) %>,
-         websiteToken: '<%= @web_widget.website_token %>',
--        welcomeTagline: <%= @web_widget.welcome_tagline.to_json.html_safe %>,
--        welcomeTitle: '<%= @web_widget.welcome_title %>',
-+        welcomeTagline: <%= raw ERB::Util.json_escape(@web_widget.welcome_tagline.to_json) %>,
-+        welcomeTitle: <%= raw ERB::Util.json_escape(@web_widget.welcome_title.to_json) %>,
-         widgetColor: '<%= @web_widget.widget_color %>',
-+        inclamoWidget: <%= raw ERB::Util.json_escape(Inclamo::WebsiteWidget.for_public(@web_widget.inbox).to_json) %>,
-         portal: <%= @web_widget.inbox.portal.to_json.html_safe %>,
-         enabledFeatures: <%= @web_widget.selected_feature_flags.to_json.html_safe %>,
-         enabledLanguages: <%= available_locales_with_name.to_json.html_safe %>,
 diff --git a/app/javascript/sdk/IFrameHelper.js b/app/javascript/sdk/IFrameHelper.js
 --- a/app/javascript/sdk/IFrameHelper.js
 +++ b/app/javascript/sdk/IFrameHelper.js

@@ -3,7 +3,7 @@
 // a text node with letters, or a literal placeholder, title, label or
 // aria-label. It also fails when a key used with t('...') is not in the file.
 //
-// The screens that stand where Chatwoot's own stood (patches/overlay-screens.txt)
+// The screens that stand where Chatwoot's own stood (custom/CHATWOOT_FILES)
 // keep Chatwoot's words, so every translation Chatwoot ships still applies.
 // Their keys are looked up in Chatwoot's English dictionary as well:
 //   node scripts/check-ui-strings.mjs --chatwoot build/chatwoot
@@ -17,12 +17,13 @@ const locale = JSON.parse(readFileSync(join(root, 'locale', 'en.json'), 'utf8'))
 const problems = [];
 
 const repository = join(dirname(fileURLToPath(import.meta.url)), '..');
-const record = join(repository, 'patches', 'overlay-screens.txt');
+const record = join(repository, 'custom', 'CHATWOOT_FILES');
 const standIns = existsSync(record)
   ? readFileSync(record, 'utf8')
       .split('\n')
       .filter(line => line.trim() && !line.startsWith('#'))
-      .map(line => join(repository, line.trim().split(/\s+/)[2]))
+      .map(line => line.trim().split(/\s+/))
+      .map(([, path, ours]) => join(repository, ours || join('shims', path)))
   : [];
 const flag = process.argv.indexOf('--chatwoot');
 const chatwootRoot = flag > -1 ? process.argv[flag + 1] : null;

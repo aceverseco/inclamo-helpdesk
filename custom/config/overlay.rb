@@ -39,6 +39,12 @@ loader.ignore(body_limit.to_s)
 require body_limit
 Rails.application.config.middleware.insert_before(0, InclamoSupportBodyLimit)
 
+# Views: the overlay's templates are found before Chatwoot's, so a template of
+# the same path stands in for theirs (each one is recorded in CHATWOOT_FILES).
+overlay_views = overlay_root.join('app/views').to_s
+ActiveSupport.on_load(:action_controller) { prepend_view_path(overlay_views) }
+ActiveSupport.on_load(:action_mailer) { prepend_view_path(overlay_views) }
+
 # Routes: drawn before Chatwoot's own on every (re)load of the route set.
 overlay_routes = overlay_root.join('config/routes.rb')
 if overlay_routes.exist?
@@ -67,6 +73,12 @@ Rails.application.config.to_prepare do
   Macros::ExecutionService.prepend(Inclamo::Shopify::MacroSteps::Execution)
   MacrosExecutionJob.prepend(Inclamo::Shopify::MacroSteps::Job)
   Api::V1::Accounts::MacrosController.prepend(Inclamo::Shopify::MacroSteps::ExecutionGuard)
+end
+
+# The product's name in place of Chatwoot's default (Inclamo::Brand).
+Rails.application.config.to_prepare do
+  ConfigLoader.prepend(Inclamo::Brand::InstallationDefaults)
+  DashboardController.prepend(Inclamo::Brand::DashboardName)
 end
 
 # Credentials of a store connection, the AI agent's connection code and the
@@ -107,6 +119,9 @@ if defined?(Sidekiq::Cron::Job)
     # Accounts that lack a ready team queue or saved reply get them (Inclamo::Presets).
     Sidekiq::Cron::Job.create(name: 'inclamo_presets_repair_job', cron: '*/10 * * * *',
                               class: 'Inclamo::PresetsRepairJob', queue: 'scheduled_jobs')
+    # Owned support: outbox recovery, public event reconciliation, notification retry.
+    Sidekiq::Cron::Job.create(name: 'inclamo_support_dispatch', cron: '* * * * *',
+                              class: 'Inclamo::Support::DispatchJob', queue: 'scheduled_jobs')
   end
 end
 
