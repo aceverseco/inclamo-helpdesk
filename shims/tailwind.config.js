@@ -17,8 +17,6 @@ module.exports = {
     ...chatwoot.content,
     './app/javascript/dashboard/inclamo/**/*.{js,ts}',
     './custom/app/views/**/*.erb',
-    // Chatwoot's files kept beside the overlay's stand-ins are not rendered.
-    '!./app/javascript/**/*.chatwoot.*',
   ],
   theme: {
     ...chatwoot.theme,
