@@ -10,6 +10,7 @@ on:
   pull_request:
     paths:
       - 'patches/**'
+      - 'custom/CHATWOOT_FILES'
       - 'shims/**'
       - 'scripts/**'
       - 'custom/CHATWOOT_VERSION'

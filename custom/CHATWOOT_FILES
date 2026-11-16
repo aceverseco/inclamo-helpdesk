@@ -22,7 +22,36 @@ de13de212b98465358108df2fdee17922c5ceab7 app/views/super_admin/application/_stan
 d967dbc1cad5f055ebf6e444661a3164ddc351e3 app/views/widgets/show.html.erb custom/app/views/widgets/show.html.erb
 8d3d9e267384d3ca511223d0d1b634410ae23fed app/views/installation/onboarding/index.html.erb custom/app/views/installation/onboarding/index.html.erb
 
-# Brand images.
+# Brand images. The icons keep Chatwoot's names, so its pages, web manifest
+# and notification badge show ours (scripts/render-brand-icons.mjs).
+a27e7f7b06975ab503776810192d9c4f0c8843e0 public/android-icon-144x144.png
+e5eaa103260713a30dcc4bf4ac8e33f87bbedbc8 public/android-icon-192x192.png
+fb7690ad210db687e41a62d2973972c69599f9e1 public/android-icon-36x36.png
+7fb8e86ccfbfeb9c5845d901811a0cbd4d31a7f1 public/android-icon-48x48.png
+8fd338f58f6ba3d1753ecd6e4892f6642d164d3c public/android-icon-72x72.png
+de2e8203208965e57e8351f7051f5f24c2c7f268 public/android-icon-96x96.png
+3dd22c09974861db63d11573a4f74527a8e18a9d public/apple-icon-114x114.png
+593ce3ec2347ba6b47ce6cd81fca42f9190ab1a8 public/apple-icon-120x120.png
+a27e7f7b06975ab503776810192d9c4f0c8843e0 public/apple-icon-144x144.png
+b469546acd4cdca1b8bd4f3260bc69109fca6bd5 public/apple-icon-152x152.png
+b1836b9f517bf75041a064bfb3d6b04890e09a7d public/apple-icon-180x180.png
+319bee6818f3f378088fdaa5176f796a9f900812 public/apple-icon-57x57.png
+db095da546fbabbbadd3670c73a15b813f6df4a7 public/apple-icon-60x60.png
+8fd338f58f6ba3d1753ecd6e4892f6642d164d3c public/apple-icon-72x72.png
+5a9e25f8fd5b2b35a88e54f526fc84b0a1b1bb85 public/apple-icon-76x76.png
+e5eaa103260713a30dcc4bf4ac8e33f87bbedbc8 public/apple-icon-precomposed.png
+e5eaa103260713a30dcc4bf4ac8e33f87bbedbc8 public/apple-icon.png
+f96d7c96881560a90f36775556f6d7032122918a public/favicon-16x16.png
+183f2d1d57fae311badfdfbcf2c2ab8d43859166 public/favicon-32x32.png
+2d0007c8ce77cd84a29e908b006a9f3a31c78b8c public/favicon-512x512.png
+de2e8203208965e57e8351f7051f5f24c2c7f268 public/favicon-96x96.png
+f8cf72e027fd623f3de1e0f2a14d8d5669f0eba6 public/favicon-badge-16x16.png
+8e1e11cb2d110e8c3dac9a70c292907bd977c661 public/favicon-badge-32x32.png
+da6f99c50d1c87b9d8b6b6682a153a51eaebc1ae public/favicon-badge-96x96.png
+a27e7f7b06975ab503776810192d9c4f0c8843e0 public/ms-icon-144x144.png
+89dd0ed4a4250186ad8c357ed2e3f98a5cd313ff public/ms-icon-150x150.png
+7174258eea8143f9ebed7e9c9f0eeb153810babb public/ms-icon-310x310.png
+4fb34350a698bf0b8fc3b03daeb71ce2ddf31108 public/ms-icon-70x70.png
 d8715e7225ba4ed904a653f3a10baa9073c01dd4 public/brand-assets/logo_thumbnail.svg
 63adcde76d3a85b5a938d1fe5b25bca39845ba52 public/brand-assets/logo.svg
 679ae46873e1d7aeedd34d44261a7ea26bf0357d public/brand-assets/logo_dark.svg
@@ -37,6 +66,15 @@ f0bc12b859197bc0317778584aa67a66d6b76c56 app/javascript/dashboard/composables/ch
 b9c0f01dafc52665b8bf1faf090aaa1ca7f84529 app/javascript/dashboard/routes/dashboard/settings/settings.routes.js
 d58617f302eb29986da809d8fdb8ca257964dba9 app/javascript/dashboard/routes/dashboard/conversation/conversation.routes.js
 dc844201c7c178779497c2f4ff50351f3e4e1819 app/javascript/dashboard/components-next/sidebar/provider.js
+
+# Build configuration: ours imports Chatwoot's and adds to it.
+683c056eb7cc6674194ab41bfaa7aeb00183ac25 tailwind.config.js
+9dcfbeb8cc4faab3d265ad63f5e93aba2047f39b theme/colors.js
+
+# The package manifest with the overlay's five dependencies, and its lock file
+# (regenerate both from Chatwoot's when it changes: pnpm install --lockfile-only).
+3687089aceab9776280081e1bb1e1acd60a0ed56 package.json
+131e7688f04892fb1c08b831e4d711d6675156b5 pnpm-lock.yaml
 
 # Files carried whole: Chatwoot's with our change inside.
 1e0cc94f57a8f4182843b4218e89aca1d69387ae app/javascript/dashboard/composables/useMacroExecution.js

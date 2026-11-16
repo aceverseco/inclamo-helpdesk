@@ -1,5 +1,5 @@
 // Development-only export of the original SVG; no runtime image dependency.
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { createRequire } from 'node:module';
@@ -7,26 +7,35 @@ const require = createRequire(new URL('../e2e/package.json', import.meta.url));
 const { chromium } = require('@playwright/test'); // npm install --prefix e2e
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const output = resolve(root, 'shims/public/brand-assets');
-const source = await readFile(resolve(output, 'inclamo-mark.svg'), 'utf8');
-await mkdir(output, { recursive: true });
+const output = resolve(root, 'shims/public');
+const source = await readFile(resolve(output, 'brand-assets/inclamo-mark.svg'), 'utf8');
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const page = await browser.newPage({ deviceScaleFactor: 1 });
 const pngs = new Map();
 
+// The icons carry the names Chatwoot gives its own in public/, so its pages,
+// its web manifest and its notification badge show ours without a change
+// (each file is recorded in custom/CHATWOOT_FILES).
+const names = [
+  ...[36, 48, 72, 96, 144, 192].map(size => [`android-icon-${size}x${size}.png`, size]),
+  ...[57, 60, 72, 76, 114, 120, 144, 152, 180].map(size => [`apple-icon-${size}x${size}.png`, size]),
+  ['apple-icon.png', 192],
+  ['apple-icon-precomposed.png', 192],
+  ...[16, 32, 96, 512].map(size => [`favicon-${size}x${size}.png`, size]),
+  ...[16, 32, 96].map(size => [`favicon-badge-${size}x${size}.png`, size, true]),
+  ...[70, 144, 150, 310].map(size => [`ms-icon-${size}x${size}.png`, size]),
+];
+
 try {
-  for (const size of [16, 32, 96, 180, 192, 512]) {
-    for (const badge of size <= 96 ? [false, true] : [false]) {
-      const svg = badge
-        ? source.replace('</svg>', '<circle cx="850" cy="174" r="145" fill="#FF6A00" stroke="#FFFFFF" stroke-width="55"/></svg>')
-        : source;
-      await page.setViewportSize({ width: size, height: size });
-      await page.setContent(`<style>html,body{margin:0;width:100%;height:100%;overflow:hidden}svg{display:block;width:100%;height:100%}</style>${svg}`);
-      const png = await page.screenshot({ type: 'png', animations: 'disabled' });
-      const name = `favicon-${badge ? 'badge-' : ''}${size}x${size}.png`;
-      await writeFile(resolve(output, name), png);
-      if (!badge) pngs.set(size, png);
-    }
+  for (const [name, size, badge] of names) {
+    const svg = badge
+      ? source.replace('</svg>', '<circle cx="850" cy="174" r="145" fill="#FF6A00" stroke="#FFFFFF" stroke-width="55"/></svg>')
+      : source;
+    await page.setViewportSize({ width: size, height: size });
+    await page.setContent(`<style>html,body{margin:0;width:100%;height:100%;overflow:hidden}svg{display:block;width:100%;height:100%}</style>${svg}`);
+    const png = await page.screenshot({ type: 'png', animations: 'disabled' });
+    await writeFile(resolve(output, name), png);
+    if (!badge) pngs.set(size, png);
   }
 } finally {
   await browser.close();
