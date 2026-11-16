@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from '@vue/compiler-sfc';
 
-// ChatList.vue is Chatwoot's, changed by patches/0012-prototype-composition.patch.
+// ChatList.vue is Chatwoot's, carried whole by the overlay (custom/CHATWOOT_FILES).
 // It needs the whole store and router to mount, so its seam is checked in the
 // template the patches produce (the tests run from the assembled Chatwoot root).
 const source = readFileSync(resolve(process.cwd(), 'app/javascript/dashboard/components/ChatList.vue'), 'utf8');

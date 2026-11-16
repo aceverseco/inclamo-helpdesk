@@ -1,0 +1,6 @@
+// Stands in for Chatwoot's superadmin.scss (kept beside this file as
+// superadmin.chatwoot.scss): its two lines, then the workspace theme for the
+// administration pages.
+@config "../../../tailwind.superadmin.config.js";
+@import '../dashboard/assets/scss/super_admin/index';
+@import '../dashboard/inclamo/theme/administration';

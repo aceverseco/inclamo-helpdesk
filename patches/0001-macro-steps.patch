@@ -1,0 +1,124 @@
+diff --git a/app/javascript/dashboard/components/widgets/AutomationActionInput.vue b/app/javascript/dashboard/components/widgets/AutomationActionInput.vue
+index aa0d7d1..3a50b0c 100644
+--- a/app/javascript/dashboard/components/widgets/AutomationActionInput.vue
++++ b/app/javascript/dashboard/components/widgets/AutomationActionInput.vue
+@@ -79,7 +79,7 @@ export default {
+     },
+     inputType() {
+       return this.actionTypes.find(action => action.key === this.action_name)
+-        .inputType;
++        ?.inputType;
+     },
+     actionNameAsSelectModel: {
+       get() {
+diff --git a/app/javascript/dashboard/routes/dashboard/conversation/Macros/MacroPreview.vue b/app/javascript/dashboard/routes/dashboard/conversation/Macros/MacroPreview.vue
+index 07357b1..161427c 100644
+--- a/app/javascript/dashboard/routes/dashboard/conversation/Macros/MacroPreview.vue
++++ b/app/javascript/dashboard/routes/dashboard/conversation/Macros/MacroPreview.vue
+@@ -1,6 +1,7 @@
+ <script setup>
+ import { computed } from 'vue';
+ import { useMacros } from 'dashboard/composables/useMacros';
++import macroSteps from 'dashboard/extensions/macroSteps';
+ 
+ const props = defineProps({
+   macro: {
+@@ -12,6 +13,11 @@ const props = defineProps({
+ const { resolveMacroActions } = useMacros();
+ 
+ const resolvedMacro = computed(() => resolveMacroActions(props.macro));
++
++const stepLabel = index =>
++  macroSteps.steps
++    .find(step => step.key === props.macro.actions[index]?.action_name)
++    ?.label();
+ </script>
+ 
+ <template>
+@@ -34,7 +40,7 @@ const resolvedMacro = computed(() => resolveMacroActions(props.macro));
+         class="absolute -start-[0.21875rem] top-[0.2734375rem] w-2 h-2 rounded-full bg-n-solid-1 border-2 border-solid border-n-weak dark:border-n-slate-6"
+       />
+       <p class="mb-1 text-xs text-n-slate-11">
+-        {{ $t(`MACROS.ACTIONS.${action.actionName}`) }}
++        {{ stepLabel(i) || $t(`MACROS.ACTIONS.${action.actionName}`) }}
+       </p>
+       <p class="text-n-slate-12 text-sm">{{ action.actionValue }}</p>
+     </div>
+diff --git a/app/javascript/dashboard/routes/dashboard/settings/macros/MacroEditor.vue b/app/javascript/dashboard/routes/dashboard/settings/macros/MacroEditor.vue
+index 1312122..c6e11e2 100644
+--- a/app/javascript/dashboard/routes/dashboard/settings/macros/MacroEditor.vue
++++ b/app/javascript/dashboard/routes/dashboard/settings/macros/MacroEditor.vue
+@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
+ import { useStore, useStoreGetters } from 'dashboard/composables/store';
+ import MacroForm from './MacroForm.vue';
+ import { MACRO_ACTION_TYPES } from './constants';
++import macroSteps from 'dashboard/extensions/macroSteps';
+ import { useAlert } from 'dashboard/composables';
+ import actionQueryGenerator from 'dashboard/helper/actionQueryGenerator.js';
+ import { getActionIcon } from 'dashboard/helper/automationHelper';
+@@ -26,11 +27,22 @@ const macro = ref(null);
+ const mode = ref('CREATE');
+ 
+ const macroActionTypes = computed(() => {
+-  return MACRO_ACTION_TYPES.map(type => ({
+-    ...type,
+-    label: t(`MACROS.ACTIONS.${type.label}`),
+-    icon: getActionIcon(type.key),
+-  }));
++  return [
++    ...MACRO_ACTION_TYPES.map(type => ({
++      ...type,
++      label: t(`MACROS.ACTIONS.${type.label}`),
++      icon: getActionIcon(type.key),
++    })),
++    ...macroSteps.steps
++      .filter(step => step.available !== false)
++      .map(step => ({
++        key: step.key,
++        label: step.label(),
++        description: step.description?.(),
++        icon: step.icon,
++        inputType: null,
++      })),
++  ];
+ });
+ 
+ provide('macroActionTypes', macroActionTypes);
+diff --git a/app/javascript/dashboard/routes/dashboard/settings/macros/MacroNode.vue b/app/javascript/dashboard/routes/dashboard/settings/macros/MacroNode.vue
+index 7590da0..c655120 100644
+--- a/app/javascript/dashboard/routes/dashboard/settings/macros/MacroNode.vue
++++ b/app/javascript/dashboard/routes/dashboard/settings/macros/MacroNode.vue
+@@ -36,12 +36,15 @@ const errorMessage = computed(() => {
+   return t(`MACROS.ERRORS.${props.errorKey}`);
+ });
+ 
++const actionType = computed(() =>
++  macroActionTypes.value.find(
++    action => action.key === actionData.value.action_name
++  )
++);
++
+ const showActionInput = computed(() => {
+   if (actionData.value.action_name === 'send_message') return false;
+-  const type = macroActionTypes.value.find(
+-    action => action.key === actionData.value.action_name
+-  ).inputType;
+-  return !!type;
++  return !!actionType.value?.inputType;
+ });
+ 
+ const dropdownValues = () => {
+@@ -78,6 +81,13 @@ const dropdownValues = () => {
+         :initial-file-name="fileName"
+         @reset-action="$emit('resetAction')"
+       />
++      <p
++        v-if="actionType?.description"
++        class="mt-1 mb-0 text-sm text-n-slate-11"
++        data-testid="macro-step-description"
++      >
++        {{ actionType.description }}
++      </p>
+     </div>
+     <NextButton
+       v-if="!singleNode"

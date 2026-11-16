@@ -137,14 +137,16 @@ notified; build a rule on the label if you want that.
   `GET /api/v1/accounts/:id/inclamo/conversation_slas?ids=1,2,3`; a conversation
   the caller may not see is left out of the answer.
 
-## Seam: `patches/0022-sla-badge.patch`
+## Where the badge is mounted
 
-Two hunks of one import and one element each; all logic is in
+In the conversation header, which the overlay carries whole
+(`ConversationHeader.vue`, `docs/chatwoot-files.md`); the row's badge needs no
+change of Chatwoot either, the row being the overlay's own `inclamo/workspace/ConversationCard.vue`. All logic is in
 `shims/app/javascript/dashboard/inclamo/components/SlaBadge.vue`,
 `inclamo/slaBadge.js` (which target, which look) and `inclamo/slaTimers.js`
 (reading the timers of a page of rows in one request).
 
 | File | Change | Why the existing code was not enough | Covered by |
 | --- | --- | --- | --- |
-| `components/widgets/conversation/ConversationCard.vue` | the badge in the row's `sla` slot, ahead of the labels (the row clips what does not fit its bottom line) | the row's own SLA label reads Chatwoot's paid SLA data, which this edition does not have | `specs/SlaBadge.spec.js`, e2e `sla-badge.spec.mjs` (rows) |
+| `inclamo/workspace/ConversationCard.vue` (overlay) | the badge in the row's `sla` slot, ahead of the labels (the row clips what does not fit its bottom line) | the row's own SLA label reads Chatwoot's paid SLA data, which this edition does not have | `specs/SlaBadge.spec.js`, e2e `sla-badge.spec.mjs` (rows) |
 | `components/widgets/conversation/ConversationHeader.vue` | the badge, with details, before the header's actions | the same | e2e "Agent opens an overdue conversation" |

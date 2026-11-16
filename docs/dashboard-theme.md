@@ -50,7 +50,7 @@ Chatwoot's `--slate-*` and solid color consumers expect space-separated RGB chan
 
 `Dashboard.vue` owns `body.inclamo-dashboard-theme` through a mount/unmount composable. `body` includes native teleported dialogs and menus. The scope is removed when leaving the account workspace. Existing `body.dark` and `color_scheme` storage remain the only appearance state. There is no DOM observer, second preference, injected React runtime or theme service.
 
-All changes below are in `patches/0009-dashboard-theme.patch`; they follow existing feature patches. Fallbacks preserve upstream appearance outside the workspace.
+The changes below are in the overlay's stand-ins for Chatwoot's files and in `patches/0004-theme-radius-tokens.patch` (`docs/chatwoot-files.md`). Fallbacks preserve upstream appearance outside the workspace.
 
 | Upstream file (under `app/javascript/dashboard` unless stated) | Purpose / reason a patch is needed | Fallback / covering check |
 | --- | --- | --- |

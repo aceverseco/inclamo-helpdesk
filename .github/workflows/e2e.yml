@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Assemble Chatwoot with the patches and the overlay
+      - name: Assemble Chatwoot with the overlay
         run: scripts/assemble.sh build/chatwoot
 
       - uses: docker/setup-buildx-action@v3

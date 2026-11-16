@@ -10,11 +10,11 @@ This supersedes the earlier Twenty-inspired palette and the earlier exclusion of
 - `shims/app/javascript/dashboard/inclamo/theme/`: palette, shared controls, workspace structure, authentication and administration styles.
 - `shims/app/javascript/dashboard/inclamo/components/{BrandMark,WorkspaceHeader}.vue`: presentation using the real current account and user.
 - `shims/public/brand-assets/`: unchanged original mark plus composed light/dark wordmarks. Source SVG SHA-256: `9bc0807a517e86b98a02f2a59cb0b490545f72548855f1be832acbf1b583d5e7`.
-- `patches/0011-shadcn-workspace.patch`: native adapters, dependency manifest/lockfile and the corrected workspace integration; applied after the earlier presentation patches.
-- `patches/0013-profile-menu.patch`: two sidebar presentation adapters for the owned shadcn profile/availability menu. Native handlers, role checks and branding restrictions remain in place. The popup uses collision-aware placement, keyboard navigation and the existing light/dark tokens; dialog actions run after menu focus is released.
+- Native adapters, the dependency manifest and its lock file, and the workspace integration are the overlay's own files standing in for Chatwoot's (`docs/chatwoot-files.md`).
+- `SidebarProfileMenu.vue` and `SidebarProfileMenuStatus.vue` (carried whole): two sidebar presentation adapters for the owned shadcn profile/availability menu. Native handlers, role checks and branding restrictions remain in place. The popup uses collision-aware placement, keyboard navigation and the existing light/dark tokens; dialog actions run after menu focus is released.
 - `workspace/useQueueCounts.js`: independent account-wide open queue counts, loaded through native metadata and refreshed from native events. Navigation no longer reads filtered list statistics or hides counts on secondary routes.
-- `patches/0014-brand-favicons.patch`: staff browser/touch icon URLs and native notification icon switching use Inclamo assets. Regenerate the checked-in PNG/ICO exports from the unchanged logo with `node scripts/render-brand-icons.mjs` (existing prototype Playwright development installation and Chrome required).
-- `patches/0009-dashboard-theme.patch`: existing token/radius seams. `0010-inclamo-branded-workspace.patch`: current presentation hooks and staff entry points, listed below.
+- Staff browser and touch icons and the notification badge are Inclamo images under Chatwoot's own file names in `shims/public/`. Regenerate the checked-in PNG/ICO exports from the unchanged logo with `node scripts/render-brand-icons.mjs` (existing prototype Playwright development installation and Chrome required).
+- `patches/0004-theme-radius-tokens.patch`: radius tokens in tabs, dialogs and dropdowns. Presentation hooks and staff entry points, listed below, are in the overlay's stand-ins.
 - `custom/config/locales/en.yml`: the localized Inclamo onboarding heading; existing domain logic and API contracts are unchanged.
 
 `body.inclamo-app-theme` owns dashboard application tokens, including teleported controls. `body.inclamo-dashboard-theme` owns account workspace geometry. The separate v3 authentication entry imports the same tokens and honors its native HTML/root dark class. Installation administration and onboarding share the existing standalone layout, with `body.inclamo-administration`. The public widget, portal and survey do not import staff structure. Default product logos are local; merchant-configured logos and channel colors remain configured by their native mechanisms. On a fresh installation the default public product footer also says Inclamo; merchant layout and colours remain independent.
@@ -59,6 +59,20 @@ Coverage includes actual replies, private notes and attachments, drafts, order-a
 No data migration is needed. Deploy the checked product image through the existing installation process; rollback is the preceding image. Mobile APIs are unchanged, so future iOS/Android applications remain possible. The web presentation itself is not a native mobile implementation.
 
 
+## Screens the overlay owns
+
+Three screens are the overlay's own components, not changes inside Chatwoot's files. A stand-in at Chatwoot's path mounts the overlay's component (`docs/chatwoot-files.md`).
+
+| Chatwoot's screen, left untouched | The overlay's component | Mounted by |
+| --- | --- | --- |
+| `routes/dashboard/conversation/ContactPanel.vue` | `inclamo/workspace/CustomerSidePanel.vue` | `ConversationSidebar.vue` |
+| `routes/dashboard/conversation/contact/ContactInfo.vue` | `inclamo/workspace/CustomerContact.vue` | `CustomerSidePanel.vue` |
+| `components/widgets/conversation/ConversationCard.vue` | `inclamo/workspace/ConversationCard.vue` | `ConversationItem.vue`, `ContactConversations.vue` |
+
+They keep Chatwoot's data, events, dialogs and words: the store getters and actions, the sections under Manage, the contact's actions and Chatwoot's locale keys. Because an untouched file raises no patch conflict, `custom/CHATWOOT_FILES` records each replaced file as it is at the pinned tag, and `scripts/assemble.sh` stops when Chatwoot changes one. Then: read their change, carry over what the overlay's component needs, record the new id. `node scripts/check-ui-strings.mjs --chatwoot build/chatwoot` fails when a Chatwoot key these screens use is gone, and `specs/OverlayScreens.spec.js` when a component they import has moved.
+
+A screen whose layout the overlay redraws goes this way, or is carried whole. A patch is for a line or two inside a screen that stays Chatwoot's.
+
 ## Additional native seams
 
 Application entry points and server layouts activate the owned scope. Sidebar components carry the logo and retain native navigation/account controls. Conversation hooks distinguish list, header, message, editor and customer presentation without new state. Shared button/input and context-menu hooks support contrast; existing props/events remain intact. Settings/contact layout hooks carry the same frame into secondary screens. The controller and installation locale/view changes replace only default staff identity.
@@ -78,15 +92,12 @@ Application entry points and server layouts activate the owned scope. Sidebar co
 - `app/javascript/dashboard/components/ChatList.vue`
 - `app/javascript/dashboard/components/ChatListHeader.vue`
 - `app/javascript/dashboard/components/buttons/ResolveAction.vue`
-- `app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue`
 - `app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue`
 - `app/javascript/dashboard/components/widgets/conversation/ConversationSidebar.vue`
 - `app/javascript/dashboard/components/widgets/conversation/ReplyBox.vue`
 - `app/javascript/dashboard/components/widgets/conversation/contextMenu/menuItem.vue`
 - `app/javascript/dashboard/routes/dashboard/Dashboard.vue`
-- `app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue`
 - `app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue`
-- `app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue`
 - `app/javascript/dashboard/routes/dashboard/settings/SettingsHeader.vue`
 - `app/javascript/dashboard/routes/dashboard/settings/SettingsWrapper.vue`
 - `app/javascript/entrypoints/superadmin.scss`
@@ -108,7 +119,6 @@ Application entry points and server layouts activate the owned scope. Sidebar co
 - `app/javascript/dashboard/components/ChatList.vue`
 - `app/javascript/dashboard/components/ChatListHeader.vue`
 - `app/javascript/dashboard/components/widgets/ChatTypeTabs.vue`
-- `app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue`
 - `app/javascript/dashboard/components-next/sidebar/Sidebar.vue`
 - `app/javascript/dashboard/components-next/sidebar/SidebarGroup.vue`
 - `app/javascript/dashboard/components-next/sidebar/SidebarGroupLeaf.vue`
@@ -116,8 +126,6 @@ Application entry points and server layouts activate the owned scope. Sidebar co
 - `app/javascript/dashboard/components/widgets/conversation/ResizableEditorWrapper.vue`
 - `app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue`
 - `app/javascript/dashboard/components-next/message/Message.vue`
-- `app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue`
-- `app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue`
 - `app/javascript/dashboard/components/widgets/WootWriter/ReplyTopPanel.vue`
 - `app/javascript/dashboard/components-next/Conversation/SidepanelSwitch.vue`
 - `app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue`
@@ -131,7 +139,7 @@ Application entry points and server layouts activate the owned scope. Sidebar co
 
 ## Demo composition transfer
 
-`0012-prototype-composition.patch` connects owned presentation components under `inclamo/workspace/` to native navigation descriptors, permission checks, Vuex getters and conversation handlers. Its navigation uses the approved Inbox/queues/Customers/Knowledge/Channels composition. All other permitted routes, custom views and segments remain reachable through Workspace tools. Query-linked queue changes are checked against the native permission-derived queue list.
+The carried screens (`Sidebar.vue`, `ChatList.vue`, `Message.vue` and the others in `custom/CHATWOOT_FILES`) connect owned presentation components under `inclamo/workspace/` to native navigation descriptors, permission checks, Vuex getters and conversation handlers. Its navigation uses the approved Inbox/queues/Customers/Knowledge/Channels composition. All other permitted routes, custom views and segments remain reachable through Workspace tools. Query-linked queue changes are checked against the native permission-derived queue list.
 
 Conversation rows keep native selection, bulk selection, context menus, preview formatting, SLA and assignee/priority data. The message timeline gains an actual subject (or localized contact fallback), date dividers and delivery metadata outside message bubbles. Removing the empty auto-margin history loader lets short conversations start at the top. Pagination, scroll handling, rich content and the existing editor remain native.
 

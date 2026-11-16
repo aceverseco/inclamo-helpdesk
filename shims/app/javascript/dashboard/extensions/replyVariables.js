@@ -1,3 +1,3 @@
-// Replaces the empty list the reply variables seam adds to Chatwoot with the
-// overlay's variables. See patches/0003-reply-variables.patch.
+// The variables the overlay adds to replies, under the name Chatwoot's
+// variable list reads them by (patches/0002-reply-variables.patch).
 export { default } from 'dashboard/inclamo/replyVariables';

@@ -48,8 +48,8 @@ body.inclamo-dashboard-theme {
   .inclamo-queue-menu > button span { width:.75rem; height:.75rem; }
   .inclamo-conversation-list .conversations-list { padding:0 .4375rem .3125rem; }
   .inclamo-conversation-heading { flex:0 0 auto; padding:.875rem 1.3125rem; min-height:4.75rem; height:auto; }
-  .inclamo-resolve-buttons { box-shadow:none; border-radius:.5rem; }
-  .inclamo-resolve-buttons [data-inclamo-variant=solid] { background:rgb(var(--inclamo-brand)); color:rgb(var(--inclamo-action-text)); }
+  .resolve-actions > :first-child { box-shadow:none; border-radius:.5rem; }
+  .resolve-actions > :first-child [data-inclamo-variant=solid] { background:rgb(var(--inclamo-brand)); color:rgb(var(--inclamo-action-text)); }
   .inclamo-conversation-heading .header-actions-wrap { gap:.25rem; }
   .inclamo-message { margin-bottom:1.125rem; }
   .inclamo-message [class*="grid-area:avatar"] { align-items:flex-start; padding-top:.125rem; }
@@ -63,18 +63,18 @@ body.inclamo-dashboard-theme {
   [data-inclamo-bubble=private] { background:rgb(var(--inclamo-accent-bg)); border:1px solid rgb(var(--inclamo-accent-border)); border-radius:.5625rem; }
   [data-inclamo-bubble] { font-size:.8125rem; line-height:1.8; }
   [data-inclamo-bubble] .prose { font-size:inherit; line-height:inherit; }
-  .inclamo-composer { margin:.75rem 1.375rem 1.25rem; border-radius:.625rem; border-color:rgb(var(--border-strong)); background:rgb(var(--inclamo-field)); box-shadow:0 2px 6px rgb(16 27 61 / .045); }
-  .inclamo-composer.is-focused { border-color:rgb(var(--inclamo-focus)); box-shadow:0 0 0 2px rgb(var(--inclamo-sky) / .18); }
-  .inclamo-composer.is-private { background:rgb(var(--inclamo-accent-bg)); border-color:rgb(var(--inclamo-accent-border)); }
+  .reply-box { margin:.75rem 1.375rem 1.25rem; border-radius:.625rem; border-color:rgb(var(--border-strong)); background:rgb(var(--inclamo-field)); box-shadow:0 2px 6px rgb(16 27 61 / .045); }
+  .reply-box.is-focused { border-color:rgb(var(--inclamo-focus)); box-shadow:0 0 0 2px rgb(var(--inclamo-sky) / .18); }
+  .reply-box.is-private { background:rgb(var(--inclamo-accent-bg)); border-color:rgb(var(--inclamo-accent-border)); }
   .inclamo-composer-heading { height:2.0625rem; padding:.5625rem .625rem 0; }
   .inclamo-composer-heading > button { background:transparent; border:0; padding:0; height:1.5rem; font-size:.75rem; }
   .inclamo-composer-heading > button > div { padding-inline:.3125rem; }
   .inclamo-composer-heading > button > div:last-child { background:transparent; box-shadow:none; border:0; }
-  .inclamo-composer .ProseMirror { font-family:var(--inclamo-font-family); font-size:.8125rem; line-height:1.65; }
-  .inclamo-composer .ProseMirror p.is-editor-empty::before { color:rgb(var(--slate-10)); }
-  .inclamo-composer .reply-box__bottom { padding:.4375rem .625rem .625rem; }
-  .inclamo-composer .left-wrap button { background:transparent; color:rgb(var(--slate-10)); width:1.625rem; height:1.5625rem; }
-  .inclamo-composer .right-wrap button { font-size:.75rem; height:1.75rem; }
+  .reply-box .ProseMirror { font-family:var(--inclamo-font-family); font-size:.8125rem; line-height:1.65; }
+  .reply-box .ProseMirror p.is-editor-empty::before { color:rgb(var(--slate-10)); }
+  .reply-box .reply-box__bottom { padding:.4375rem .625rem .625rem; }
+  .reply-box .left-wrap button { background:transparent; color:rgb(var(--slate-10)); width:1.625rem; height:1.5625rem; }
+  .reply-box .right-wrap button { font-size:.75rem; height:1.75rem; }
   .inclamo-customer-sidebar { background:rgb(var(--surface-1)); }
   .inclamo-contact-panel .list-group { padding:0; }
   .inclamo-contact-panel .list-group > * { border-bottom:1px solid rgb(var(--border-weak)); }
@@ -103,7 +103,7 @@ body.inclamo-dashboard-theme {
     .inclamo-workspace-user > span, .inclamo-workspace-breadcrumb > span { display:none; }
     .inclamo-workbench { border:0; border-radius:0; }
     .inclamo-conversation-list[data-inclamo-layout=condensed] { width:100%; }
-    .inclamo-composer { margin:.5rem; }
+    .reply-box { margin:.5rem; }
     .inclamo-conversation-heading { padding:.75rem; }
   }
   @media (prefers-reduced-motion:reduce) { .conversation-row { transition:none; } }
@@ -132,6 +132,7 @@ body.inclamo-dashboard-theme {
   .inclamo-context-assignee { margin-inline-start:auto; font-size:.6875rem; }
   .inclamo-context-priority { color:rgb(var(--inclamo-accent-text)); }
   .inclamo-context-priority > span { width:.625rem; height:.625rem; }
-  .inclamo-message-content:has(.inclamo-message-heading) .inclamo-native-message-time { display:none; }
-  [data-inclamo-message-variant=user] .inclamo-message-content [data-inclamo-bubble] > div:last-child:has(.inclamo-native-message-time) { margin-top:0; }
+  // Chatwoot's own time under a message (MessageMeta's <time class="inline">) gives way to the heading's.
+  .inclamo-message-content:has(.inclamo-message-heading) time.inline { display:none; }
+  [data-inclamo-message-variant=user] .inclamo-message-content [data-inclamo-bubble] > div:last-child:has(time.inline) { margin-top:0; }
 }

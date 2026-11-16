@@ -33,6 +33,46 @@ rm -rf custom
 rm -rf enterprise spec/enterprise
 printf '\nENV CW_EDITION="ce"\n' >> docker/Dockerfile
 
+# Chatwoot files the overlay stands in for (custom/CHATWOOT_FILES). Each one is
+# checked against the recorded blob id: when Chatwoot changes such a file, the
+# build stops instead of shipping our stand-in over a change nobody read.
+#   two columns  - shims/<path> takes the file's place; Chatwoot's own file is
+#                  kept beside it, untouched, as <name>.chatwoot.<ext>, so the
+#                  stand-in can build on it;
+#   three columns - the file stays where it is and the named overlay file is
+#                  used in its place by other means (a view path, a module).
+files="$here/custom/CHATWOOT_FILES"
+replaced=$(mktemp)
+trap 'rm -f "$replaced"' EXIT
+grep -v '^#' "$files" | while read -r blob path ours; do
+  [ -n "$blob" ] || continue
+  stand_in=${ours:-shims/$path}
+  if [ ! -f "$here/$stand_in" ]; then
+    echo "assemble: $stand_in, which stands in for $path, is missing" >&2
+    exit 1
+  fi
+  found_blob=$(git rev-parse --quiet --verify "HEAD:$path" || echo missing)
+  if [ "$found_blob" != "$blob" ]; then
+    echo "assemble: Chatwoot $tag changed $path, which $stand_in stands in for (custom/CHATWOOT_FILES)" >&2
+    exit 1
+  fi
+  if [ -z "$ours" ]; then
+    echo "$path" >> "$replaced"
+  fi
+done
+
+# A file of shims/ may take the place of a Chatwoot file only when recorded.
+(cd "$here/shims" && find . -type f | sed 's|^\./||') | while read -r path; do
+  if git cat-file -e "HEAD:$path" 2>/dev/null && ! grep -qxF "$path" "$replaced"; then
+    echo "assemble: shims/$path would overwrite a Chatwoot file that custom/CHATWOOT_FILES does not record" >&2
+    exit 1
+  fi
+done
+
+while read -r path; do
+  mv "$path" "${path%.*}.chatwoot.${path##*.}"
+done < "$replaced"
+
 # Seam patches. A patch that no longer applies stops the build.
 for patch in "$here"/patches/*.patch; do
   [ -e "$patch" ] || continue
@@ -43,6 +83,15 @@ for patch in "$here"/patches/*.patch; do
   git apply "$patch"
   echo "assemble: applied $(basename "$patch")"
 done
+
+# What is still changed inside Chatwoot's files may shrink, not grow: a change
+# that needs more belongs in a file of the overlay (custom/CHATWOOT_FILES).
+limit=$(cat "$here/patches/LIMIT")
+changed=$(cat "$here"/patches/*.patch | grep -c '^[+-][^+-]\|^[+-]$' || true)
+if [ "$changed" -gt "$limit" ]; then
+  echo "assemble: patches/ change $changed lines of Chatwoot, over the limit of $limit (patches/LIMIT)" >&2
+  exit 1
+fi
 
 # The overlay and its two loader files.
 cp -R "$here/custom" custom

@@ -54,7 +54,7 @@ jobs:
           ref: ${{ steps.pin.outputs.tag }}
           path: build/chatwoot
 
-      - name: Assemble Chatwoot with the patches and the overlay
+      - name: Assemble Chatwoot with the overlay
         run: scripts/assemble.sh build/chatwoot
 
       - name: Install the image validation runtime
@@ -138,7 +138,7 @@ jobs:
           ref: ${{ steps.pin.outputs.tag }}
           path: build/chatwoot
 
-      - name: Assemble Chatwoot with the patches and the overlay
+      - name: Assemble Chatwoot with the overlay
         run: scripts/assemble.sh build/chatwoot
 
       - uses: pnpm/action-setup@v4
@@ -154,6 +154,9 @@ jobs:
       - name: Install the dashboard's dependencies
         working-directory: build/chatwoot
         run: pnpm install --frozen-lockfile
+
+      - name: The screens that stand in for Chatwoot's use words Chatwoot has
+        run: node scripts/check-ui-strings.mjs --chatwoot build/chatwoot
 
       - name: Run the overlay's component tests
         working-directory: build/chatwoot

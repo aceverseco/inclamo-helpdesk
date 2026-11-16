@@ -1,0 +1,130 @@
+# Chatwoot files the overlay stands in for, at the pinned tag (CHATWOOT_VERSION).
+# The overlay never edits a file of Chatwoot. Where it needs one to behave
+# differently, it supplies its own file and scripts/assemble.sh puts that in
+# use. Each line:
+#
+#   <blob id> <Chatwoot path>              shims/<path> takes the file's place;
+#                                          Chatwoot's own stays beside it, byte
+#                                          for byte, as <name>.chatwoot.<ext>
+#   <blob id> <Chatwoot path> <our file>   the Chatwoot file stays where it is;
+#                                          <our file> is used instead of it (a
+#                                          view found first, a component mounted)
+#
+# The blob id is the file's at the pinned tag (git rev-parse <tag>:<path>).
+# assemble.sh stops when it no longer matches: Chatwoot changed the file, so
+# read their change, carry over what our file needs, record the new id.
+
+# Server templates, found first through the overlay's view path.
+de13de212b98465358108df2fdee17922c5ceab7 app/views/super_admin/application/_standalone.html.erb custom/app/views/super_admin/application/_standalone.html.erb
+95a4ece6d700b75d2c2c3b1abbc62fc5a89f1fbd app/views/super_admin/application/_brand.html.erb custom/app/views/super_admin/application/_brand.html.erb
+0672b2e54fa2cf28a40ea317a3ae9a6fb874522c app/views/super_admin/devise/sessions/new.html.erb custom/app/views/super_admin/devise/sessions/new.html.erb
+84a6384f42ce0bdf59874b04537c06b1104eab11 app/views/layouts/super_admin/application.html.erb custom/app/views/layouts/super_admin/application.html.erb
+d967dbc1cad5f055ebf6e444661a3164ddc351e3 app/views/widgets/show.html.erb custom/app/views/widgets/show.html.erb
+8d3d9e267384d3ca511223d0d1b634410ae23fed app/views/installation/onboarding/index.html.erb custom/app/views/installation/onboarding/index.html.erb
+
+# Brand images. The icons keep Chatwoot's names, so its pages, web manifest
+# and notification badge show ours (scripts/render-brand-icons.mjs).
+a27e7f7b06975ab503776810192d9c4f0c8843e0 public/android-icon-144x144.png
+e5eaa103260713a30dcc4bf4ac8e33f87bbedbc8 public/android-icon-192x192.png
+fb7690ad210db687e41a62d2973972c69599f9e1 public/android-icon-36x36.png
+7fb8e86ccfbfeb9c5845d901811a0cbd4d31a7f1 public/android-icon-48x48.png
+8fd338f58f6ba3d1753ecd6e4892f6642d164d3c public/android-icon-72x72.png
+de2e8203208965e57e8351f7051f5f24c2c7f268 public/android-icon-96x96.png
+3dd22c09974861db63d11573a4f74527a8e18a9d public/apple-icon-114x114.png
+593ce3ec2347ba6b47ce6cd81fca42f9190ab1a8 public/apple-icon-120x120.png
+a27e7f7b06975ab503776810192d9c4f0c8843e0 public/apple-icon-144x144.png
+b469546acd4cdca1b8bd4f3260bc69109fca6bd5 public/apple-icon-152x152.png
+b1836b9f517bf75041a064bfb3d6b04890e09a7d public/apple-icon-180x180.png
+319bee6818f3f378088fdaa5176f796a9f900812 public/apple-icon-57x57.png
+db095da546fbabbbadd3670c73a15b813f6df4a7 public/apple-icon-60x60.png
+8fd338f58f6ba3d1753ecd6e4892f6642d164d3c public/apple-icon-72x72.png
+5a9e25f8fd5b2b35a88e54f526fc84b0a1b1bb85 public/apple-icon-76x76.png
+e5eaa103260713a30dcc4bf4ac8e33f87bbedbc8 public/apple-icon-precomposed.png
+e5eaa103260713a30dcc4bf4ac8e33f87bbedbc8 public/apple-icon.png
+f96d7c96881560a90f36775556f6d7032122918a public/favicon-16x16.png
+183f2d1d57fae311badfdfbcf2c2ab8d43859166 public/favicon-32x32.png
+2d0007c8ce77cd84a29e908b006a9f3a31c78b8c public/favicon-512x512.png
+de2e8203208965e57e8351f7051f5f24c2c7f268 public/favicon-96x96.png
+f8cf72e027fd623f3de1e0f2a14d8d5669f0eba6 public/favicon-badge-16x16.png
+8e1e11cb2d110e8c3dac9a70c292907bd977c661 public/favicon-badge-32x32.png
+da6f99c50d1c87b9d8b6b6682a153a51eaebc1ae public/favicon-badge-96x96.png
+a27e7f7b06975ab503776810192d9c4f0c8843e0 public/ms-icon-144x144.png
+89dd0ed4a4250186ad8c357ed2e3f98a5cd313ff public/ms-icon-150x150.png
+7174258eea8143f9ebed7e9c9f0eeb153810babb public/ms-icon-310x310.png
+4fb34350a698bf0b8fc3b03daeb71ce2ddf31108 public/ms-icon-70x70.png
+d8715e7225ba4ed904a653f3a10baa9073c01dd4 public/brand-assets/logo_thumbnail.svg
+63adcde76d3a85b5a938d1fe5b25bca39845ba52 public/brand-assets/logo.svg
+679ae46873e1d7aeedd34d44261a7ea26bf0357d public/brand-assets/logo_dark.svg
+
+# Modules extended from outside: ours imports Chatwoot's and adds to it.
+35edbbd325b4d5e32d5a22cea9de892138196014 app/javascript/dashboard/composables/useUISettings.js
+f0bc12b859197bc0317778584aa67a66d6b76c56 app/javascript/dashboard/composables/chatlist/useBulkActions.js
+80410035d6c0774b5dc097822c7429a46977009a app/javascript/dashboard/helper/editorHelper.js
+9a11f204eaf6f105de49a2faff21f1648a32243c app/javascript/dashboard/helper/automationHelper.js
+956852e596eb8e8c57c7ce9c4fe0032d2e11bf57 app/javascript/dashboard/helper/validations.js
+755b3f4657fa48aea23bff28e351b06d41d22e59 app/javascript/dashboard/helper/facebookScopes.js
+b9c0f01dafc52665b8bf1faf090aaa1ca7f84529 app/javascript/dashboard/routes/dashboard/settings/settings.routes.js
+d58617f302eb29986da809d8fdb8ca257964dba9 app/javascript/dashboard/routes/dashboard/conversation/conversation.routes.js
+dc844201c7c178779497c2f4ff50351f3e4e1819 app/javascript/dashboard/components-next/sidebar/provider.js
+
+# Entry points of the workspace theme: ours renders or imports Chatwoot's and
+# adds the theme around it.
+13c3dd557780c7d9cad877af82ac597a65a7cfd3 app/javascript/dashboard/assets/scss/app.scss
+26a6adbb57a771f0b79c0a2642d487dc64997194 app/javascript/dashboard/App.vue
+c3f9b1734b253b90eacea3ce86baa16777c7fe4f app/javascript/v3/App.vue
+de055f659b9ae35a054c5c23d3b7dfcde9ebdaeb app/javascript/entrypoints/superadmin.scss
+
+# Build configuration: ours imports Chatwoot's and adds to it.
+683c056eb7cc6674194ab41bfaa7aeb00183ac25 tailwind.config.js
+9dcfbeb8cc4faab3d265ad63f5e93aba2047f39b theme/colors.js
+8ce450250ef270009fcc4e94a1bba6265c0498b0 tailwind.superadmin.config.js
+
+# The package manifest with the overlay's five dependencies, and its lock file
+# (regenerate both from Chatwoot's when it changes: pnpm install --lockfile-only).
+3687089aceab9776280081e1bb1e1acd60a0ed56 package.json
+131e7688f04892fb1c08b831e4d711d6675156b5 pnpm-lock.yaml
+
+# Files carried whole: Chatwoot's with our change inside.
+1e0cc94f57a8f4182843b4218e89aca1d69387ae app/javascript/dashboard/composables/useMacroExecution.js
+108da3889eb11eb5b91a491492dd5db75d6e7eac app/javascript/dashboard/assets/scss/_base.scss
+4ec17e75382bbf210d7ba74199f62836a2cadbf2 app/javascript/dashboard/composables/spec/useFacebookPageConnect.spec.js
+
+# Components that only gain a label for the workspace theme: ours renders
+# Chatwoot's, passing everything through, with the label on its root.
+158235bf918a1cdda3c45a42556fcdd6bfd7c7f6 app/javascript/dashboard/routes/dashboard/settings/SettingsHeader.vue
+6474ab27615350bbe7961a3992f3cc2694c615ca app/javascript/dashboard/routes/dashboard/settings/SettingsWrapper.vue
+89b01cb8d85c1866e08eaefd3359dd63171c2a6d app/javascript/dashboard/components/widgets/conversation/ConversationSidebar.vue
+c2bb7dc9de5aec85c7d0a93ac610a2a1ed368b57 app/javascript/dashboard/components/widgets/conversation/contextMenu/menuItem.vue
+
+# Screens the workspace redraws, carried whole: each is Chatwoot's component
+# with the workspace's drawing in it (docs/inclamo-product-design.md).
+def75b2a2ae5c6f5d1b033bc7f797d170b076746 app/javascript/dashboard/components-next/sidebar/Sidebar.vue
+3f76b3aea1b437eacf766047cee57295e6781415 app/javascript/dashboard/components-next/sidebar/SidebarProfileMenu.vue
+a1eb1b828f2e60dfa32a79092fb94b6e684e9650 app/javascript/dashboard/components-next/sidebar/SidebarProfileMenuStatus.vue
+0f5e54553c8da09ad9264a0d96bab276881a416d app/javascript/dashboard/routes/dashboard/Dashboard.vue
+a73d23007e121cdab8f602b937b818b2a7c36e90 app/javascript/dashboard/components/ChatList.vue
+21ba33a1f5a9ac10ea0f030169aa1413a1dd3f9c app/javascript/dashboard/components/ChatListHeader.vue
+901cdc389d13d0cabdef8970de0d3e42194b5ca0 app/javascript/dashboard/components/widgets/ChatTypeTabs.vue
+40b5a5e9f9f757c9a4ebbf668c9acaef585ecb11 app/javascript/dashboard/components/widgets/conversation/ConversationBasicFilter.vue
+fefddb1755c099cf2210022eb93ca020d8974b5a app/javascript/dashboard/routes/dashboard/conversation/ConversationView.vue
+c9864d9b25abc12408060f7e02cee926b34a4875 app/javascript/dashboard/components/widgets/conversation/ConversationHeader.vue
+1e8766f6af082e1190dc11b7755a48d51439dcce app/javascript/dashboard/components-next/Conversation/SidepanelSwitch.vue
+28f2cd6d2a44f9078c5df7eafecca8c879a5c8bd app/javascript/dashboard/components-next/message/Message.vue
+bfea5799c0958d61a9fca6e79fb8243d85c94acf app/javascript/dashboard/components-next/message/MessageList.vue
+c5f125ff7796c38f4fe400720ff6df51869a309a app/javascript/dashboard/components-next/message/bubbles/Base.vue
+bf45cdc1cc5a371862a995804ffefbf73b83ff11 app/javascript/dashboard/components/widgets/WootWriter/ReplyTopPanel.vue
+16d541182e22ff33d88d927de8501ea6b5ed6d5e app/javascript/dashboard/components/widgets/WootWriter/ReplyBottomPanel.vue
+fa81253b8662966aa7e2975aa6051e8e9ffb4866 app/javascript/dashboard/components-next/button/Button.vue
+4a9e2cf33cfc3d880cbe9a7d050bb04e4049acc1 app/javascript/dashboard/components-next/input/Input.vue
+8d47649d21c6e372cb697e024a70fec39554187b app/javascript/dashboard/components-next/avatar/Avatar.vue
+181574bef1c1f5bcc76a14a224837d2ee9fa6f76 app/javascript/v3/views/login/Index.vue
+1ac36dfdf71a73331149a29c14ce622de16c4fdb app/javascript/widget/App.vue
+5bbac05969113639d67138e58adcb00ff6c962b9 app/javascript/widget/views/PreChatForm.vue
+
+# Screens redrawn for the workspace (dashboard/inclamo/workspace). The first two
+# are mounted through a stand-in at Chatwoot's path; the contact block is used
+# by the overlay's panel directly, and Chatwoot's own stays for its other users.
+6d50e9dee5628ddf92fea8a245cdeee7aa4d2425 app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
+bc7aa62e62eb5ac5d80a97b2a77c7db46e1cec6f app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
+e98d605c83f1defc4f56bf4392e5d07ad16500be app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue shims/app/javascript/dashboard/inclamo/workspace/CustomerContact.vue
+14d6db091e704252cb36c3514cfebbde21f709c7 app/javascript/dashboard/components/widgets/conversation/specs/ConversationCard.spec.js

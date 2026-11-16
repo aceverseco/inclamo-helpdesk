@@ -26,9 +26,11 @@ and [workspace widgets and support](docs/workspace-widgets-and-support.md) for c
 
 ## What it is not
 
-- Our backend lives in `custom/`, our UI in `shims/`, and integration-point
-  changes in `patches/`. `scripts/assemble.sh` applies them to the pinned
-  upstream source; feature implementations stay in the overlay.
+- Our backend lives in `custom/` and our UI in `shims/`. The overlay does not
+  edit Chatwoot's files: where one has to behave differently, our own file
+  stands in for it (`custom/CHATWOOT_FILES`), and a few short insertions are
+  kept in `patches/` under a size limit. `scripts/assemble.sh` puts it all
+  together on the pinned upstream source. See `docs/chatwoot-files.md`.
 - Not dependent on Chatwoot Enterprise. Everything here runs on Community
   Edition, which is MIT-licensed. The `enterprise/` directory of Chatwoot is
   under a separate licence and is never used, patched or shipped.

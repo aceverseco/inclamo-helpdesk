@@ -1,6 +1,6 @@
 # Website widget customization
 
-Implemented on the pinned Chatwoot CE v4.19.1. Source lives in `custom/`, `shims/` and `patches/0017-website-widget.patch`; `build/website-widget-workspace/chatwoot` is a disposable assembled checkout.
+Implemented on the pinned Chatwoot CE v4.19.1. Source lives in `custom/`, `shims/` and `patches/0006-website-widget.patch` (and the stand-ins recorded in `custom/CHATWOOT_FILES`); `build/website-widget-workspace/chatwoot` is a disposable assembled checkout.
 
 ## Administration
 
@@ -28,7 +28,7 @@ Save publishes native and extension values in one transaction. A failing save re
 - Visibility: all pages, include or exclude; up to 20 exact/prefix pathname rules. Query strings/fragments do not participate. Uses the native SDK location-change integration, including SPA DOM updates. Excluded pages close automatic display and retain session/history; an explicit custom-launcher open is allowed.
 - Fixed locale or browser locale with account-language fallback; native translations/RTL are reused. Merchant-written labels/messages are not translated. Light/dark/auto uses native widget theme behavior.
 
-The staff sidebar logo is independent: the original full `inclamo_logo_text_500.jpg` is copied unchanged to `/brand-assets/inclamo-logo-combined.jpg`, SHA-256 `6ee5a4ea5d51dd0a417475c56b99968d6eeba52d502b8eb6fddc2c33deb3f541`. Since the 2026-11-11 refinement it is displayed at 64 × 64 px in the expanded sidebar and 96 × 96 px above the native login form. The compact symbol and favicon are unchanged. The login-only template seam is `patches/0018-brand-logo-size-and-login.patch`.
+The staff sidebar logo is independent: the original full `inclamo_logo_text_500.jpg` is copied unchanged to `/brand-assets/inclamo-logo-combined.jpg`, SHA-256 `6ee5a4ea5d51dd0a417475c56b99968d6eeba52d502b8eb6fddc2c33deb3f541`. Since the 2026-11-11 refinement it is displayed at 64 × 64 px in the expanded sidebar and 96 × 96 px above the native login form. The compact symbol and favicon are unchanged. The login-only template seam is the overlay's stand-in for the sign-in page (`v3/views/login/Index.vue`, carried whole).
 
 ## Preview and installation
 
@@ -80,4 +80,4 @@ Rollback restores the previous backend/frontend image together and leaves the ad
 
 ## SuperAdmin branding
 
-`patches/0019-superadmin-logo.patch` applies the combined image to SuperAdmin navigation (56 px inside its native 56 px header) and the standalone sign-in page (96 px). The image links to the product; the SuperAdmin label, release link and update indicator remain. The templates reuse existing asset and sizing styles.
+The overlay's SuperAdmin templates (`custom/app/views/super_admin/`) apply the combined image to SuperAdmin navigation (56 px inside its native 56 px header) and the standalone sign-in page (96 px). The image links to the product; the SuperAdmin label, release link and update indicator remain. The templates reuse existing asset and sizing styles.
