@@ -132,6 +132,7 @@ body.inclamo-dashboard-theme {
   .inclamo-context-assignee { margin-inline-start:auto; font-size:.6875rem; }
   .inclamo-context-priority { color:rgb(var(--inclamo-accent-text)); }
   .inclamo-context-priority > span { width:.625rem; height:.625rem; }
-  .inclamo-message-content:has(.inclamo-message-heading) [data-inclamo-bubble] time.inline { display:none; }
+  // Chatwoot's own time under a message (MessageMeta's <time class="inline">) gives way to the heading's.
+  .inclamo-message-content:has(.inclamo-message-heading) time.inline { display:none; }
   [data-inclamo-message-variant=user] .inclamo-message-content [data-inclamo-bubble] > div:last-child:has(time.inline) { margin-top:0; }
 }
