@@ -29,7 +29,6 @@ RSpec.describe 'Chatwoot files the overlay stands in for' do # rubocop:disable R
 
   it "finds the overlay's templates before Chatwoot's" do
     expect(ApplicationController.view_paths.first.to_s).to eq(Rails.root.join('custom/app/views').to_s)
-    expect(ApplicationMailer.view_paths.first.to_s).to eq(Rails.root.join('custom/app/views').to_s)
   end
 
   it "leaves Chatwoot's template where it is and has the overlay's under the same name" do

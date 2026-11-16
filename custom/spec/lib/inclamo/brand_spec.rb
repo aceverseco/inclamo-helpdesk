@@ -17,28 +17,24 @@ RSpec.describe Inclamo::Brand do
     expect(others.call(ConfigLoader.new.general_configs)).to eq(others.call(chatwoot_defaults))
   end
 
-  describe 'the dashboard', type: :request do
-    def set_name(value)
+  # The page itself needs the built interface; the name it is given is read here.
+  describe 'the dashboard' do
+    def name_shown_when_installation_is(value)
       config = InstallationConfig.find_or_initialize_by(name: 'INSTALLATION_NAME')
       config.value = value
       config.save!
       GlobalConfig.clear_cache
+      controller = DashboardController.new
+      controller.send(:set_global_config)
+      controller.instance_variable_get(:@global_config)['INSTALLATION_NAME']
     end
 
     it "shows the product's name while the installation carries Chatwoot's default" do
-      set_name('Chatwoot')
-
-      get '/app/login'
-
-      expect(response.body).to match(%r{<title>\s*Inclamo\s*</title>})
+      expect(name_shown_when_installation_is('Chatwoot')).to eq('Inclamo')
     end
 
     it 'shows a name the owner chose' do
-      set_name('Acme Support')
-
-      get '/app/login'
-
-      expect(response.body).to match(%r{<title>\s*Acme Support\s*</title>})
+      expect(name_shown_when_installation_is('Acme Support')).to eq('Acme Support')
     end
   end
 end

@@ -43,7 +43,6 @@ Rails.application.config.middleware.insert_before(0, InclamoSupportBodyLimit)
 # the same path stands in for theirs (each one is recorded in CHATWOOT_FILES).
 overlay_views = overlay_root.join('app/views').to_s
 ActiveSupport.on_load(:action_controller) { prepend_view_path(overlay_views) }
-ActiveSupport.on_load(:action_mailer) { prepend_view_path(overlay_views) }
 
 # Routes: drawn before Chatwoot's own on every (re)load of the route set.
 overlay_routes = overlay_root.join('config/routes.rb')
