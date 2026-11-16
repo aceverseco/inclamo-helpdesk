@@ -1,5 +1,5 @@
 // The overlay's screens that stand where Chatwoot's own stood
-// (patches/overlay-screens.txt). Their behaviour is covered in the browser
+// (custom/CHATWOOT_FILES). Their behaviour is covered in the browser
 // suites; here each one loads with everything it imports from Chatwoot, so a
 // component Chatwoot moved or renamed fails in this file, not in the build.
 const screens = {

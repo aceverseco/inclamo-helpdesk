@@ -89,7 +89,10 @@ de055f659b9ae35a054c5c23d3b7dfcde9ebdaeb app/javascript/entrypoints/superadmin.s
 108da3889eb11eb5b91a491492dd5db75d6e7eac app/javascript/dashboard/assets/scss/_base.scss
 4ec17e75382bbf210d7ba74199f62836a2cadbf2 app/javascript/dashboard/composables/spec/useFacebookPageConnect.spec.js
 
-# Screens redrawn for the workspace, mounted by 0015-overlay-screens.patch.
-6d50e9dee5628ddf92fea8a245cdeee7aa4d2425 app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue shims/app/javascript/dashboard/inclamo/workspace/CustomerSidePanel.vue
+# Screens redrawn for the workspace (dashboard/inclamo/workspace). The first two
+# are mounted through a stand-in at Chatwoot's path; the contact block is used
+# by the overlay's panel directly, and Chatwoot's own stays for its other users.
+6d50e9dee5628ddf92fea8a245cdeee7aa4d2425 app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue
+bc7aa62e62eb5ac5d80a97b2a77c7db46e1cec6f app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue
 e98d605c83f1defc4f56bf4392e5d07ad16500be app/javascript/dashboard/routes/dashboard/conversation/contact/ContactInfo.vue shims/app/javascript/dashboard/inclamo/workspace/CustomerContact.vue
-bc7aa62e62eb5ac5d80a97b2a77c7db46e1cec6f app/javascript/dashboard/components/widgets/conversation/ConversationCard.vue shims/app/javascript/dashboard/inclamo/workspace/ConversationCard.vue
+14d6db091e704252cb36c3514cfebbde21f709c7 app/javascript/dashboard/components/widgets/conversation/specs/ConversationCard.spec.js
