@@ -1,14 +1,3 @@
-diff --git a/app/javascript/dashboard/App.vue b/app/javascript/dashboard/App.vue
---- a/app/javascript/dashboard/App.vue
-+++ b/app/javascript/dashboard/App.vue
-@@ -166,6 +166,7 @@
- 
- <style lang="scss">
- @import './assets/scss/app';
-+@import './inclamo/theme/dashboard';
- 
- .v-popper--theme-tooltip .v-popper__inner {
-   background: black !important;
 diff --git a/app/javascript/dashboard/routes/dashboard/Dashboard.vue b/app/javascript/dashboard/routes/dashboard/Dashboard.vue
 --- a/app/javascript/dashboard/routes/dashboard/Dashboard.vue
 +++ b/app/javascript/dashboard/routes/dashboard/Dashboard.vue
@@ -130,24 +119,3 @@ diff --git a/app/javascript/dashboard/components-next/dropdown-menu/base/Dropdow
        :class="[borderClass, beforeClass]"
      >
        <slot />
-diff --git a/app/javascript/dashboard/assets/scss/_base.scss b/app/javascript/dashboard/assets/scss/_base.scss
---- a/app/javascript/dashboard/assets/scss/_base.scss
-+++ b/app/javascript/dashboard/assets/scss/_base.scss
-@@ -43,7 +43,7 @@
- // Button base
- button {
-   font-family: inherit;
--  @apply inline-block text-center align-middle cursor-pointer text-sm m-0 py-1 px-2.5 transition-all duration-200 ease-in-out border-0 border-none rounded-lg disabled:opacity-50;
-+  @apply inline-block text-center align-middle cursor-pointer text-sm m-0 py-1 px-2.5 transition-all duration-200 ease-in-out border-0 border-none rounded-[var(--inclamo-control-radius,0.5rem)] disabled:opacity-50;
- }
- 
- // Form elements
-@@ -66,7 +66,7 @@
- // Field base styles (Input, TextArea, Select)
- @layer components {
-   .field-base {
--    @apply block box-border w-full transition-colors duration-[0.25s] ease-[ease-in-out] focus:outline-n-brand dark:focus:outline-n-brand appearance-none mx-0 mt-0 mb-4 py-2 px-3 rounded-lg text-sm font-normal bg-n-alpha-black2 placeholder:text-n-slate-10 dark:placeholder:text-n-slate-10 text-n-slate-12 border-none outline outline-1 outline-n-weak dark:outline-n-weak hover:outline-n-slate-6 dark:hover:outline-n-slate-6;
-+    @apply block box-border w-full transition-colors duration-[0.25s] ease-[ease-in-out] focus:outline-n-brand dark:focus:outline-n-brand appearance-none mx-0 mt-0 mb-4 py-2 px-3 rounded-[var(--inclamo-control-radius,0.5rem)] text-sm font-normal bg-n-alpha-black2 placeholder:text-n-slate-10 dark:placeholder:text-n-slate-10 text-n-slate-12 border-none outline outline-1 outline-n-weak dark:outline-n-weak hover:outline-n-slate-6 dark:hover:outline-n-slate-6;
-   }
- 
-   .field-disabled {

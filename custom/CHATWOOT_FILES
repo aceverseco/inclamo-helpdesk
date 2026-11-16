@@ -67,9 +67,17 @@ b9c0f01dafc52665b8bf1faf090aaa1ca7f84529 app/javascript/dashboard/routes/dashboa
 d58617f302eb29986da809d8fdb8ca257964dba9 app/javascript/dashboard/routes/dashboard/conversation/conversation.routes.js
 dc844201c7c178779497c2f4ff50351f3e4e1819 app/javascript/dashboard/components-next/sidebar/provider.js
 
+# Entry points of the workspace theme: ours renders or imports Chatwoot's and
+# adds the theme around it.
+13c3dd557780c7d9cad877af82ac597a65a7cfd3 app/javascript/dashboard/assets/scss/app.scss
+26a6adbb57a771f0b79c0a2642d487dc64997194 app/javascript/dashboard/App.vue
+c3f9b1734b253b90eacea3ce86baa16777c7fe4f app/javascript/v3/App.vue
+de055f659b9ae35a054c5c23d3b7dfcde9ebdaeb app/javascript/entrypoints/superadmin.scss
+
 # Build configuration: ours imports Chatwoot's and adds to it.
 683c056eb7cc6674194ab41bfaa7aeb00183ac25 tailwind.config.js
 9dcfbeb8cc4faab3d265ad63f5e93aba2047f39b theme/colors.js
+8ce450250ef270009fcc4e94a1bba6265c0498b0 tailwind.superadmin.config.js
 
 # The package manifest with the overlay's five dependencies, and its lock file
 # (regenerate both from Chatwoot's when it changes: pnpm install --lockfile-only).
@@ -78,6 +86,7 @@ dc844201c7c178779497c2f4ff50351f3e4e1819 app/javascript/dashboard/components-nex
 
 # Files carried whole: Chatwoot's with our change inside.
 1e0cc94f57a8f4182843b4218e89aca1d69387ae app/javascript/dashboard/composables/useMacroExecution.js
+108da3889eb11eb5b91a491492dd5db75d6e7eac app/javascript/dashboard/assets/scss/_base.scss
 4ec17e75382bbf210d7ba74199f62836a2cadbf2 app/javascript/dashboard/composables/spec/useFacebookPageConnect.spec.js
 
 # Screens redrawn for the workspace, mounted by 0015-overlay-screens.patch.

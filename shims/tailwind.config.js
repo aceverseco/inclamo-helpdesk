@@ -1,7 +1,7 @@
 // Stands in for Chatwoot's tailwind.config.js (kept as
 // tailwind.config.chatwoot.js): Chatwoot's configuration, with the workspace's
 // font token ahead of the system fonts, its colours beside Chatwoot's, and the
-// overlay's scripts among the files scanned for classes.
+// overlay's scripts and templates among the files scanned for classes.
 import { inclamoColors } from './app/javascript/dashboard/inclamo/ui/theme.js';
 
 const chatwoot = require('./tailwind.config.chatwoot');
@@ -16,6 +16,7 @@ module.exports = {
   content: [
     ...chatwoot.content,
     './app/javascript/dashboard/inclamo/**/*.{js,ts}',
+    './custom/app/views/**/*.erb',
   ],
   theme: {
     ...chatwoot.theme,
