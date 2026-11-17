@@ -25,9 +25,12 @@ in §9 says otherwise, nothing here is live.
  installs again ─────────────▶ PUT stores/{shop} ──────────────▶ restores the same account
 ```
 
-What this contract does not cover: connecting the AI agent to the new account
-(`ai-connector.md`), the store's data inside the helpdesk, signing in from the
-Shopify admin, and erasing an account. Each has its own contract.
+What this contract does not cover, each with a contract of its own on the same
+signed channel: connecting the AI agent to the new account
+(`app-agent-connection.md`), the store's data inside the helpdesk
+(`app-store-access.md`), getting in from the Shopify admin
+(`app-admin-entry.md`) and the chat on the storefront
+(`app-storefront-chat.md`). Erasing an account is not written yet.
 
 ## 1. Where it exists
 
