@@ -8,7 +8,7 @@
 // minute, when business hours open or close, and when the row's conversation
 // changes (a reply, a resolution).
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
-import { t } from '../i18n';
+import { formatLanguage, t } from '../i18n';
 import { duration } from '../sla';
 import { timerOf, wantTimer } from '../slaTimers';
 import { badgeOf, nextReadIn, REFRESH_MS } from '../slaBadge';
@@ -48,7 +48,7 @@ const words = computed(() => ({ target: t(`SLA.BADGE.TARGETS.${badge.value.targe
 const text = computed(() => t(`SLA.BADGE.${key.value}`, words.value));
 const label = computed(() => t(`SLA.BADGE.LABEL_${key.value}`, words.value));
 
-const moment = value => (value ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
+const moment = value => (value ? new Date(value).toLocaleString(formatLanguage(), { dateStyle: 'medium', timeStyle: 'short' }) : '');
 // Every target of the timer, for the header's details.
 const details = computed(() => {
   const timer = known.value?.timer;

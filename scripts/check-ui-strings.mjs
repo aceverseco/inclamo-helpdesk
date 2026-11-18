@@ -8,9 +8,16 @@
 // Their keys are looked up in Chatwoot's English dictionary as well:
 //   node scripts/check-ui-strings.mjs --chatwoot build/chatwoot
 // Without the assembled tree those keys are left to that run.
+//
+// English is the wording of record. Every other language beside it
+// (locale/<code>.json) must be complete and consistent: each English text has
+// its wording there, with the same placeholders, the forms a counted word
+// needs, and none of the words that language's glossary rules out
+// (locale/<code>.rules.json). See scripts/ui-strings-language.mjs.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { compareLanguage } from './ui-strings-language.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'shims', 'app', 'javascript', 'dashboard', 'inclamo');
 const locale = JSON.parse(readFileSync(join(root, 'locale', 'en.json'), 'utf8'));
@@ -82,9 +89,20 @@ for (const file of files(root)) {
   }
 }
 
+const languages = readdirSync(join(root, 'locale'))
+  .filter(name => /^[A-Za-z_]+\.json$/.test(name) && name !== 'en.json')
+  .map(name => name.replace(/\.json$/, ''));
+for (const code of languages) {
+  const rulesFile = join(root, 'locale', `${code}.rules.json`);
+  const rules = existsSync(rulesFile) ? JSON.parse(readFileSync(rulesFile, 'utf8')) : {};
+  const other = JSON.parse(readFileSync(join(root, 'locale', `${code}.json`), 'utf8'));
+  for (const problem of compareLanguage(locale, other, rules)) problems.push(`locale/${code}.json: ${problem}`);
+}
+
 if (problems.length > 0) {
   console.error(problems.join('\n'));
   process.exit(1);
 }
 console.log('every interface string of the overlay comes from its locale file');
+if (languages.length > 0) console.log(`complete and consistent beside English: ${languages.join(', ')}`);
 if (chatwootKeys > 0) console.log(`${chatwootKeys} keys of the screens that stand in for Chatwoot's ${chatwoot ? "are in Chatwoot's dictionary" : 'were not looked up: no --chatwoot tree given'}`);

@@ -21,6 +21,7 @@ the alternative coverage in the checker. No private workspace is required.
 - [in-product-support](in-product-support/spec.md)
 - [inclamo-product-design](inclamo-product-design/spec.md)
 - [instance-installation](instance-installation/spec.md)
+- [interface-language](interface-language/spec.md)
 - [macro-order-actions](macro-order-actions/spec.md)
 - [meta-page-connection](meta-page-connection/spec.md)
 - [order-creation](order-creation/spec.md)

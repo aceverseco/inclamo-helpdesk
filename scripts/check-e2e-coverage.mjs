@@ -49,6 +49,7 @@ const FILES = {
   'team-queues': ['team-queues.spec.mjs'],
   'ready-replies': ['ready-replies.spec.mjs'],
   'instance-installation': ['instance-installation.spec.mjs'],
+  'interface-language': ['interface-language.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each
@@ -90,6 +91,20 @@ const ELSEWHERE = {
     'the monitor is a service outside the machine and outside this repository; covered by the checklist for each new machine in docs/install.md (the health page is failed on purpose and the alarm is awaited in the operator\'s chat)',
   'instance-installation › The machine is closed except for the web and ssh › Password login refused':
     'needs a machine whose ssh daemon deploy/harden.sh has configured, which the tests may not do to the machine they run on; covered by the checklist for each new machine in docs/install.md',
+  'interface-language › A missing wording is shown in English › Single missing text':
+    'the string check refuses a build whose Ukrainian dictionary lacks a text, so no installation has one to show; covered by shims/app/javascript/dashboard/inclamo/specs/language.spec.js ("gives the English text where the chosen language has none, never the key")',
+  'interface-language › Own screens are complete in Ukrainian › Identifier kept':
+    'needs a store whose app lacks an access scope; scope names reach the sentence through a placeholder, and scripts/check-ui-strings.mjs refuses a Ukrainian text that drops or adds a placeholder (scripts/ui-strings-language.test.mjs)',
+  'interface-language › Ukrainian counts take the right form › Two-form text of Chatwoot is unchanged':
+    "needs a text of Chatwoot with a chosen number of forms on a screen; covered by shims/app/javascript/dashboard/inclamo/specs/language.spec.js against the translation library itself (\"leave a Ukrainian text with two forms reading as before\")",
+  'interface-language › Ukrainian counts take the right form › Other languages are untouched':
+    'every other end-to-end file runs in English and reads its counts as before; the rule itself is covered by shims/app/javascript/dashboard/inclamo/specs/language.spec.js ("leave English untouched")',
+  'interface-language › Dates, times and money follow the interface language › Date in Ukrainian':
+    "needs an order of the store placed on a known day; covered by shims/app/javascript/dashboard/inclamo/specs/language.spec.js, where the interface is Ukrainian and the environment's own language is English",
+  'interface-language › Dates, times and money follow the interface language › Amount in Ukrainian':
+    "needs an order of the store with a known total; covered by shims/app/javascript/dashboard/inclamo/specs/language.spec.js, where the interface is Ukrainian and the environment's own language is English",
+  'interface-language › One word for one thing › Conversation has one name':
+    'a property of the dictionary, not of a screen; covered by scripts/check-ui-strings.mjs, which refuses the words locale/uk.rules.json rules out',
   'shopify-connection › The credentials are a secret › Installation without encryption keys':
     'needs an installation without encryption keys; covered by the request spec and the component test',
 };
