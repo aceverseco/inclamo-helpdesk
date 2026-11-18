@@ -158,10 +158,24 @@ Where Chatwoot's Ukrainian translation uses several words for one thing, the mos
 | visitor | відвідувач | |
 | starter button | кнопка початку розмови | |
 | preview | попередній перегляд | |
-| setup | налаштування системи; step list — початкове налаштування | |
+| setup | налаштування системи; the step list — початкове налаштування | |
 | support request | звернення до підтримки | |
 | attachment | вкладення | |
 | reload / try again | перезавантажити / спробувати ще раз | |
+| account | обліковий запис | |
+| team member / member | учасник команди / учасник | «персонал» for staff as a whole |
+| total (in a sentence) | сума | the standalone label is «Разом» |
+| SKU | артикул | |
+| email | електронна пошта (the channel), електронна адреса (the address), лист (one message) | |
+| SLA target | ціль | |
+| met / missed (SLA) | дотримано / порушено | «прострочено» is for a timer still running late |
+| run a macro | виконати макрос | |
+| tied order | замовлення, якого стосується розмова | |
+| unit (of goods) | одиниця товару | |
+| limit (AI) | ліміт | |
+| suggested intent (website widget) | пропоноване запитання | |
+| verify an email | підтвердити електронну адресу | «перевірити» stays for customer identity |
+| message delivery | надсилання | «доставка» is shipping only |
 
 ### Left untranslated
 
