@@ -1,0 +1,74 @@
+# What a CI runner cannot have, for `deploy/install.sh --test` only: an
+# S3-compatible server (backup target and attachment storage), a mail catcher
+# (SMTP server) and a receiver for the alarm webhook. A project of its own
+# beside the stack, on the stack's network, so the production compose file
+# stays as it is. Never on an instance with real customers.
+#
+# Inside the network: http://s3:${INSTALL_TEST_S3_PORT:-9000}, mailpit:1025
+# (SMTP), and from the host on 127.0.0.1: the same S3 port (a browser follows
+# an attachment's link there), ${INSTALL_TEST_ALARM_PORT:-9099} (alarm
+# webhook; alarm-receiver.mjs says what it answers) and
+# ${INSTALL_TEST_MAILPIT_PORT:-8025} (Mailpit's API).
+
+services:
+  s3:
+    # `rclone serve s3`: the S3 client of the scripts, serving a directory.
+    # Buckets are its top directories; it knows one key pair and answers 403
+    # to any other.
+    image: rclone/rclone:1.76.0@sha256:7cbeec24a44f206067597c0368be4de90ae19a64d5113c7d1938bd737a81e466
+    command:
+      - serve
+      - s3
+      - --addr
+      - ':${INSTALL_TEST_S3_PORT:-9000}'
+      - --auth-key
+      - '${INSTALL_TEST_S3_ACCESS_KEY:?},${INSTALL_TEST_S3_SECRET_KEY:?}'
+      - /data
+    healthcheck:
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 ${INSTALL_TEST_S3_PORT:-9000}']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    ports:
+      - '127.0.0.1:${INSTALL_TEST_S3_PORT:-9000}:${INSTALL_TEST_S3_PORT:-9000}'
+    volumes:
+      - s3:/data
+
+  mailpit:
+    image: axllent/mailpit:v1.34.0@sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4e
+    environment:
+      # Empty: any client is accepted. `user:password` pairs: only those are,
+      # which is how a test meets a refused login.
+      - MP_SMTP_AUTH=${INSTALL_TEST_SMTP_AUTH:-}
+      - MP_SMTP_AUTH_ACCEPT_ANY=${INSTALL_TEST_SMTP_ACCEPT_ANY:-true}
+      - MP_SMTP_AUTH_ALLOW_INSECURE=true
+    ports:
+      - '127.0.0.1:${INSTALL_TEST_MAILPIT_PORT:-8025}:8025'
+
+  alarm-receiver:
+    image: node:24.22.3-alpine3.24@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5
+    command: ['node', '/receiver/alarm-receiver.mjs']
+    environment:
+      - PORT=9099
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:9099/requests').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    ports:
+      - '127.0.0.1:${INSTALL_TEST_ALARM_PORT:-9099}:9099'
+    volumes:
+      - ./alarm-receiver.mjs:/receiver/alarm-receiver.mjs:ro
+    networks:
+      default:
+        # Inside the stack, the name of Chatwoot's hub leads here: the receiver
+        # counts what connects (GET /hub), and the tests expect nothing.
+        aliases: ['hub.2.chatwoot.com']
+
+volumes:
+  s3:
+
+networks:
+  default:
+    name: ${HELPDESK_NETWORK:-inclamo-helpdesk}
+    external: true

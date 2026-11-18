@@ -1,0 +1,81 @@
+name: Install
+
+# Installs a throwaway instance on the runner with deploy/install.sh, from the
+# image built here, and drives it with the scripts of deploy/: install and its
+# refusals, first run, mail, attachments, backups, restore, upgrade and
+# rollback, health. One test per scenario of docs/behavior/instance-installation,
+# once for each place attachments can live.
+#
+# The install runs in its test mode, which changes only what a runner cannot
+# have: the web server's internal certificate authority, given addresses for
+# the domain check, and an S3 server, a mail catcher and an alarm receiver
+# beside the stack (deploy/test/).
+#
+# Runs on main, on release tags and by hand, not on every push: it builds the
+# image first. Never for pull requests from forks: it connects the development
+# store.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: install-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  install:
+    name: Install, back up, restore and upgrade (${{ matrix.storage }} attachments)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        storage: [local, s3_compatible]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The tags, to find the release before this one.
+          fetch-depth: 0
+
+      - name: Assemble Chatwoot with the overlay
+        run: scripts/assemble.sh build/chatwoot
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the image under test
+        uses: docker/build-push-action@v6
+        with:
+          context: build/chatwoot
+          file: build/chatwoot/docker/Dockerfile
+          push: false
+          load: true
+          tags: inclamo-helpdesk:install
+          # The layers the Image workflow built on this commit.
+          cache-from: type=gha
+
+      - name: Find the release before this one
+        run: |
+          previous=$(git tag --list 'v*' --sort=-v:refname | grep -v -x -F "$GITHUB_REF_NAME" | head -n 1 || true)
+          if [ -z "$previous" ]; then
+            echo 'No earlier release: the upgrade test goes from the image under test to a newer copy of itself.'
+            exit 0
+          fi
+          chatwoot=$(git show "$previous:custom/CHATWOOT_VERSION")
+          image="ghcr.io/$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]'):${previous#v}-cw${chatwoot#v}"
+          echo "The upgrade test goes from $image to the image under test."
+          echo "INSTALL_PREVIOUS_IMAGE=$image" >> "$GITHUB_ENV"
+
+      - name: Run the install tests
+        run: sudo --preserve-env e2e/install-run.sh
+        env:
+          CI: 'true'
+          HELPDESK_IMAGE: inclamo-helpdesk:install
+          ACTIVE_STORAGE_SERVICE: ${{ matrix.storage }}
+          SHOPIFY_BENCH_DOMAIN: ${{ secrets.SHOPIFY_BENCH_DOMAIN }}
+          SHOPIFY_BENCH_CLIENT_ID: ${{ secrets.SHOPIFY_BENCH_CLIENT_ID }}
+          SHOPIFY_BENCH_CLIENT_SECRET: ${{ secrets.SHOPIFY_BENCH_CLIENT_SECRET }}

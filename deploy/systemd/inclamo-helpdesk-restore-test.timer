@@ -1,0 +1,11 @@
+[Unit]
+Description=Inclamo Helpdesk: monthly restore test
+
+[Timer]
+# The first of every month, UTC, after the nightly backup. The health page
+# fails when the last successful test is older than 35 days.
+OnCalendar=*-*-01 04:30:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

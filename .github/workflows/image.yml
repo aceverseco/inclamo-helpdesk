@@ -4,9 +4,15 @@ name: Image
 # on main, by hand, and for pull requests that touch what the image is built
 # from. A seam patch that does not apply already fails the CI workflow, in
 # its assemble step, on every push.
+#
+# A release tag (v<overlay version>) publishes the image: the same build, the
+# same overlay check, then a push to the container registry of this repository
+# as <overlay>-cw<chatwoot>. An instance pulls that tag, pinned by the digest
+# this run prints; nothing is built on an instance.
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     paths:
       - 'patches/**'
@@ -29,8 +35,22 @@ jobs:
   image:
     name: Image builds, every seam patch applies
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Used by the release steps only; a pull request from a fork gets a
+      # read-only token whatever is asked here.
+      packages: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: The release tag names the overlay version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          overlay=$(cat custom/INCLAMO_VERSION)
+          if [ "$GITHUB_REF_NAME" != "v$overlay" ]; then
+            echo "the tag $GITHUB_REF_NAME does not match custom/INCLAMO_VERSION ($overlay): the image would be published under another version than its tag" >&2
+            exit 1
+          fi
 
       - name: Assemble Chatwoot with the overlay
         run: scripts/assemble.sh build/chatwoot
@@ -52,3 +72,35 @@ jobs:
         run: |
           docker run --rm --entrypoint sh inclamo-helpdesk:ci -c \
             'test -f custom/config/overlay.rb && test -f config/initializers/00_inclamo_overlay.rb && test -f lib/tasks/inclamo_overlay.rake && test ! -d enterprise && cat custom/INCLAMO_VERSION custom/CHATWOOT_VERSION'
+
+      - name: Publish the release image
+        id: publish
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+          REGISTRY_USER: ${{ github.actor }}
+        run: |
+          chatwoot=$(cat custom/CHATWOOT_VERSION)
+          image="ghcr.io/$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]'):$(cat custom/INCLAMO_VERSION)-cw${chatwoot#v}"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$REGISTRY_USER" --password-stdin
+          # The image that passed the overlay check above, not a second build.
+          docker tag inclamo-helpdesk:ci "$image"
+          docker push "$image"
+          digest=$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image" | sed -n "s|^${image%:*}@||p" | head -n 1)
+          [ -n "$digest" ] || { echo "the registry gave no digest for $image" >&2; exit 1; }
+          echo "image=$image@$digest" >> "$GITHUB_OUTPUT"
+          echo "Published \`$image@$digest\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: The published image pulls by tag and by digest and carries the overlay
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          IMAGE: ${{ steps.publish.outputs.image }}
+        run: |
+          tagged=${IMAGE%%@*}
+          by_digest="${tagged%:*}@${IMAGE##*@}"
+          docker image rm inclamo-helpdesk:ci "$tagged" > /dev/null
+          docker pull "$tagged"
+          docker image rm "$tagged" > /dev/null
+          docker pull "$by_digest"
+          docker run --rm --entrypoint sh "$by_digest" -c \
+            'test -f custom/config/overlay.rb && test ! -d enterprise && cat custom/INCLAMO_VERSION custom/CHATWOOT_VERSION'

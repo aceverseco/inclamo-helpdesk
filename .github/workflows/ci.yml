@@ -118,6 +118,8 @@ jobs:
         run: node scripts/check-repository-boundary.mjs
       - name: Every behavior scenario has an end-to-end test
         run: node scripts/check-e2e-coverage.mjs
+      - name: Every variable deploy/ reads is in its template, every image is pinned
+        run: node scripts/check-deploy-env.mjs
       - name: The stand-in AI agent refuses what the AI service refuses
         run: node --test e2e/stand-in-agent/server.test.mjs
 

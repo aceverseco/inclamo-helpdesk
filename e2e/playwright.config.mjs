@@ -8,8 +8,10 @@ export default defineConfig({
   // These files run against stacks of their own, with their own configs:
   // e2e/theme/run.sh (playwright.theme.config.mjs; dashboard-theme.spec.mjs only with THEME_LEGACY=1,
   // which no workflow runs: it was written for the theme before the workspace redesign) and
-  // e2e/workspace-support/run.sh (playwright.workspace-support.config.mjs).
+  // e2e/workspace-support/run.sh (playwright.workspace-support.config.mjs);
+  // e2e/install-run.sh installs its own instance (playwright.install.config.mjs).
   testIgnore: [
+    'instance-installation.spec.mjs',
     'dashboard-theme.spec.mjs',
     'inclamo-product-design.spec.mjs',
     'inclamo-onboarding.spec.mjs',
