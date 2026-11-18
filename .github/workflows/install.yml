@@ -71,7 +71,10 @@ jobs:
           echo "INSTALL_PREVIOUS_IMAGE=$image" >> "$GITHUB_ENV"
 
       - name: Run the install tests
-        run: sudo --preserve-env e2e/install-run.sh
+        # Named variables: the runner's sudo does not pass the whole environment.
+        run: >-
+          sudo --preserve-env=CI,HELPDESK_IMAGE,ACTIVE_STORAGE_SERVICE,INSTALL_PREVIOUS_IMAGE,SHOPIFY_BENCH_DOMAIN,SHOPIFY_BENCH_CLIENT_ID,SHOPIFY_BENCH_CLIENT_SECRET
+          e2e/install-run.sh
         env:
           CI: 'true'
           HELPDESK_IMAGE: inclamo-helpdesk:install
