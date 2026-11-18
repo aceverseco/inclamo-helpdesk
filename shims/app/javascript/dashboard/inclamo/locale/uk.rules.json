@@ -1,0 +1,29 @@
+{
+  "ruledOut": {
+    "бесід": "a conversation is «розмова»",
+    "діалог": "a conversation is «розмова»",
+    "інбокс": "an inbox is «вхідні»",
+    "ярлик": "a label is «мітка»",
+    "веб-хук": "a webhook is «вебхук»",
+    "замітк": "a note is «нотатка»",
+    "заготовк": "a canned response is «швидка відповідь»",
+    "відмінит": "to cancel is «скасувати»",
+    "відмінен": "cancelled is «скасовано»"
+  },
+  "sameAsEnglish": [
+    "SETTINGS.SLA.MENU",
+    "SETUP.STEPS.store",
+    "DIALOG.CONNECT.DOMAIN_PLACEHOLDER",
+    "DIALOG.CONNECT.CLIENT_ID",
+    "DIALOG.CONNECT.CLIENT_SECRET",
+    "SLA.TITLE",
+    "SLA_OVERVIEW.SHORT",
+    "WORKSPACE.SHOPIFY",
+    "BRAND.NAME",
+    "BRAND.WORDMARK",
+    "WEBSITE_WIDGET.WINDOW_CHATWOOTSETTINGS",
+    "WEBSITE_WIDGET.HTTPS_YOUR_STORE_COM_RETURNS",
+    "WEBSITE_WIDGET.1F93FF",
+    "WEBSITE_WIDGET.CHECKOUT"
+  ]
+}

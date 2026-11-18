@@ -110,7 +110,9 @@ jobs:
         run: node scripts/check-graphql.mjs
       - name: Recorded store answers hold no real personal data
         run: node scripts/check-fixtures.mjs
-      - name: Interface strings of the overlay come from its locale file
+      - name: The comparison of a language with English names every fault
+        run: node --test scripts/ui-strings-language.test.mjs
+      - name: Interface strings of the overlay come from its locale file, in every language
         run: node scripts/check-ui-strings.mjs
       - name: Repository boundary checks reject internal artifacts
         run: node --test scripts/check-repository-boundary.test.mjs

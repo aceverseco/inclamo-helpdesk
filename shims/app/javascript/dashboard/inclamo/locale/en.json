@@ -980,7 +980,15 @@
     "ORDER_ACTIONS": "Order actions",
     "TO": "to {recipient}",
     "NEWEST": "Newest",
-    "SHOPIFY": "Shopify"
+    "SHOPIFY": "Shopify",
+    "TIME": {
+      "now": "now",
+      "m": "{count}m",
+      "h": "{count}h",
+      "d": "{count}d",
+      "mo": "{count}mo",
+      "y": "{count}y"
+    }
   },
   "WIDGETS": {
     "PROFILE": "Customer",

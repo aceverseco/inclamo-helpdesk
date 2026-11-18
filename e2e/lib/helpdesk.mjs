@@ -64,11 +64,12 @@ export async function openCustomerPane(page) {
 
 // Opens a conversation and returns the Orders section of its sidebar (the
 // Orders card of the Details tab), opening the sidebar and expanding the card
-// the way a person would.
-export async function openOrders(page, accountId, conversationId) {
+// the way a person would. `heading` is the card's name in the interface
+// language of the signed-in user.
+export async function openOrders(page, accountId, conversationId, heading = 'Orders') {
   await page.goto(`/app/accounts/${accountId}/conversations/${conversationId}`);
   await openCustomerPane(page);
-  const card = page.locator('[data-widget-host="conversation-sidebar"] .inclamo-widget-heading', { hasText: 'Orders' }).first();
+  const card = page.locator('[data-widget-host="conversation-sidebar"] .inclamo-widget-heading', { hasText: heading }).first();
   // Until the user's own layout has loaded, the cards are those of the product
   // layout and their headings are disabled: whether Orders is collapsed is
   // decided only by the user's layout.
