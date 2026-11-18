@@ -1,8 +1,14 @@
 # frozen_string_literal: true
 
 # Routes of the overlay. Evaluated inside Chatwoot's route set, before its own
-# routes (see custom/config/overlay.rb). Everything lives under
-# /api/v1/accounts/:account_id/inclamo/.
+# routes (see custom/config/overlay.rb). What belongs to an account lives under
+# /api/v1/accounts/:account_id/inclamo/ and asks for a member of that account.
+# The routes under /inclamo/ belong to the installation and take no sign-in:
+# the instance's health, signed widget images, the signed support intake.
+
+# Health of the instance for a monitor outside the machine: 200, or 503 with
+# the names of the failing checks (Inclamo::Health).
+get '/inclamo/health', to: 'inclamo/health#show', defaults: { format: 'json' }
 
 # Signed delivery of validated website-widget images.
 get '/inclamo/widget-images/:id', to: 'inclamo/widget_images#show'

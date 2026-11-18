@@ -48,6 +48,7 @@ const FILES = {
   'acceptance-ux-corrections': ['acceptance-ux-corrections.spec.mjs'],
   'team-queues': ['team-queues.spec.mjs'],
   'ready-replies': ['ready-replies.spec.mjs'],
+  'instance-installation': ['instance-installation.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each
@@ -85,6 +86,10 @@ const ELSEWHERE = {
     'connecting a real Page and Messenger delivery need a real Meta login, which the tests cannot perform; no automated test covers them, and they are checked by hand on a live instance before release',
   'meta-page-connection › Reauthorization requests the same permissions as connection › Instagram added after the first connection':
     'the permission set requested is covered by shims/app/javascript/dashboard/inclamo/specs/MetaPageConnectScopes.spec.js (reauthorizing requests the same set as connecting, with or without a stored Instagram account); Instagram messages arriving afterwards need a real Meta login, which the tests cannot perform; no automated test covers them, and they are checked by hand on a live instance before release',
+  'instance-installation › Health is visible from outside and failures reach the operator › Alarm after three failures':
+    'the monitor is a service outside the machine and outside this repository; covered by the checklist for each new machine in docs/install.md (the health page is failed on purpose and the alarm is awaited in the operator\'s chat)',
+  'instance-installation › The machine is closed except for the web and ssh › Password login refused':
+    'needs a machine whose ssh daemon deploy/harden.sh has configured, which the tests may not do to the machine they run on; covered by the checklist for each new machine in docs/install.md',
   'shopify-connection › The credentials are a secret › Installation without encryption keys':
     'needs an installation without encryption keys; covered by the request spec and the component test',
 };

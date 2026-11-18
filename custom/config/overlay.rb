@@ -80,6 +80,12 @@ Rails.application.config.to_prepare do
   DashboardController.prepend(Inclamo::Brand::DashboardName)
 end
 
+# Nothing is reported to Chatwoot's hub (Inclamo::QuietHub): the daily version
+# check, the registration at onboarding and events return without a request.
+Rails.application.config.to_prepare do
+  ChatwootHub.singleton_class.prepend(Inclamo::QuietHub)
+end
+
 # Credentials of a store connection, the AI agent's connection code and the
 # in-product support's signed material never reach the request log.
 Rails.application.config.filter_parameters |= [:client_secret, :access_token, :connection_code, :address, :note]

@@ -1,0 +1,120 @@
+# Production stack of one instance: the published helpdesk image, its workers,
+# Postgres with pgvector, Redis and a web server with automatic TLS.
+#
+# Not run by hand: deploy/install.sh, upgrade.sh, backup.sh, restore.sh and
+# restore-test.sh drive it (deploy/lib.sh holds the one compose command).
+# Nothing of dev/ is layered on this file, and no source is mounted.
+#
+# - The environment file lives outside any checkout, at an absolute path, so
+#   no sync of the repository can remove it. deploy/env.template lists it.
+# - Only `caddy` publishes ports. Docker's published ports bypass a host
+#   firewall, so Postgres and Redis are published nowhere, not even on
+#   127.0.0.1.
+# - Every image is pinned to an exact tag and digest; the helpdesk image is
+#   pinned in the environment file (HELPDESK_IMAGE), where an upgrade sets it.
+# - The INSTALL_TEST_* names below are for the install tests only
+#   (deploy/lib.sh); on an instance they are unset and the defaults hold.
+# - The network is made by the scripts (`docker network create`), so the S3
+#   client the scripts run can join it before the stack exists.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '5'
+
+x-app: &app
+  image: ${HELPDESK_IMAGE:?HELPDESK_IMAGE is not set in the environment file}
+  env_file: ${INSTALL_TEST_ENV_FILE:-/etc/inclamo-helpdesk/helpdesk.env}
+  environment:
+    - NODE_ENV=production
+    - RAILS_ENV=production
+    - INSTALLATION_ENV=docker
+    - INCLAMO_BACKUP_STATUS_FILE=/var/lib/inclamo-helpdesk/backup-status.json
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  volumes:
+    - storage:/app/storage
+    # Written by backup.sh and restore-test.sh on the host, read by the health
+    # page. The directory is mounted, not the file: the scripts replace the
+    # file by a rename, which a mount of the file itself would not follow.
+    - ${INSTALL_TEST_STATE_DIR:-/var/lib/inclamo-helpdesk}:/var/lib/inclamo-helpdesk:ro
+  logging: *logging
+
+services:
+  rails:
+    <<: *app
+    # Chatwoot's own entry point (docker/entrypoints/rails.sh) traces its
+    # commands and runs `bundle install`; neither belongs on this machine.
+    # Postgres is waited for by the health condition above instead.
+    entrypoint: ['sh', '-c']
+    command: ['rm -f /app/tmp/pids/server.pid && exec bundle exec rails s -p 3000 -b 0.0.0.0']
+    restart: unless-stopped
+
+  sidekiq:
+    <<: *app
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg16-bookworm@sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f
+    environment:
+      - POSTGRES_DB=${POSTGRES_DATABASE:-chatwoot_production}
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 24
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    image: redis:8.10.3-alpine3.23@sha256:7958cfbb9d152f87dadfbc89f1b0b15938f0b81ff8982feb327476f4911935c3
+    # Append-only persistence: the onboarding flag set by the seeds lives in
+    # Redis and must survive a restart between the install and the first visit.
+    command: ['sh', '-c', 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    healthcheck:
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 24
+    volumes:
+      - redis:/data
+    restart: unless-stopped
+    logging: *logging
+
+  caddy:
+    image: caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
+    # Obtains and renews the certificate itself and redirects HTTP to HTTPS.
+    # HELPDESK_CADDY_FLAGS is empty on a real instance; the install's test mode
+    # sets `--internal-certs` there.
+    command: caddy reverse-proxy --from ${HELPDESK_DOMAIN:?HELPDESK_DOMAIN is not set in the environment file} --to rails:3000 ${HELPDESK_CADDY_FLAGS:-}
+    ports:
+      - '${INSTALL_TEST_HTTP_PORT:-80}:80'
+      - '${INSTALL_TEST_HTTPS_PORT:-443}:443'
+    depends_on:
+      - rails
+    volumes:
+      - caddy:/data
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  storage:
+  postgres:
+  redis:
+  caddy:
+
+networks:
+  default:
+    name: ${HELPDESK_NETWORK:-inclamo-helpdesk}
+    external: true

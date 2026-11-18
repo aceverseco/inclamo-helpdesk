@@ -1,0 +1,9 @@
+[Unit]
+Description=Inclamo Helpdesk: restore test on a throwaway stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=@DEPLOY_DIR@/restore-test.sh
