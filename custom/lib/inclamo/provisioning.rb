@@ -24,6 +24,8 @@ module Inclamo
     #   :put  the `PUT`s: one count per store, which the `PUT` of every
     #         address here shares, and one for the installation;
     #   :get  the installation's count of status calls, of every address;
+    #   :entry  a staff member's entry (docs/app-admin-entry.md): one count
+    #         per store and one per person in a store (EntryLimits);
     #   :erasure  the erasure requests (docs/app-store-erasure.md): one count
     #         per store and one for the installation;
     #   nil   not limited.
@@ -32,6 +34,7 @@ module Inclamo
       '' => { 'PUT' => :put, 'GET' => :get },
       '/storefront-chat' => { 'PUT' => :put, 'GET' => :get },
       '/agent' => { 'PUT' => :put, 'GET' => :get, 'DELETE' => nil },
+      '/entry' => { 'POST' => :entry },
       '/removal' => { 'POST' => nil },
       '/shoppers/erasure' => { 'POST' => :erasure }, '/shoppers/data-request' => { 'POST' => :erasure }, '/shoppers/requests' => { 'GET' => :get },
       '/erasure' => { 'POST' => :erasure }

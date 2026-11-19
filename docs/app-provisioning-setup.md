@@ -29,6 +29,12 @@ credentials (contract in `docs/app-store-access.md`, behavior contract
 [app-store-access](behavior/app-store-access/spec.md)). That needs the app's
 address; see [Store keys from the app](#store-keys-from-the-app).
 
+The same channel lets a Shopify staff member who is a user of the store's
+account open it from the store app without a helpdesk password
+(`.../stores/{shop_domain}/entry`; contract in `docs/app-admin-entry.md`,
+behavior contract [app-admin-entry](behavior/app-admin-entry/spec.md)). See
+[A staff member's entry from the app](#a-staff-members-entry-from-the-app).
+
 The same channel carries Shopify's request to erase a store, which the app
 passes on after the store uninstalled it (`.../stores/{shop_domain}/erasure`;
 contract in `docs/app-store-erasure.md`, behavior contract
@@ -57,6 +63,9 @@ restart it after changing one.
 | `INCLAMO_APP_PROVISIONING_PUT_LIMIT` | `120` | `PUT` requests accepted in an hour, for the installation |
 | `INCLAMO_APP_PROVISIONING_STORE_LIMIT` | `15` | `PUT` requests accepted in an hour for one store, every address's `PUT` counted together |
 | `INCLAMO_APP_PROVISIONING_GET_LIMIT` | `300` | Status requests (`GET`) accepted in an hour, for the installation, every address's counted together |
+| `INCLAMO_APP_PROVISIONING_ENTRY_PERSON_LIMIT` | `20` | Entry requests accepted in an hour for one person in one store. See [A staff member's entry from the app](#a-staff-members-entry-from-the-app) |
+| `INCLAMO_APP_PROVISIONING_ENTRY_STORE_LIMIT` | `300` | Entry requests accepted in an hour for one store, whoever they name |
+| `INCLAMO_APP_PROVISIONING_ENTRY_OPEN_LIMIT` | `30` | One-time entry addresses opened from one network address in five minutes |
 | `INCLAMO_APP_PROVISIONING_ERASURE_LIMIT` | `60` | Erasure requests (a store's erasure and the two requests about one shopper, together) accepted in an hour, for the installation |
 | `INCLAMO_APP_PROVISIONING_ERASURE_STORE_LIMIT` | `20` | The same requests accepted in an hour for one store |
 | `INCLAMO_ERASURE_WAIT_DAYS` | `7` | Days between the app's first request to erase a store and the destruction of its account, a whole number from 0 to 21; any other value falls back to 7. Read by the web process (the date the app is answered) |
@@ -423,6 +432,101 @@ to undo a link.
 The task works whether or not the secret is set, so accounts can be linked
 before provisioning is turned on.
 
+## A staff member's entry from the app
+
+The store app asks `POST .../stores/{shop_domain}/entry` with the email of the
+Shopify staff member who pressed its "Open helpdesk" button, which Shopify
+verified. When that email is a user of the store's account, the helpdesk
+answers with a one-time address, `{FRONTEND_URL}/inclamo/entry/<token>`, and
+the app sends the person's browser there. The address works once and for 60
+seconds; it signs the user in with an ordinary helpdesk session and opens the
+store's account. It needs no setting beyond the secret, and `FRONTEND_URL`
+must be the address people open: the address starts with it, and the session
+is set for that host. The password login stays as it is.
+
+Who gets in: any user of the store's account, administrator or agent, by the
+email of their helpdesk user. The helpdesk does not create users, add them to
+accounts or send invitations on this request. It refuses:
+
+- a person whose email is no user, or a user of another account only
+  (`not_a_user`; one answer for both). An administrator invites that email,
+  or the person signs in with their password;
+- a user with two-factor authentication on, or one who must turn it on because
+  an account of theirs requires it (`two_factor`): this way in does not ask
+  for the code, so they sign in on the login page;
+- every user of a suspended account (`account_suspended`), and a store
+  without an account, or whose account is being erased or was erased
+  (`no_account`).
+
+A user whose invitation is still pending is confirmed by the request, as
+Chatwoot confirms one who signs in with Google; no password is set and no
+letter is sent.
+
+**The session.** It is the session Chatwoot's sign-in makes: it lasts as long
+as any session (devise-token-auth's lifespan, two months in Chatwoot v4.19.1),
+is listed in the user's profile and ends when they sign out. It counts against
+`MAX_USER_SESSIONS`: a user at that limit has their oldest session ended to
+make room, as Chatwoot does for a client that cannot show its list of
+sessions, since this way in has no page to choose one on. Signing in this way
+replaces whatever session the browser held.
+
+**Limits.** Entry requests have counts of their own, apart from the other
+calls': one per person in a store and one per store, both per hour. They are
+counted as the other limits are: only signed requests with a new request id,
+and a request refused for its body too. A request over one is answered `429`
+with `Retry-After`, gives no address and is recorded as `entry_limited`. The
+person's count is kept under a keyed digest of the email (the key is derived
+from `SECRET_KEY_BASE`), never the email. Opening the addresses has a limit
+per network address, in periods of five minutes: an opening over it signs
+nobody in and shows the login page, and the address stays usable for the rest
+of its minute. Chatwoot's own limits on its login form (five sign-ins in five
+minutes from one address) do not apply to this way in, which does not use the
+form, and are unchanged for it. All of these are Rack::Attack rules, so
+`ENABLE_RACK_ATTACK` and the allow-list apply to them as to the others.
+
+**Logs.** The token never reaches the request log: it is taken out of the path
+before anything logs it, so the log shows `GET /inclamo/entry`. The staff
+member's email is filtered out of the logged parameters, and the answer, which
+holds the address, is not logged. The address is served with
+`Referrer-Policy: no-referrer` and `Cache-Control: no-store`. A proxy in front
+of the helpdesk that writes its own access log with whole addresses would
+write the token; the production stack's Caddy (`caddy reverse-proxy`) keeps no
+access log. Such a token is useless after its one use or its minute.
+
+**Reading the record.** Every request is a row of `inclamo_provisioning_events`
+(see [What is kept](#what-is-kept)), with the store's domain, the request id,
+the outcome and, when a user has the email, the user's id in `user_id`. Never
+the email, the address or the token.
+
+| Outcome | Meaning |
+| --- | --- |
+| `entry_given` | An address was given for the user in `user_id` |
+| `entry_used` | An address signed the user in `user_id` in, at this time. No request id: it is the browser's visit, not a request of the app |
+| `entry_not_a_user` | No user has the email (`user_id` empty), the user in `user_id` is not a member of this store's account, or Chatwoot would not let that user sign in |
+| `entry_two_factor` | The user in `user_id` has, or must turn on, two-factor authentication |
+| `entry_suspended` | The store's account is suspended |
+| `entry_no_account` | The store has no account, or its account is being erased or was erased |
+| `entry_refused` | Not the app's request (`401`), a request id used before (`409`), or a body that does not read (`422`) |
+| `entry_limited` | Over a request limit (`429`) |
+
+An `entry_given` followed within the minute by an `entry_used` with the same
+user and store is a person who came in. An `entry_given` without one is an
+address that was never opened, or opened too late. An address opened a second
+time, or after its minute, records nothing.
+
+```sql
+SELECT created_at, shop_domain, outcome, user_id, request_id
+FROM inclamo_provisioning_events
+WHERE outcome LIKE 'entry\_%'
+ORDER BY created_at DESC
+LIMIT 50;
+```
+
+Whoever holds the shared secret can sign in as any user of any provisioned
+account who has no two-factor authentication. A user who wants a wall against
+that turns two-factor authentication on. Every address given is in the record
+with its user.
+
 ## What is kept
 
 - `inclamo_provisioned_accounts`: one row per store, with its account, which
@@ -460,6 +564,13 @@ before provisioning is turned on.
 - Request ids and their answers for ten minutes, in Redis. This is the only
   place a password link is held, and only for those ten minutes: a stored
   answer is never written to a log or to the record above.
+- For a staff member's entry, the outcomes of
+  [its table](#a-staff-members-entry-from-the-app) in
+  `inclamo_provisioning_events`, with the user found in `user_id` (emptied
+  when that user is deleted). Its request ids are kept for ten minutes with no
+  answer, and each one-time address for its 60 seconds in Redis, under a
+  digest of its token (`INCLAMO_ENTRY::<digest>`), with the user, the account
+  and the store it was made for; using it deletes it.
 
 The request log shows the addresses with the store's domain in the path.
 The person's email and name and the password link are filtered out of it.
