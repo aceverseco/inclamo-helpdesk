@@ -51,6 +51,7 @@ const FILES = {
   'instance-installation': ['instance-installation.spec.mjs'],
   'interface-language': ['interface-language.spec.mjs'],
   'app-provisioned-account': ['app-provisioned-account.spec.mjs'],
+  'app-storefront-chat': ['app-storefront-chat.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each

@@ -10,10 +10,18 @@ app returns. What the app sends and what it is answered is the contract in
 is the installation's side: the secret, its rotation, the limits, the record
 and the task for accounts made by hand.
 
-An installation that does not set the secret has none of this. Its three
+An installation that does not set the secret has none of this. Its
 addresses under `/inclamo/provisioning/` answer `404` like any unknown address,
 and nothing else on this page applies to it. A self-hosted installation needs
 no setting to stay that way.
+
+The same secret, limits and record serve the storefront chat: an account
+created this way gets a website inbox for the store's chat, and the app asks
+for the two public values its widget needs on two more addresses
+(`.../stores/{shop_domain}/storefront-chat`; contract in
+`docs/app-storefront-chat.md`, behavior contract
+[app-storefront-chat](behavior/app-storefront-chat/spec.md)). It has no
+setting of its own.
 
 ## Settings
 
@@ -25,10 +33,10 @@ process starts: restart it after changing one.
 | --- | --- | --- |
 | `INCLAMO_APP_PROVISIONING_SECRET` | unset | The secret shared with the store app. Setting it turns provisioning on |
 | `INCLAMO_APP_PROVISIONING_SECRET_PREVIOUS` | unset | The secret before a rotation, accepted next to the current one |
-| `INCLAMO_APP_PROVISIONING_PUT_LIMIT` | `30` | "The store has an account" requests accepted in an hour, for the installation |
+| `INCLAMO_APP_PROVISIONING_PUT_LIMIT` | `30` | "The store has an account" and "the store has its storefront inbox" requests accepted in an hour, counted together, for the installation |
 | `INCLAMO_APP_PROVISIONING_STORE_LIMIT` | `5` | The same requests accepted in an hour for one store |
 | `INCLAMO_APP_PROVISIONING_GET_LIMIT` | `300` | Status requests accepted in an hour, for the installation |
-| `FRONTEND_URL` | Chatwoot's own | The address people open. The answers give it to the app as `helpdesk_url`, and the password link starts with it |
+| `FRONTEND_URL` | Chatwoot's own | The address people open. The answers give it to the app as `helpdesk_url` and, for the storefront chat, as `widget_base_url`; the password link starts with it |
 
 ## The secret
 
@@ -96,7 +104,8 @@ whole number falls back to the default.
 
 The defaults are a first estimate for an installation with few installs a day.
 Raise the installation's limit before a launch that brings many stores in one
-hour. The limit for one store rarely needs changing: a store asks once. A
+hour. The limit for one store rarely needs changing: a store asks once for
+its account and once for its storefront chat. A
 retry of the same request is answered from the stored answer and creates
 nothing, but it is counted like any other signed request.
 
@@ -126,20 +135,24 @@ before provisioning is turned on.
 
 ## What is kept
 
-- `inclamo_provisioned_accounts`: one row per store, with its account and
-  whether the app is installed (`active`) or was removed (`suspended`).
+- `inclamo_provisioned_accounts`: one row per store, with its account, which
+  of the account's inboxes is the storefront chat (empty once the team deletes
+  that inbox), and whether the app is installed (`active`) or was removed
+  (`suspended`).
   Suspension itself is Chatwoot's account status, as the super admin console
   shows it; nothing of a suspended account is deleted.
 - `inclamo_provisioning_events`: one row per request and removal notice, with
   the time, the store's domain, the request id and the outcome (`created`,
-  `existed`, `restored`, `suspended`, `none`, `refused`, `limited`). It never
-  holds an email, a name, a signature or a password link. Rows older than 90
+  `existed`, `restored`, `suspended`, `none`, `refused`, `limited`, and for
+  the storefront chat's request `chat_created`, `chat_existed`,
+  `chat_refused`). It never holds an email, a name, a signature, a password
+  link or a website token. Rows older than 90
   days are removed once a day by `Inclamo::ProvisioningEventsCleanupJob`, on
   the `scheduled_jobs` queue of the normal Sidekiq schedule.
 - Request ids and their answers for ten minutes, in Redis. This is the only
   place a password link is held, and only for those ten minutes.
 
-The request log shows the three addresses with the store's domain in the path.
+The request log shows the addresses with the store's domain in the path.
 The person's email and name and the password link are filtered out of it.
 
 The password link in an answer is a Devise reset link. It works once and for

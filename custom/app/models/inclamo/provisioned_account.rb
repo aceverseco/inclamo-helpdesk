@@ -8,6 +8,9 @@ class Inclamo::ProvisionedAccount < ApplicationRecord
   STATES = %w[active suspended].freeze
 
   belongs_to :account, optional: true
+  # The store's storefront chat (Inclamo::Provisioning::StorefrontChat). The
+  # foreign key empties the column when the inbox is destroyed.
+  belongs_to :storefront_inbox, class_name: 'Inbox', optional: true
 
   before_validation { self.shop_domain = shop_domain.to_s.strip.downcase }
 

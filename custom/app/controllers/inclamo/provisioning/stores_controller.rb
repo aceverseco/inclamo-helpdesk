@@ -3,6 +3,8 @@
 # The three calls of the store app (docs/app-provisioning.md). They sit outside
 # any account and any user session: the only thing that opens them is the
 # signature made with the secret the operator shares with the app.
+# Inclamo::Provisioning::StorefrontChatsController adds the storefront chat's
+# two calls on the same terms.
 class Inclamo::Provisioning::StoresController < ActionController::API
   PENDING_WAIT = 5.0
   UNAUTHORIZED = { error: 'unauthorized' }.freeze

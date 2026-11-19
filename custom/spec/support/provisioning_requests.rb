@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 # Plays the store app in request specs: signs the three provisioning calls as
-# docs/app-provisioning.md describes, with switches for what the app must never
+# docs/app-provisioning.md describes and the storefront chat's two as
+# docs/app-storefront-chat.md does, with switches for what the app must never
 # send (another secret, a stale time, a reused request id).
 module ProvisioningRequests
   SECRET = 'spec-provisioning-secret-0123456789abcdef-0123456789abcdef'
@@ -50,6 +51,39 @@ module ProvisioningRequests
 
   def provisioned(domain = STORE)
     Inclamo::ProvisionedAccount.find_by(shop_domain: domain)
+  end
+
+  # The storefront chat's two calls (docs/app-storefront-chat.md). `with` is
+  # laid over a valid body; `body` replaces it.
+  def ask_for_chat(domain = STORE, with: {}, **options)
+    body = options.key?(:body) ? options.delete(:body) : { contract: 1 }.merge(with)
+    provisioning_call(:put, domain, body: body, suffix: '/storefront-chat', **options)
+  end
+
+  def ask_chat_status(domain = STORE, **)
+    provisioning_call(:get, domain, suffix: '/storefront-chat', **)
+  end
+
+  def storefront_inbox(domain = STORE)
+    provisioned(domain)&.storefront_inbox
+  end
+
+  # Chatwoot's widget page serves the token: it registers the new visitor,
+  # which it does only after its checks of the token and of the account. The
+  # page itself is drawn from built assets, which a test environment may not
+  # have, so its drawing is not what is looked at.
+  def expect_widget_page_served(website_token)
+    expect { get '/widget', params: { website_token: website_token } }.to change(ContactInbox, :count).by(1)
+    expect(response).not_to have_http_status(:unauthorized)
+    expect(response).not_to have_http_status(:not_found)
+  end
+
+  # An account the operator made by hand and tied to its store: it has no
+  # storefront inbox until the app asks for one.
+  def linked_account(domain = STORE, **attributes)
+    account = create(:account, **attributes)
+    Inclamo::Provisioning.link!(domain, account.id)
+    account
   end
 end
 

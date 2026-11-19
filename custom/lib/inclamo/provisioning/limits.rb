@@ -2,8 +2,9 @@
 
 module Inclamo
   module Provisioning
-    # The request limits, as Rack::Attack rules: "the store has an account"
-    # for the installation as a whole and for one store, and the status call.
+    # The request limits, as Rack::Attack rules: the `PUT`s ("the store has an
+    # account" and "the store has its storefront inbox", counted together) for
+    # the installation as a whole and for one store, and the status calls.
     # Only requests that pass the gate are counted, so traffic that is not the
     # store app's cannot spend its allowance; Chatwoot's per-address throttle
     # stays in front for that traffic. Like every Rack::Attack rule they follow

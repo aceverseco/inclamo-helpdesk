@@ -1,7 +1,8 @@
 // A stand-in for the store app, for the end-to-end tests. It plays the app's
-// side of docs/app-provisioning.md: it signs the three calls with the secret
-// it shares with the helpdesk and sends them, so every scenario runs without
-// the store app.
+// side of docs/app-provisioning.md and docs/app-storefront-chat.md: it signs
+// the calls with the secret it shares with the helpdesk and sends them, and it
+// serves a storefront page that shows the chat widget as the app's theme embed
+// would, so every scenario runs without the store app.
 //
 // A test drives it through a control API; each call answers what the helpdesk
 // answered, as { status, body, retry_after, request_id }:
@@ -13,6 +14,11 @@
 //                             `body` replaces the whole body.
 //   POST   /__e2e/status      { domain, ...switches }   GET stores/{domain}
 //   POST   /__e2e/removal     { domain, ...switches }   POST stores/{domain}/removal
+//   POST   /__e2e/storefront-chat         { domain, storefront_url?, body?, ...switches }
+//                             PUT stores/{domain}/storefront-chat: the store
+//                             has its storefront inbox. `body` replaces the body.
+//   POST   /__e2e/storefront-chat-status  { domain, ...switches }
+//                             GET stores/{domain}/storefront-chat
 //   GET    /__e2e/log         what was sent since the last DELETE /__e2e/log
 //   DELETE /__e2e/log
 //
@@ -23,9 +29,22 @@
 // and one for an installation that has no provisioning:
 //   helpdesk_url: "<url>"   sends to this helpdesk instead of the stack's own
 //
+// The storefront page, for a browser:
+//
+//   GET    /storefront/{domain}   a page of the store's site. It loads the
+//                             widget exactly as docs/app-storefront-chat.md §4
+//                             has the app embed do, with the two values the
+//                             helpdesk last answered for that store, and sets
+//                             no presentation option. Before any answer it is
+//                             a page without a chat. The values are replaced
+//                             only by a later answer that carries values: an
+//                             answer that there is no chat leaves the page as a
+//                             storefront whose embed was not updated yet.
+//
 // It never logs or answers the secret or a signature, and its log holds no
 // body: a password link passes through to the test that asked and is kept
-// nowhere. No dependencies: node >= 20.
+// nowhere. The two widget values it keeps are public ones. No dependencies:
+// node >= 20.
 import { createServer } from 'node:http';
 import { createHmac, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -50,8 +69,46 @@ export function provisionBody(domain, { shop = {}, admin = {} } = {}) {
   };
 }
 
+// The storefront page: the snippet of docs/app-storefront-chat.md §4 with the
+// two answered values, or no script at all while the app holds none.
+export function storefrontPage(domain, values) {
+  const embed = values
+    ? `<script>
+      (function (d, t) {
+        var BASE_URL = ${inline(values.widget_base_url)};
+        var g = d.createElement(t), s = d.getElementsByTagName(t)[0];
+        g.src = BASE_URL + "/packs/js/sdk.js";
+        g.async = true;
+        s.parentNode.insertBefore(g, s);
+        g.onload = function () {
+          window.chatwootSDK.run({ websiteToken: ${inline(values.website_token)}, baseUrl: BASE_URL });
+        };
+      })(document, "script");
+    </script>`
+    : '<!-- no storefront chat -->';
+  return `<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${html(domain)}</title></head>
+  <body style="font:16px system-ui;margin:32px">
+    <h1>${html(domain)}</h1>
+    <p>A page of the store's site, with the store app's chat embed.</p>
+    ${embed}
+  </body>
+</html>`;
+}
+
+const html = text => String(text).replace(/[&<>"']/g, character => `&#${character.charCodeAt(0)};`);
+// A value inside an inline script: JSON, with nothing that could end the script.
+const inline = value => JSON.stringify(String(value)).replace(/</g, '\\u003c');
+
+// The body of "the store has its storefront inbox"; without an address the
+// field is left out.
+export const chatBody = storefrontUrl => ({ contract: 1, ...(storefrontUrl === undefined ? {} : { storefront_url: storefrontUrl }) });
+
 export function createStandInApp({ helpdeskUrl, secret, fetchImpl = fetch, quiet = false, now = () => Date.now() } = {}) {
-  const state = { log: [] };
+  // `chats` is what the app would keep where its theme extension reads it:
+  // per store, the two widget values of the helpdesk's last answer.
+  const state = { log: [], chats: new Map() };
   const say = (...args) => quiet || console.log('stand-in app:', ...args);
 
   // Signs one call and sends it. The body is signed as the bytes that are sent.
@@ -93,7 +150,26 @@ export function createStandInApp({ helpdeskUrl, secret, fetchImpl = fetch, quiet
       call('PUT', storePath(domain), JSON.stringify(body === undefined ? provisionBody(domain, { shop, admin }) : body), switches),
     status: ({ domain, ...switches }) => call('GET', storePath(domain), '', switches),
     removal: ({ domain, ...switches }) => call('POST', storePath(domain, '/removal'), '', switches),
+    'storefront-chat': async ({ domain, storefront_url: storefrontUrl, body, ...switches }) =>
+      remember(domain, await call('PUT', storePath(domain, '/storefront-chat'), JSON.stringify(body === undefined ? chatBody(storefrontUrl) : body), switches)),
+    'storefront-chat-status': async ({ domain, ...switches }) => remember(domain, await call('GET', storePath(domain, '/storefront-chat'), '', switches)),
   };
+
+  // Keeps the two values of an answer that carries them, as the app does
+  // after the `PUT`. The store is the same store whatever the case of its letters.
+  function remember(domain, answer) {
+    const { website_token: websiteToken, widget_base_url: widgetBaseUrl } = answer.body || {};
+    if (answer.status < 300 && websiteToken && widgetBaseUrl) state.chats.set(String(domain).toLowerCase(), { website_token: websiteToken, widget_base_url: widgetBaseUrl });
+    return answer;
+  }
+
+  function storefront(request, path, response) {
+    if (request.method !== 'GET') return send(response, 405, { error: 'method_not_allowed' });
+    const domain = decodeURIComponent(path.slice('/storefront/'.length)).toLowerCase();
+    if (!/^[a-z0-9][a-z0-9.-]*$/.test(domain)) return send(response, 404, { error: 'not_found' });
+    response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    return response.end(storefrontPage(domain, state.chats.get(domain)));
+  }
 
   async function control(request, path, raw, response) {
     const name = path.slice('/__e2e/'.length);
@@ -117,7 +193,11 @@ export function createStandInApp({ helpdeskUrl, secret, fetchImpl = fetch, quiet
       const raw = Buffer.concat(chunks).toString('utf8');
       const path = new URL(request.url, 'http://stand-in-app').pathname;
       Promise.resolve()
-        .then(() => (path.startsWith('/__e2e/') ? control(request, path, raw, response) : send(response, 404, { error: 'not_found' })))
+        .then(() => {
+          if (path.startsWith('/__e2e/')) return control(request, path, raw, response);
+          if (path.startsWith('/storefront/')) return storefront(request, path, response);
+          return send(response, 404, { error: 'not_found' });
+        })
         .catch(error => {
           say(`a request failed: ${error.name}`);
           if (!response.headersSent) send(response, 502, { error: 'helpdesk_unreachable' });

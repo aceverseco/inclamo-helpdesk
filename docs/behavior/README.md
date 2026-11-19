@@ -15,6 +15,7 @@ the alternative coverage in the checker. No private workspace is required.
 - [ai-order-authority](ai-order-authority/spec.md)
 - [ai-reply-ownership](ai-reply-ownership/spec.md)
 - [app-provisioned-account](app-provisioned-account/spec.md)
+- [app-storefront-chat](app-storefront-chat/spec.md)
 - [call-conversations](call-conversations/spec.md)
 - [conversation-order-panel](conversation-order-panel/spec.md)
 - [helpdesk-onboarding](helpdesk-onboarding/spec.md)

@@ -1,12 +1,13 @@
 // Tests of the stand-in app itself: it must sign as docs/app-provisioning.md
-// says, and its switches must send exactly what the helpdesk has to refuse, or
-// the end-to-end tests prove nothing.
+// says, its switches must send exactly what the helpdesk has to refuse, and its
+// storefront page must load the widget as docs/app-storefront-chat.md §4 says,
+// or the end-to-end tests prove nothing.
 //   node --test e2e/stand-in-app/server.test.mjs
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { createHmac } from 'node:crypto';
-import { createStandInApp, sign, STALE_SECONDS } from './server.mjs';
+import { createStandInApp, sign, storefrontPage, STALE_SECONDS } from './server.mjs';
 
 const secret = 'secret-of-the-stand-in-app-test-0123456789abcdef';
 const link = 'https://helpdesk.example.test/app/auth/password/edit?reset_password_token=one-time-token';
@@ -20,6 +21,9 @@ let helpdeskUrl;
 let other;
 let otherUrl;
 const received = [];
+// What the fake helpdesk says of the store's storefront chat.
+const chat = { token: 'wT3xFirstTokenOfTheInbox', gone: false };
+const widgetBase = 'https://helpdesk.example.test';
 
 const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`)));
 
@@ -53,6 +57,11 @@ function fakeHelpdesk() {
       if (entry.signature !== expected(secret, entry) || !fresh) return answer(401, { error: 'unauthorized' });
       if (seen.has(entry.requestId) && seen.get(entry.requestId) !== digest) return answer(401, { error: 'unauthorized' });
       seen.set(entry.requestId, digest);
+      if (entry.path.endsWith('/storefront-chat')) {
+        const inbox = { contract: 1, inbox_id: 7, website_token: chat.token, widget_base_url: widgetBase, state: 'active' };
+        if (entry.method === 'PUT') return answer(201, { ...inbox, outcome: 'created' });
+        return chat.gone ? answer(404, { error: 'no_storefront_chat' }) : answer(200, inbox);
+      }
       if (entry.method === 'PUT') return answer(201, { contract: 1, account_id: 7, outcome: 'created', password_setup_url: link });
       if (entry.method === 'GET') return answer(404, { error: 'no_account' });
       return answer(200, { contract: 1, state: 'suspended' });
@@ -84,7 +93,13 @@ after(() => {
 
 beforeEach(() => {
   received.length = 0;
+  Object.assign(chat, { token: 'wT3xFirstTokenOfTheInbox', gone: false });
 });
+
+const page = async domain => {
+  const response = await fetch(`${appUrl}/storefront/${domain}`);
+  return { status: response.status, type: response.headers.get('content-type'), text: await response.text() };
+};
 
 const control = async (name, body, method = 'POST') => {
   const response = await fetch(`${appUrl}/__e2e/${name}`, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
@@ -188,6 +203,111 @@ test('its log holds no body, link, signature or secret', async () => {
   ]);
   const text = JSON.stringify(log);
   for (const hidden of [secret, link, 'reset_password_token', 'sha256=', '@']) assert.equal(text.includes(hidden), false, `the log holds ${hidden}`);
+});
+
+test('signs the two storefront chat calls over their whole path and exact body', async () => {
+  const chatStore = 'chat-calls.myshopify.com';
+  const created = await control('storefront-chat', { domain: chatStore, storefront_url: 'https://example-store.com' });
+  const bare = await control('storefront-chat', { domain: chatStore });
+  const replaced = await control('storefront-chat', { domain: chatStore, body: { contract: 2 } });
+  const status = await control('storefront-chat-status', { domain: chatStore });
+
+  assert.deepEqual([created.body.status, bare.body.status, replaced.body.status, status.body.status], [201, 201, 201, 200]);
+  assert.deepEqual(received.map(entry => [entry.method, entry.path]), [
+    ['PUT', `/inclamo/provisioning/stores/${chatStore}/storefront-chat`],
+    ['PUT', `/inclamo/provisioning/stores/${chatStore}/storefront-chat`],
+    ['PUT', `/inclamo/provisioning/stores/${chatStore}/storefront-chat`],
+    ['GET', `/inclamo/provisioning/stores/${chatStore}/storefront-chat`],
+  ]);
+  assert.deepEqual(received.map(entry => entry.raw), ['{"contract":1,"storefront_url":"https://example-store.com"}', '{"contract":1}', '{"contract":2}', '']);
+  assert.deepEqual(received.map(entry => entry.signature === expected(secret, entry)), [true, true, true, true]);
+  assert.equal(new Set(received.map(entry => entry.requestId)).size, 4);
+  // The answer reaches the test whole.
+  assert.deepEqual(created.body.body, { contract: 1, inbox_id: 7, website_token: chat.token, widget_base_url: widgetBase, state: 'active', outcome: 'created' });
+  assert.deepEqual(status.body.body, { contract: 1, inbox_id: 7, website_token: chat.token, widget_base_url: widgetBase, state: 'active' });
+});
+
+test('the switches work on the storefront chat calls too', async () => {
+  const refused = await control('storefront-chat', { domain: store, wrong_signature: true });
+  const stale = await control('storefront-chat-status', { domain: store, stale: true });
+  assert.deepEqual([refused.body.status, stale.body.status], [401, 401]);
+  assert.notEqual(received[0].signature, expected(secret, received[0]));
+  assert.equal(received[1].signature, expected(secret, received[1]));
+});
+
+test('the storefront page has no chat before the helpdesk answered with values', async () => {
+  const untouched = 'no-chat-yet.myshopify.com';
+  const before = await page(untouched);
+  assert.equal(before.status, 200);
+  assert.match(before.type, /^text\/html/);
+  assert.equal(before.text.includes('<script'), false);
+  assert.equal(before.text.includes('sdk.js'), false);
+
+  // An answer without values gives the page nothing to load.
+  await control('storefront-chat', { domain: untouched, wrong_signature: true });
+  chat.gone = true;
+  await control('storefront-chat-status', { domain: untouched });
+  assert.equal((await page(untouched)).text.includes('<script'), false);
+});
+
+test('the storefront page loads the widget with the answered values, as the contract\'s snippet does', async () => {
+  const shown = 'Chat-Shown.myshopify.com';
+  await control('storefront-chat', { domain: shown });
+  const { text } = await page(shown.toLowerCase());
+
+  assert.ok(text.includes(`var BASE_URL = "${widgetBase}";`));
+  assert.ok(text.includes('g.src = BASE_URL + "/packs/js/sdk.js";'));
+  assert.ok(text.includes(`window.chatwootSDK.run({ websiteToken: "${chat.token}", baseUrl: BASE_URL });`));
+  // No presentation option: the team's saved settings must not be overridden.
+  for (const option of ['chatwootSettings', 'position', 'launcherTitle', 'darkMode', 'locale']) assert.equal(text.includes(option), false, `the page sets ${option}`);
+  // Nothing but the two public values came from the helpdesk's answer.
+  assert.equal(text.includes(secret), false);
+  assert.equal((text.match(/<script/g) || []).length, 1);
+  // The same store whatever the case of its letters.
+  assert.equal((await page(shown)).text, text);
+});
+
+test('the storefront page takes the values of a later answer, and keeps them when told there is no chat', async () => {
+  const changing = 'chat-changing.myshopify.com';
+  await control('storefront-chat-status', { domain: changing });
+  assert.ok((await page(changing)).text.includes(`websiteToken: "${chat.token}"`));
+
+  // The team deleted the inbox: the storefront still carries the old token.
+  const old = chat.token;
+  chat.gone = true;
+  assert.equal((await control('storefront-chat-status', { domain: changing })).body.status, 404);
+  assert.ok((await page(changing)).text.includes(`websiteToken: "${old}"`));
+
+  // The app asks again and is given a new token.
+  chat.token = 'wT3xSecondTokenAfterDeletion';
+  await control('storefront-chat', { domain: changing });
+  const { text } = await page(changing);
+  assert.ok(text.includes('websiteToken: "wT3xSecondTokenAfterDeletion"'));
+  assert.equal(text.includes(old), false);
+  // Another store's page is its own.
+  assert.equal((await page('chat-elsewhere.myshopify.com')).text.includes('sdk.js'), false);
+});
+
+test('a value cannot end the page\'s script, and a path that is no store has no page', async () => {
+  const text = storefrontPage('<b>.myshopify.com', { website_token: '</script><script>alert(1)</script>', widget_base_url: 'https://helpdesk.example.test' });
+  assert.equal((text.match(/<script/g) || []).length, 1);
+  assert.equal((text.match(/<\/script>/g) || []).length, 1);
+  assert.equal(text.includes('<b>'), false);
+  assert.equal((await page('%3Cb%3E')).status, 404);
+  assert.equal((await fetch(`${appUrl}/storefront/${store}`, { method: 'POST' })).status, 405);
+});
+
+test('its log holds no token of a storefront chat', async () => {
+  await control('log', null, 'DELETE');
+  await control('storefront-chat', { domain: store });
+  await control('storefront-chat-status', { domain: store });
+  const { log } = (await control('log', null, 'GET')).body;
+
+  assert.deepEqual(log.map(entry => [entry.method, entry.status, entry.outcome || entry.error]), [
+    ['PUT', 201, 'created'],
+    ['GET', 200, undefined],
+  ]);
+  assert.equal(JSON.stringify(log).includes(chat.token), false);
 });
 
 test('refuses to sign without a secret, and a control call it does not know', async () => {

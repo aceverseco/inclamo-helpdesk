@@ -11,7 +11,7 @@ module Inclamo
     # count only requests that pass) and the controller read the same one.
     module Gate
       ENV_KEY = 'inclamo.provisioning.verdict'
-      PATH = %r{\A/inclamo/provisioning/stores/(?<domain>[^/]+)(?<removal>/removal)?\z}
+      PATH = %r{\A/inclamo/provisioning/stores/(?<domain>[^/]+)(?:/removal|/storefront-chat)?\z}
       UUID = /\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/
       MAX_BODY = 64 * 1024
 

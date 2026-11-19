@@ -44,11 +44,31 @@ RSpec.describe Inclamo::ProvisionedAccount do
     end.to raise_error(ActiveRecord::StatementInvalid, /state/)
   end
 
+  it 'has its storefront inbox emptied by the database when the inbox is destroyed, and stays itself' do
+    inbox = create(:channel_widget, account: account).inbox
+    row = described_class.create!(shop_domain: 'example-store.myshopify.com', account: account, storefront_inbox: inbox)
+    expect(row.reload.storefront_inbox).to eq(inbox)
+
+    inbox.destroy!
+
+    expect(row.reload).to have_attributes(storefront_inbox_id: nil, storefront_inbox: nil, account_id: account.id, state: 'active')
+    foreign_key = described_class.connection.foreign_keys(described_class.table_name).find { |key| key.column == 'storefront_inbox_id' }
+    expect(foreign_key).to have_attributes(to_table: 'inboxes', on_delete: :nullify)
+  end
+
+  it 'keeps an inbox as the storefront inbox of one account only' do
+    inbox = create(:channel_widget, account: account).inbox
+    described_class.create!(shop_domain: 'example-store.myshopify.com', account: account, storefront_inbox: inbox)
+    again = described_class.new(shop_domain: 'other-store.myshopify.com', account: create(:account), storefront_inbox: inbox)
+
+    expect { again.save! }.to raise_error(ActiveRecord::RecordNotUnique)
+  end
+
   it 'goes with its account and has indexes for both lookups' do
     described_class.create!(shop_domain: 'example-store.myshopify.com', account: account)
     indexes = described_class.connection.indexes(described_class.table_name)
 
-    expect(indexes.select(&:unique).map(&:columns)).to contain_exactly(['shop_domain'], ['account_id'])
+    expect(indexes.select(&:unique).map(&:columns)).to contain_exactly(['shop_domain'], ['account_id'], ['storefront_inbox_id'])
     expect { Account.where(id: account.id).delete_all }.to change(described_class, :count).by(-1)
   end
 end
