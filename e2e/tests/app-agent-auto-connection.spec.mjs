@@ -101,17 +101,15 @@ async function emailInbox(shop) {
   return inbox;
 }
 
-// A shopper's email, as the team's API files an incoming message: the conversation.
+// A shopper's new conversation in the email inbox, opened through the team's
+// API. Whether a bot holds a conversation is decided when it is opened
+// (pending for the inbox's bot, open for the team); the team's API takes no
+// incoming message in an email inbox, so none is posted.
 let mails = 0;
-async function emailArrives(shop, inboxId, text) {
+async function emailArrives(shop, inboxId) {
   mails += 1;
   const contact = (await shop.account.post('/contacts', { inbox_id: inboxId, name: 'Email shopper', email: `shopper-${run}-${shop.name}-${mails}@example.test` })).body.payload;
-  const created = await shop.account.post('/conversations', {
-    source_id: contact.contact_inbox.source_id,
-    inbox_id: inboxId,
-    contact_id: contact.contact.id,
-    message: { content: text, message_type: 'incoming' },
-  });
+  const created = await shop.account.post('/conversations', { source_id: contact.contact_inbox.source_id, inbox_id: inboxId, contact_id: contact.contact.id });
   expect(created.status, JSON.stringify(created.body)).toBe(200);
   return created.body;
 }
@@ -249,7 +247,7 @@ test.describe('The helpdesk chooses where the agent answers', () => {
     expect(answer.inbox_ids).toEqual([shop.chat.inbox_id]);
     expect(await botOfInbox(shop, shop.chat.inbox_id)).toBeTruthy();
     expect(await botOfInbox(shop, email.id)).toBeNull();
-    const mail = await emailArrives(shop, email.id, `A question by email ${run}`);
+    const mail = await emailArrives(shop, email.id);
     await expectWithTheTeam(shop, mail.id);
     const chatId = await shopperWrites(browser, shop, shop.chat.website_token, `A question in the chat ${run}`);
     expect(await statusOf(shop, chatId)).toBe('pending');
@@ -540,7 +538,7 @@ test.describe('The "AI agent" page keeps working and names the app', () => {
     const answer = await shop.account.post('/inclamo/ai/connection', { connection_code: await standIn.pairingCode(), inbox_ids: [email.id] });
 
     expect(answer.status, JSON.stringify(answer.body)).toBe(201);
-    const mail = await emailArrives(shop, email.id, `An email for the agent ${run}`);
+    const mail = await emailArrives(shop, email.id);
     expect(mail.status).toBe('pending');
     const chatId = await shopperWrites(browser, shop, shop.chat.website_token, `The chat after the move ${run}`);
     await expectWithTheTeam(shop, chatId);
