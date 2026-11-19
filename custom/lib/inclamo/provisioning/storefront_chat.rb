@@ -9,7 +9,9 @@ module Inclamo
     # rename it and keep website inboxes of their own.
     #
     # The inbox is an ordinary website inbox with Chatwoot's defaults. Nothing
-    # of it is changed after it is made, and no agent bot is attached here.
+    # of it is changed after it is made, and no agent bot is attached here: an
+    # inbox made while the account's AI agent is connected is then given to the
+    # agent by Inclamo::Ai::ChangeInboxes (capability agent-inbox-selection).
     class StorefrontChat
       Result = Struct.new(:row, :inbox, :outcome, keyword_init: true)
 
@@ -62,7 +64,7 @@ module Inclamo
         row = Provisioning.store_domain(@shop_domain) && ProvisionedAccount.for_store(@shop_domain)
         raise Refused, 'no_account' unless row&.account
 
-        row.with_lock do
+        result = row.with_lock do
           account = row.account
           raise Refused, 'account_suspended' if row.suspended? || account.suspended?
 
@@ -71,6 +73,10 @@ module Inclamo
 
           Result.new(row: row, inbox: self.class.create!(row, account, @website_url), outcome: 'created')
         end
+        # Once the new inbox is committed, so that nothing the agent's side
+        # does can undo it.
+        Ai::ChangeInboxes.add_storefront_inbox(result.row.account, result.inbox) if result.outcome == 'created'
+        result
       end
     end
   end
