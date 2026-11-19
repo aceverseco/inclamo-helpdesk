@@ -27,13 +27,11 @@ RSpec.describe 'Inclamo AI agent endpoints after a change of the inboxes', type:
     expect(response).to have_http_status(:ok)
   end
 
+  # A fresh copy of the headers each time: Rails adds X-Http-Method-Override
+  # to the hash it is given for a GET sent as JSON.
   def agent_call(verb, conversation, action, params = {})
-    url = "/api/v1/accounts/#{account.id}/inclamo/ai/conversations/#{conversation.display_id}/#{action}"
-    if verb == :get
-      get url, params: params, headers: bot_headers, as: :json
-    else
-      post url, params: params, headers: bot_headers, as: :json
-    end
+    public_send(verb, "/api/v1/accounts/#{account.id}/inclamo/ai/conversations/#{conversation.display_id}/#{action}",
+                params: params, headers: bot_headers.dup, as: :json)
     response
   end
 
