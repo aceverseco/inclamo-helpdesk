@@ -99,7 +99,7 @@ test('reproduces both worked examples of the contract', () => {
   const body =
     '{"contract":1,"shop":{"domain":"example-store.myshopify.com","name":"Example Store","locale":"en","timezone":"America/New_York"},"admin":{"email":"alex@example.com","name":"Alex Example","email_verified":true}}';
   assert.equal(sign(example, { timestamp: 1794000000, requestId, method: 'PUT', path, body }), 'sha256=305fc0be96cd96282165e88118f12f54bd26c9ae69d5b43c6c292a01efb139a0');
-  assert.equal(sign(example, { timestamp: 1794000000, requestId, method: 'get', path }), 'sha256=b8c0445090549f105fbef920861ba8765304feb72969051bc5b898b30ba6a875');
+  assert.equal(sign(example, { timestamp: 1794000000, requestId: '2b8e4f7a-1c3d-4e5f-9a6b-7c8d9e0f1a2b', method: 'get', path }), 'sha256=ddaaebebc719bc983b8c2ca8de20603fb5f43e10504d4cad5aa668aa3411b901');
 });
 
 test('signs the three calls over their method, path and exact body', async () => {

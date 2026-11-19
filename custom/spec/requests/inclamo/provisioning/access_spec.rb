@@ -73,9 +73,9 @@ RSpec.describe 'App provisioning: who is asking', type: :request do
       expect(Inclamo::Provisioning::Signature.sign(secret, timestamp: 1_794_000_000, request_id: request_id, method: 'PUT', path: path,
                                                            body: body))
         .to eq('sha256=305fc0be96cd96282165e88118f12f54bd26c9ae69d5b43c6c292a01efb139a0')
-      expect(Inclamo::Provisioning::Signature.sign(secret, timestamp: 1_794_000_000, request_id: request_id, method: 'GET', path: path,
-                                                           body: ''))
-        .to eq('sha256=b8c0445090549f105fbef920861ba8765304feb72969051bc5b898b30ba6a875')
+      expect(Inclamo::Provisioning::Signature.sign(secret, timestamp: 1_794_000_000, request_id: '2b8e4f7a-1c3d-4e5f-9a6b-7c8d9e0f1a2b',
+                                                           method: 'GET', path: path, body: ''))
+        .to eq('sha256=ddaaebebc719bc983b8c2ca8de20603fb5f43e10504d4cad5aa668aa3411b901')
     end
 
     it 'signs the request id: a captured request sent again under another id is refused' do
