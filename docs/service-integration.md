@@ -54,6 +54,28 @@ success just because the service returned `201`, or treat every silent active
 connection as an orphan. A retry with the same token must not bind a second
 bot; after a failed setup, issue a fresh code and reconcile the old record.
 
+## Changing the inboxes
+
+The administrator changes where the agent answers without disconnecting:
+
+1. Open **Settings → AI agent**. While connected, the page lists every inbox
+   but Phone under **Inboxes the agent answers in**, ticked where the agent
+   answers now; an inbox with another bot or Dialogflow cannot be ticked.
+2. Tick or untick inboxes and press **Save**. Unticking an inbox in which the
+   agent handles conversations asks first and names how many go to the team as
+   Open; unticking every inbox asks too, and leaves the agent for calls only.
+3. The helpdesk calls `PUT {service_url}/connections/{connection_id}/inboxes`
+   with the whole new list (contract §1.4) before it changes anything. A
+   refusal shows the service's message, `404`, `405` or `501` says the service
+   cannot change inboxes (disconnect and connect again instead), and no answer
+   in 10 seconds says it did not answer; in each case nothing changes.
+
+Implement the call with the bot's token as its credential, replace the stored
+list on any repeat, and from your `2xx` on take turns only in the listed
+inboxes. Until the call exists, answer it `404`. A store's storefront chat made
+again while the agent is connected is added to the list the same way, without
+an administrator.
+
 ## Processing a message
 
 1. Select the connection by an opaque routing identifier, then verify the raw

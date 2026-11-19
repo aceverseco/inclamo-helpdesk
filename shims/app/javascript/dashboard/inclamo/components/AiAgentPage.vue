@@ -3,14 +3,16 @@
 // says what the agent does and where to get it, and takes a connection code
 // and the inboxes the agent answers in. With one it shows the inboxes (or that
 // it takes calls only), who connected it (a person, or the store app), the
-// state, the agent's last reply and the last failed delivery, and offers to
-// disconnect. It never shows a conversation's content.
+// state, the agent's last reply and the last failed delivery, lets the
+// inboxes be changed without disconnecting (capability agent-inbox-selection)
+// and offers to disconnect. It never shows a conversation's content.
 import { ref, reactive, computed, onMounted } from 'vue';
 import SettingsLayout from 'dashboard/routes/dashboard/settings/SettingsLayout.vue';
 import BaseSettingsHeader from 'dashboard/routes/dashboard/settings/components/BaseSettingsHeader.vue';
 import Dialog from 'dashboard/components-next/dialog/Dialog.vue';
 import InclamoAPI from '../api';
 import AiPolicyEditor from './AiPolicyEditor.vue';
+import AiInboxChoice from './AiInboxChoice.vue';
 import { t, has } from '../i18n';
 import { dateTime } from '../format';
 
@@ -20,8 +22,12 @@ const failed = ref(false);
 const busy = ref(false);
 const error = ref('');
 const notice = ref('');
+const saved = ref(false);
 const confirmDialog = ref(null);
+const changeDialog = ref(null);
 const form = reactive({ code: '', inboxIds: [] });
+// The ticks of the connected page: the inboxes the agent is to answer in.
+const chosen = ref([]);
 
 const state = computed(() => page.value?.state || 'never_connected');
 const connected = computed(() => !!page.value?.connected);
@@ -31,10 +37,21 @@ const connectedInboxes = computed(() => inboxes.value.filter(inbox => inbox.conn
 // The store app, for a connection it made; else the person who pasted the code.
 const connectedBy = computed(() => (connection.value.connected_via === 'app' ? t('SETTINGS.AI_AGENT.BY_APP') : connection.value.connected_by || ''));
 const canConnect = computed(() => page.value?.encryption_configured && form.code.trim() !== '' && form.inboxIds.length > 0 && !busy.value);
+const changed = computed(() => {
+  const current = connectedInboxes.value.map(inbox => inbox.id);
+  return current.length !== chosen.value.length || current.some(id => !chosen.value.includes(id));
+});
+const canSave = computed(() => changed.value && !busy.value);
+// Conversations the agent is handling in the inboxes being unticked: they go to the team.
+const handedOver = computed(() =>
+  connectedInboxes.value.filter(inbox => !chosen.value.includes(inbox.id)).reduce((sum, inbox) => sum + (inbox.pending_for_agent || 0), 0)
+);
+const changeError = computed(() => connection.value.inbox_change_error || '');
 
 const show = data => {
   page.value = data;
   form.inboxIds = form.inboxIds.filter(id => (data.inboxes || []).some(inbox => inbox.id === id && inbox.selectable));
+  chosen.value = (data.inboxes || []).filter(inbox => inbox.connected).map(inbox => inbox.id);
 };
 
 const load = async () => {
@@ -71,14 +88,40 @@ const connect = async () => {
   }
 };
 
-const toggle = inbox => {
-  if (!inbox.selectable) return;
-  form.inboxIds = form.inboxIds.includes(inbox.id) ? form.inboxIds.filter(id => id !== inbox.id) : [...form.inboxIds, inbox.id];
+const applyChange = async () => {
+  busy.value = true;
+  error.value = '';
+  notice.value = '';
+  saved.value = false;
+  try {
+    const { data } = await InclamoAPI.changeAiInboxes({ inbox_ids: chosen.value });
+    changeDialog.value?.close();
+    show(data);
+    saved.value = true;
+  } catch (failure) {
+    changeDialog.value?.close();
+    error.value = errorText(failure);
+    // A change the helpdesk could not complete is shown as the connection now stands.
+    if (failure.response?.data?.error === 'not_applied') {
+      const ticks = chosen.value;
+      await load();
+      chosen.value = ticks;
+    }
+  } finally {
+    busy.value = false;
+  }
+};
+
+// Unticking an inbox the agent holds conversations in, or every inbox, is confirmed first.
+const save = () => {
+  if (handedOver.value > 0 || chosen.value.length === 0) changeDialog.value.open();
+  else applyChange();
 };
 
 const disconnect = async () => {
   busy.value = true;
   error.value = '';
+  saved.value = false;
   try {
     const { data } = await InclamoAPI.disconnectAi();
     confirmDialog.value.close();
@@ -93,7 +136,6 @@ const disconnect = async () => {
   }
 };
 
-const otherBot = inbox => (inbox.other_bot === 'Dialogflow' ? t('SETTINGS.AI_AGENT.HAS_DIALOGFLOW') : t('SETTINGS.AI_AGENT.HAS_OTHER_BOT'));
 const failureKind = kind => {
   if (!kind) return '';
   if (has(`SETTINGS.AI_AGENT.FAILURES.${kind}`)) return t(`SETTINGS.AI_AGENT.FAILURES.${kind}`);
@@ -121,6 +163,9 @@ onMounted(load);
             <span class="font-medium">{{ t(`SETTINGS.AI_AGENT.STATE.${connection.state}`) }}</span>
           </div>
           <p v-if="connection.state === 'failing'" class="p-2 rounded-md bg-n-ruby-3 text-n-ruby-11" data-testid="inclamo-ai-failing">{{ t('SETTINGS.AI_AGENT.FAILING') }}</p>
+          <p v-if="changeError" class="p-2 rounded-md bg-n-amber-3 text-n-amber-11" data-testid="inclamo-ai-change-error" :data-error="changeError">
+            {{ has(`SETTINGS.AI_AGENT.CHANGE.NOT_COMPLETED.${changeError}`) ? t(`SETTINGS.AI_AGENT.CHANGE.NOT_COMPLETED.${changeError}`) : t('SETTINGS.AI_AGENT.CHANGE.NOT_COMPLETED.not_applied') }}
+          </p>
           <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
             <dt class="text-n-slate-11">{{ t('SETTINGS.AI_AGENT.INBOXES') }}</dt>
             <dd data-testid="inclamo-ai-inboxes">
@@ -142,6 +187,16 @@ onMounted(load);
             <dd>{{ dateTime(connection.connected_at) }}</dd>
           </dl>
           <p class="text-n-slate-11">{{ t('SETTINGS.AI_AGENT.WHERE') }}</p>
+          <div class="flex flex-col gap-2" data-testid="inclamo-ai-change">
+            <AiInboxChoice v-model="chosen" :inboxes="inboxes" :legend="t('SETTINGS.AI_AGENT.CHANGE.TITLE')" :disabled="busy" />
+            <p class="text-n-slate-11">{{ t('SETTINGS.AI_AGENT.CHANGE.HINT') }}</p>
+            <p v-if="saved" class="text-n-teal-11" data-testid="inclamo-ai-saved">{{ t('SETTINGS.AI_AGENT.CHANGE.SAVED') }}</p>
+            <div>
+              <button type="button" class="rounded-lg bg-n-brand px-3 py-1.5 font-medium text-white disabled:opacity-50" :disabled="!canSave" data-testid="inclamo-ai-save" @click="save">
+                {{ busy ? t('SETTINGS.AI_AGENT.CHANGE.SAVING') : t('SETTINGS.AI_AGENT.CHANGE.SAVE') }}
+              </button>
+            </div>
+          </div>
           <div>
             <button type="button" class="rounded-lg border border-n-ruby-7 px-3 py-1.5 font-medium text-n-ruby-11 disabled:opacity-50" :disabled="busy" data-testid="inclamo-ai-disconnect" @click="confirmDialog.open()">
               {{ t('SETTINGS.AI_AGENT.DISCONNECT') }}
@@ -165,22 +220,7 @@ onMounted(load);
             <span class="font-medium">{{ t('SETTINGS.AI_AGENT.CODE') }}</span>
             <input v-model="form.code" type="password" autocomplete="off" spellcheck="false" :placeholder="t('SETTINGS.AI_AGENT.CODE_PLACEHOLDER')" class="rounded-md border border-n-weak bg-n-alpha-black2 px-2 py-1.5" data-testid="inclamo-ai-code" />
           </label>
-          <fieldset class="flex flex-col gap-2">
-            <legend class="mb-1 font-medium">{{ t('SETTINGS.AI_AGENT.PICK') }}</legend>
-            <p v-if="inboxes.length === 0" class="text-n-slate-11">{{ t('SETTINGS.AI_AGENT.NO_INBOXES') }}</p>
-            <label
-              v-for="inbox in inboxes"
-              :key="inbox.id"
-              class="flex items-center gap-2"
-              :class="{ 'text-n-slate-10': !inbox.selectable }"
-              :data-testid="`inclamo-ai-inbox-${inbox.id}`"
-              :data-selectable="inbox.selectable ? 'true' : 'false'"
-            >
-              <input type="checkbox" :checked="form.inboxIds.includes(inbox.id)" :disabled="!inbox.selectable || busy" @change="toggle(inbox)" />
-              <span>{{ inbox.name }}</span>
-              <span v-if="!inbox.selectable" class="text-xs" data-testid="inclamo-ai-other-bot">{{ otherBot(inbox) }}</span>
-            </label>
-          </fieldset>
+          <AiInboxChoice v-model="form.inboxIds" :inboxes="inboxes" :legend="t('SETTINGS.AI_AGENT.PICK')" :disabled="busy" />
           <div>
             <button type="button" class="rounded-lg bg-n-brand px-3 py-1.5 font-medium text-white disabled:opacity-50" :disabled="!canConnect" data-testid="inclamo-ai-connect" @click="connect">
               {{ busy ? t('SETTINGS.AI_AGENT.CONNECTING') : t('SETTINGS.AI_AGENT.CONNECT') }}
@@ -198,6 +238,19 @@ onMounted(load);
         @confirm="disconnect"
       >
         <p class="text-sm text-n-slate-12" data-testid="inclamo-ai-confirm">{{ t('SETTINGS.AI_AGENT.CONFIRM.BODY') }}</p>
+      </Dialog>
+      <Dialog
+        ref="changeDialog"
+        :title="t('SETTINGS.AI_AGENT.CHANGE.CONFIRM_TITLE')"
+        :confirm-button-label="t('SETTINGS.AI_AGENT.CHANGE.CONFIRM_YES')"
+        :cancel-button-label="t('SETTINGS.AI_AGENT.CHANGE.CONFIRM_NO')"
+        :is-loading="busy"
+        @confirm="applyChange"
+      >
+        <div class="flex flex-col gap-2 text-sm text-n-slate-12" data-testid="inclamo-ai-change-confirm">
+          <p v-if="handedOver > 0" data-testid="inclamo-ai-change-handover" :data-count="handedOver">{{ t('SETTINGS.AI_AGENT.CHANGE.HANDOVER', { count: handedOver }) }}</p>
+          <p v-if="chosen.length === 0" data-testid="inclamo-ai-change-calls-only">{{ t('SETTINGS.AI_AGENT.CHANGE.CALLS_ONLY') }}</p>
+        </div>
       </Dialog>
       <AiPolicyEditor />
     </template>

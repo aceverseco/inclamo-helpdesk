@@ -222,6 +222,9 @@ en:
         busy: The connection is being changed right now. Try again in a moment.
         not_answered: The AI service did not answer. Try again in a moment.
         refused_without_message: The AI service refused the connection code.
+        refused_change_without_message: The AI service refused the change of the inboxes.
+        change_unsupported: This AI service cannot change inboxes. Disconnect and connect again to choose other inboxes.
+        not_applied: The change of the inboxes was not completed and the inboxes are as they were. Save again.
     ai_calls:
       unknown_caller: Unknown caller
       website_visitor: Website visitor

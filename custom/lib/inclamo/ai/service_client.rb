@@ -2,10 +2,11 @@
 
 module Inclamo
   module Ai
-    # The two calls the helpdesk makes to the AI service: registering a
-    # connection and removing it (design D3, D4; docs/ai-connector.md §1).
+    # The calls the helpdesk makes to the AI service: registering a
+    # connection, removing it (design D3, D4; docs/ai-connector.md §1) and
+    # changing its inboxes (capability agent-inbox-selection, §1.4).
     #
-    # Both go through Chatwoot's SSRF filter the way SafeFetch sends a webhook
+    # All go through Chatwoot's SSRF filter the way SafeFetch sends a webhook
     # (lib/safe_fetch/fetcher.rb): private and internal addresses are refused
     # unless SAFE_FETCH_ALLOW_PRIVATE_NETWORK is on. SafeFetch.fetch itself is
     # not used: it drops the body of an answer that is not 2xx, and a refusal's
@@ -14,6 +15,8 @@ module Inclamo
       Registration = Data.define(:connection_id, :webhook_url)
       MAX_MESSAGE = 500
       MAX_URL = 2000
+      # The answers of an AI service that has no call to change the inboxes.
+      UNKNOWN_CALL = [404, 405, 501].freeze
 
       # How host names are resolved; replaced in specs.
       def self.resolver
@@ -33,14 +36,33 @@ module Inclamo
       # DELETE {service_url}/connections/{id} with the bot's former token,
       # waiting at most `time_limit` seconds.
       def remove(service_url:, connection_id:, token:, time_limit: TIME_LIMIT)
-        url = "#{service_url.to_s.chomp('/')}/connections/#{ERB::Util.url_encode(connection_id.to_s)}"
-        status = request(:delete, url, token: token, time_limit: time_limit).code.to_i
+        status = request(:delete, connection_url(service_url, connection_id), token: token, time_limit: time_limit).code.to_i
         raise Error::NotAnswered, "the AI service answered #{status}" unless (200..299).cover?(status)
 
         true
       end
 
+      # PUT {service_url}/connections/{id}/inboxes with the bot's token and the
+      # whole list of inboxes after the change. Any 2xx is accepted and its
+      # body is not read; 404, 405 and 501 say the AI service has no such call;
+      # another 4xx is a refusal with the AI service's message; anything else,
+      # or nothing in time, is no answer.
+      def change_inboxes(service_url:, connection_id:, token:, inbox_ids:, time_limit: TIME_LIMIT)
+        body = { contract: CONTRACT, inbox_ids: inbox_ids }.to_json
+        response = request(:put, "#{connection_url(service_url, connection_id)}/inboxes", token: token, body: body, time_limit: time_limit)
+        status = response.code.to_i
+        return true if (200..299).cover?(status)
+        raise Error::ChangeUnsupported, "the AI service answered #{status}" if UNKNOWN_CALL.include?(status)
+        raise refusal_from(response, 'refused_change_without_message') if (400..499).cover?(status)
+
+        raise Error::NotAnswered, "the AI service answered #{status}"
+      end
+
       private
+
+      def connection_url(service_url, connection_id)
+        "#{service_url.to_s.chomp('/')}/connections/#{ERB::Util.url_encode(connection_id.to_s)}"
+      end
 
       def request(method, url, token:, body: nil, time_limit: TIME_LIMIT)
         headers = { 'Authorization' => "Bearer #{token}", 'Accept' => 'application/json' }
@@ -75,11 +97,11 @@ module Inclamo
         Registration.new(connection_id: connection_id.to_s, webhook_url: webhook_url)
       end
 
-      def refusal_from(response)
+      def refusal_from(response, without_message = 'refused_without_message')
         data = parse(response)
         message = data['message'].is_a?(String) ? data['message'].strip.first(MAX_MESSAGE) : ''
         service_error = data['error'].is_a?(String) ? data['error'].first(100) : nil
-        Error::Refused.new(message.presence || I18n.t('inclamo.ai_connection.errors.refused_without_message'), service_error: service_error)
+        Error::Refused.new(message.presence || I18n.t("inclamo.ai_connection.errors.#{without_message}"), service_error: service_error)
       end
 
       def parse(response)

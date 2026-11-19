@@ -40,9 +40,16 @@ module Inclamo
       class InboxHasBot < Error; end
       class AlreadyConnected < Error; end
       class NotConnected < Error; end
-      # Another connection or disconnection of the account is under way.
+      # Another connection, disconnection or change of the inboxes of the
+      # account is under way.
       class Busy < Error; end
       class EncryptionNotConfigured < Error; end
+      # The AI service has no call to change the inboxes: it answered 404, 405
+      # or 501 (docs/ai-connector.md §1.4).
+      class ChangeUnsupported < Error; end
+      # The AI service accepted a change of the inboxes the helpdesk then could
+      # not apply; the earlier inboxes stay (Inclamo::Ai::ChangeInboxes).
+      class NotApplied < Error; end
     end
   end
 end

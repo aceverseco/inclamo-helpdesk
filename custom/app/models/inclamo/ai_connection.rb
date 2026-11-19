@@ -3,13 +3,17 @@
 # The account's link to the AI agent, one per account. The agent bot, its token
 # and its secret live in Chatwoot's own tables; this record holds what the
 # helpdesk needs to find them and what the AI agent page shows. Connect and
-# disconnect through Inclamo::Ai::Connect and Inclamo::Ai::Disconnect.
+# disconnect through Inclamo::Ai::Connect and Inclamo::Ai::Disconnect, and
+# change the inboxes through Inclamo::Ai::ChangeInboxes.
 class Inclamo::AiConnection < ApplicationRecord
   STATES = %w[connected failing disconnected].freeze
   ACTIVE_STATES = %w[connected failing].freeze
   # The door the connection came through: an administrator with a code on the
   # "AI agent" page, or the store app (capability app-agent-auto-connection).
   VIAS = %w[page app].freeze
+  # Why the last change of the agent's inboxes was not completed
+  # (capability agent-inbox-selection; Inclamo::Ai::ChangeInboxes).
+  INBOX_CHANGE_ERRORS = %w[not_applied not_applied_service_not_told storefront_not_added].freeze
 
   belongs_to :account
   belongs_to :agent_bot, optional: true
@@ -24,9 +28,12 @@ class Inclamo::AiConnection < ApplicationRecord
   validates :account_id, uniqueness: true
   validates :service_url, presence: true
   validates :connected_via, inclusion: { in: VIAS }
+  validates :inbox_change_error, inclusion: { in: INBOX_CHANGE_ERRORS }, allow_nil: true
   # The bot's secret is stored encrypted only when keys are configured
   # (Chatwoot's WebhookSecretable): without them a connection is refused.
   validate :encryption_must_be_configured, unless: :disconnected?
+
+  after_save :forget_answering_inbox_ids
 
   # The connection that is on for the account, or nil.
   def self.active_for(account_id)
@@ -37,12 +44,34 @@ class Inclamo::AiConnection < ApplicationRecord
     ACTIVE_STATES.include?(state)
   end
 
+  # The inboxes chosen for the agent as they were last written: at the
+  # connection, or by the latest change of the inboxes.
   def connected_inbox_ids
     Array(inbox_ids).map(&:to_i)
   end
 
+  # The inboxes the agent answers in now (agent-inbox-selection, design D7):
+  # the chosen ones that still carry the connection's bot, in the chosen
+  # order. An inbox the team deleted, or whose bot was changed in Chatwoot's
+  # own inbox settings, stops counting at once; an inbox given the bot there
+  # does not start counting. Asked of the database once per record.
+  def answering_inbox_ids
+    return [] unless active? && agent_bot_id.present?
+
+    @answering_inbox_ids ||= begin
+      chosen = connected_inbox_ids
+      attached = chosen.empty? ? [] : AgentBotInbox.active.joins(:inbox).where(agent_bot_id: agent_bot_id, inbox_id: chosen).pluck(:inbox_id)
+      chosen & attached
+    end
+  end
+
   def covers?(inbox_id)
-    active? && connected_inbox_ids.include?(inbox_id.to_i)
+    active? && answering_inbox_ids.include?(inbox_id.to_i)
+  end
+
+  def reload(...)
+    forget_answering_inbox_ids
+    super
   end
 
   def agent_bot?(sender)
@@ -65,6 +94,10 @@ class Inclamo::AiConnection < ApplicationRecord
   end
 
   private
+
+  def forget_answering_inbox_ids
+    @answering_inbox_ids = nil
+  end
 
   def encryption_must_be_configured
     errors.add(:base, 'encryption is not configured on this installation') unless Chatwoot.encryption_configured?

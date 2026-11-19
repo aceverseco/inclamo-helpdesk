@@ -40,6 +40,7 @@ const FILES = {
   'sla-badge': ['sla-badge.spec.mjs'],
   'sla-urgency-widget': ['sla-urgency-widget.spec.mjs'],
   'ai-agent-connection': ['ai-agent-connection.spec.mjs'],
+  'agent-inbox-selection': ['agent-inbox-selection.spec.mjs'],
   'call-conversations': ['call-conversations.spec.mjs'],
   'ai-order-authority': ['ai-order-authority.spec.mjs'],
   'ai-reply-ownership': ['ai-reply-ownership.spec.mjs'],
@@ -61,6 +62,8 @@ const FILES = {
 // Scenarios that cannot run against the installation the tests drive, each
 // with where it is covered instead.
 const ELSEWHERE = {
+  'agent-inbox-selection › A change is never left half done › The helpdesk fails after the AI service accepted':
+    'needs the helpdesk to fail inside its own transaction after the AI service accepted, which nothing the tests drive can cause; covered by custom/spec/lib/inclamo/ai/change_inboxes_spec.rb ("keeps the earlier inboxes, asks the AI service to take the earlier list back and says the change was not completed") and custom/spec/requests/api/v1/accounts/inclamo/ai_connection_inboxes_spec.rb ("answers 500 when the change was not completed, and the next read says so")',
   "app-provisioned-account › A new administrator can set a password of their own › The link's time has passed":
     "the link lives for hours (Devise's reset_password_within) and the tests cannot move the installation's clock; covered by custom/spec/requests/inclamo/provisioning/account_spec.rb, which travels past that time",
   'app-provisioned-account › Requests are limited › Too many requests':

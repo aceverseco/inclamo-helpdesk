@@ -90,4 +90,70 @@ RSpec.describe Inclamo::Ai::ServiceClient do
       expect { client.remove(service_url: AiServiceStubs::AI_SERVICE_URL, connection_id: 'conn-1', token: 'bot-token') }.to raise_error(Inclamo::Ai::Error::NotAnswered)
     end
   end
+
+  # agent-inbox-selection; docs/ai-connector.md §1.4.
+  describe '#change_inboxes' do
+    let(:url) { "#{AiServiceStubs::AI_SERVICE_URL}/connections/conn-1/inboxes" }
+
+    def change(inbox_ids = [3, 5])
+      client.change_inboxes(service_url: "#{AiServiceStubs::AI_SERVICE_URL}/", connection_id: 'conn-1', token: 'bot-token', inbox_ids: inbox_ids)
+    end
+
+    it "puts the whole list with the bot's token and takes any 2xx, without reading its body" do
+      stub = stub_request(:put, url).to_return(status: 204)
+
+      expect(change).to be(true)
+      expect(stub.with(headers: { 'Authorization' => 'Bearer bot-token', 'Content-Type' => 'application/json' },
+                       body: { contract: 1, inbox_ids: [3, 5] }.to_json)).to have_been_requested
+      stub_request(:put, url).to_return(status: 200, body: 'not json')
+      expect(change([])).to be(true)
+      expect(a_request(:put, url).with(body: { contract: 1, inbox_ids: [] }.to_json)).to have_been_made
+    end
+
+    it 'takes 404, 405 and 501 as an AI service without the call' do
+      [404, 405, 501].each do |status|
+        stub_request(:put, url).to_return(status: status, body: { error: 'not_found', message: 'No such route' }.to_json)
+
+        expect { change }.to raise_error(Inclamo::Ai::Error::ChangeUnsupported)
+      end
+    end
+
+    it "turns another 4xx into a refusal with the AI service's message, cut to the limit" do
+      stub_request(:put, url).to_return(status: 422, body: { error: 'plan_limit', message: "  #{'x' * 600}  " }.to_json, headers: AiServiceStubs::AI_JSON_HEADERS)
+
+      expect { change }.to raise_error(Inclamo::Ai::Error::Refused) { |error|
+        expect(error.message).to eq('x' * Inclamo::Ai::ServiceClient::MAX_MESSAGE)
+        expect(error.service_error).to eq('plan_limit')
+      }
+    end
+
+    it 'refuses in its own words when a 4xx has no message' do
+      stub_request(:put, url).to_return(status: 409, body: '')
+
+      expect { change }.to raise_error(Inclamo::Ai::Error::Refused, I18n.t('inclamo.ai_connection.errors.refused_change_without_message'))
+    end
+
+    it 'takes a 5xx and a timeout as no answer' do
+      stub_request(:put, url).to_return(status: 503)
+      expect { change }.to raise_error(Inclamo::Ai::Error::NotAnswered)
+
+      stub_request(:put, url).to_timeout
+      expect { change }.to raise_error(Inclamo::Ai::Error::NotAnswered)
+    end
+
+    it 'does not follow a redirect' do
+      stub_request(:put, url).to_return(status: 307, headers: { 'Location' => 'https://elsewhere.example.com/inboxes' })
+
+      expect { change }.to raise_error(Inclamo::Ai::Error::NotAnswered)
+      expect(a_request(:put, 'https://elsewhere.example.com/inboxes')).not_to have_been_made
+    end
+
+    it 'refuses a private address unless private networks are allowed' do
+      allow(described_class).to receive(:resolver).and_return(->(_host) { [IPAddr.new('10.0.0.7')] })
+      stub = stub_request(:put, url).to_return(status: 204)
+
+      expect { change }.to raise_error(Inclamo::Ai::Error::NotAnswered)
+      expect(stub).not_to have_been_requested
+    end
+  end
 end

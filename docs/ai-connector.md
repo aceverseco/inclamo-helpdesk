@@ -39,9 +39,13 @@ private networks). `token` is one-time and short-lived; its lifetime is the AI
 service's choice. A code that does not decode, or a URL that is not HTTPS, is
 refused before any request.
 
-The administrator also picks the inboxes the agent answers in. An inbox that
+The administrator also picks the inboxes the agent answers in, and may change
+them later without disconnecting (§1.4). An inbox that
 already has another bot or a Dialogflow integration cannot be picked (Chatwoot
 allows one bot per inbox, `app/models/inbox.rb:76-77`).
+
+On a hosted installation a store app can also connect the agent without a
+code (`app-agent-connection.md`); the registration below is the same.
 
 ### 1.2 Registration
 
@@ -94,6 +98,74 @@ Any `2xx` counts as told; anything else is shown on the AI agent page ("the
 AI service could not be told"). The Phone inbox, its conversations and the
 labels stay. The token is refused from that moment: a call with it answers
 `401`.
+
+### 1.4 Changing the inboxes
+
+An addition to contract 1 (§9). An AI service that does not implement it
+keeps working: the helpdesk then reports that the inboxes of the connection
+cannot be changed and the administrator disconnects and connects again.
+
+While connected, the administrator may change which inboxes the agent answers
+in on the **AI agent** page. The helpdesk makes the same change by itself in
+one case: when a store's storefront chat inbox is made again after the team
+deleted it (`app-storefront-chat.md` §6), the new inbox is added to the
+agent's list. Before changing anything of its own the helpdesk calls:
+
+```
+PUT {service_url}/connections/{connection_id}/inboxes
+Authorization: Bearer {the bot's access token}
+Content-Type: application/json
+
+{ "contract": 1, "inbox_ids": [3, 5] }
+```
+
+`inbox_ids` is the whole list after the change, not a difference. It replaces
+the list of the registration (§1.2) and of any earlier change. It may be
+empty: the connection then stays for calls only (`ai-connector-calls.md`) and
+no conversation is held for the agent. The Phone inbox is never in it. The
+call may arrive twice with the same list; the second changes nothing. A change
+that keeps the list the agent already has is not sent.
+
+Like the calls of §1.2 and §1.3, it goes through Chatwoot's SSRF filter and
+does not follow a redirect.
+
+| Answer | Meaning |
+| --- | --- |
+| any `2xx` | accepted: the helpdesk hands the agent's Pending conversations of the removed inboxes to the team (Open, as in §1.3), detaches the bot from the removed inboxes and attaches it to the added ones. The body is not read |
+| `404`, `405` or `501` | the AI service has no such call: nothing changes, the administrator is told to reconnect instead |
+| another `4xx { "error": "…", "message": "…" }` | refused: `message` is shown to the administrator, nothing changes |
+| anything else, or nothing within 10 s | "the AI service did not answer"; nothing changes |
+
+What the AI service has to do:
+
+- From the moment it answers `2xx`, take turns only in conversations of the
+  inboxes in the list.
+- For a short time after that answer it may still get events of an inbox it
+  was just told is no longer the agent's (the handover of §10.2 among them).
+  Answer them `2xx` and take no turn. A turn already under way in such a
+  conversation ends without a reply: the protected reply (§5.4) answers
+  `409 conversation_not_pending` once the conversation is with the team, and
+  every call of §5 for a conversation of a removed inbox is refused once the
+  bot is detached.
+- Conversations that existed in an added inbox before the change stay with
+  the team. Only conversations created after it are Pending and held for the
+  agent. One case follows Chatwoot's own rule for an inbox with a bot
+  (`app/models/message.rb`, `reopen_resolved_conversation`): a conversation of
+  the added inbox that was resolved before the change, and in which the
+  shopper writes again after it, comes back Pending, with no AI assignee and
+  with the person it was assigned to, if any. Its events are delivered as for
+  any Pending conversation of a listed inbox, and the calls of §5 accept it.
+- Do not treat the list as a promise that each inbox exists. When the team
+  deletes an inbox, it stops sending events at once and leaves the list only
+  with the next call of this section.
+
+If the helpdesk cannot apply a change the AI service accepted, it calls this
+address again with the earlier list, best effort, and shows the administrator
+that the change was not completed. So a second call with a different list
+shortly after the first is normal.
+
+The bot, its token, its secret, the webhook address and `connection_id` are
+the same before and after a change.
 
 ## 2. Events
 
@@ -350,6 +422,11 @@ skipped against the AI service. Its own tests
 (`node --test e2e/stand-in-agent/server.test.mjs`) show that it refuses a wrong
 signature, a timestamp older than five minutes and a repeated delivery.
 
+For §1.4 the stand-in keeps the list it was last told, takes no turn outside
+it, and can be switched to refuse the change, to stay silent and to answer
+`404` as a service without the call; the scenarios are in
+`e2e/tests/agent-inbox-selection.spec.mjs`.
+
 The tests assert what the helpdesk shows and stores, never the agent's words.
 The same file runs against the AI service:
 
@@ -378,7 +455,9 @@ does not know with a `4xx` and a message.
 
 Additions that change no existing field or call keep the number. The
 protected reply (§5.4) is one: an AI service written before it keeps working
-through `POST …/messages`, without its protection.
+through `POST …/messages`, without its protection. Changing the inboxes
+(§1.4) is another: an AI service without that call answers it `404`, and the
+administrator changes the inboxes by disconnecting and connecting again.
 
 ## 10. Event examples
 

@@ -46,7 +46,8 @@ account pages. Human-operated accounts can complete setup without connecting AI.
 **Order actions** assigns each staff operation separately. **AI agent** configures
 each AI operation as forbidden, proposed for staff approval (the default), or
 autonomous with explicit limits. A cancellation with a refund needs both rights;
-a discounted new order also needs discount permission. The connector contract,
+a discounted new order also needs discount permission. The same page connects the
+agent and changes, without disconnecting, the inboxes it answers in. The connector contract,
 identity checks and outcome handling are documented in [docs/ai-connector.md](docs/ai-connector.md).
 
 Service builders start with [the integration handoff](docs/service-integration.md).

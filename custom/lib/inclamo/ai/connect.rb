@@ -101,7 +101,7 @@ module Inclamo
           record.update!(
             service_url: code.service_url, connection_id: registration.connection_id, agent_bot_id: bot.id,
             phone_inbox_id: phone.id, inbox_ids: inboxes.map(&:id), state: 'connected', connected_by: @user,
-            connected_via: @via, connected_at: Time.current, disconnected_at: nil, removal_error: nil,
+            connected_via: @via, connected_at: Time.current, disconnected_at: nil, removal_error: nil, inbox_change_error: nil,
             last_delivered_at: nil, last_failed_at: nil, last_error: nil, last_reply_at: nil
           )
         end
@@ -121,16 +121,7 @@ module Inclamo
 
       def chosen_inboxes(record)
         chosen = @inbox_ids.respond_to?(:call) ? @inbox_ids.call : @inbox_ids
-        ids = Array(chosen).map(&:to_i).select(&:positive?).uniq
-        return [] if ids.empty? && @allow_no_inboxes
-        raise Error::NoInboxes, 'no inbox was chosen' if ids.empty?
-
-        inboxes = @account.inboxes.where(id: ids).to_a
-        raise Error::InvalidInbox, 'not an inbox of the account' if inboxes.size != ids.size
-        raise Error::InvalidInbox, 'the Phone inbox takes no turns of the agent' if record.phone_inbox_id && ids.include?(record.phone_inbox_id)
-        raise Error::InboxHasBot, 'an inbox has another bot' if inboxes.any? { |inbox| inbox.conflicting_bot_provider(:inclamo).present? }
-
-        inboxes.sort_by { |inbox| ids.index(inbox.id) }
+        InboxChoice.inboxes!(@account, chosen, phone_inbox_id: record.phone_inbox_id, allow_empty: @allow_no_inboxes)
       end
 
       # [inbox, made_now]

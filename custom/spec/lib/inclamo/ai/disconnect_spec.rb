@@ -79,6 +79,20 @@ RSpec.describe Inclamo::Ai::Disconnect do
     expect(create(:conversation, account: account, inbox: website.reload).status).to eq('open')
   end
 
+  # agent-inbox-selection, design D7: the inboxes handed over are those the
+  # agent answers in now, not the list as it was chosen.
+  it "leaves alone a pending conversation of an inbox whose bot was changed in Chatwoot's own settings" do
+    stub_ai_removal
+    other_bot = create(:agent_bot, account: account)
+    website.agent_bot_inbox.update!(agent_bot: other_bot)
+    theirs = create(:conversation, account: account, inbox: website.reload)
+    expect(theirs).to have_attributes(status: 'pending', assignee_agent_bot_id: other_bot.id)
+
+    disconnect
+
+    expect(theirs.reload).to have_attributes(status: 'pending', assignee_agent_bot_id: other_bot.id)
+  end
+
   it 'refuses an account that is not connected' do
     stub_ai_removal
     disconnect

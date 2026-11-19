@@ -446,6 +446,23 @@
       "FAILED_AT": "{kind}, {time}",
       "CONNECTED_AT": "Connected",
       "WHERE": "Conversations the agent is handling are under Pending in the conversation list. They move to Open when the agent hands them over or someone on your team replies or takes them.",
+      "CHANGE": {
+        "TITLE": "Inboxes the agent answers in",
+        "HINT": "Tick an inbox to let the agent answer new conversations there; untick it to give that inbox back to your team. Conversations already open in an added inbox stay with your team. Finished calls are filed in the Phone inbox whatever you choose.",
+        "SAVE": "Save",
+        "SAVING": "Saving…",
+        "SAVED": "Saved. The AI service has the new list.",
+        "CONFIRM_TITLE": "Change the agent's inboxes?",
+        "HANDOVER": "Conversations the agent is handling in the inboxes you unticked go to your team as Open: {count}.",
+        "CALLS_ONLY": "The agent will answer in no inbox and will take calls only. Finished calls are still filed in the Phone inbox.",
+        "CONFIRM_YES": "Save",
+        "CONFIRM_NO": "Keep as it is",
+        "NOT_COMPLETED": {
+          "not_applied": "The last change of the inboxes was not completed: the agent answers in the inboxes shown here. Conversations it had already given to your team stay with your team. Tick the inboxes and save again.",
+          "not_applied_service_not_told": "The last change of the inboxes was not completed, and the AI service could not be told to keep the inboxes shown here. Tick the inboxes you want and save again.",
+          "storefront_not_added": "The storefront chat was made again, but the agent could not be added to it: your team answers there. Tick it and save to give it to the agent."
+        }
+      },
       "DISCONNECT": "Disconnect",
       "CONFIRM": {
         "TITLE": "Disconnect the AI agent?",
@@ -472,7 +489,9 @@
         "not_connected": "The AI agent is not connected. Reload the page.",
         "busy": "The connection is being changed right now. Try again in a moment.",
         "encryption_not_configured": "Encryption must be configured on this installation before the AI agent can be connected.",
-        "forbidden": "Only an administrator can manage the AI agent."
+        "forbidden": "Only an administrator can manage the AI agent.",
+        "change_unsupported": "This AI service cannot change inboxes. Disconnect and connect again to choose other inboxes.",
+        "not_applied": "The change was not completed, and the inboxes are as they were. Save again."
       }
     },
     "TEAM_QUEUES": {

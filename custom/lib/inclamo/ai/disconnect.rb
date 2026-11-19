@@ -35,9 +35,10 @@ module Inclamo
       private
 
       # Chatwoot's own handover: the AI assignee is cleared and the
-      # conversation opens, as when the agent hands over itself.
+      # conversation opens, as when the agent hands over itself. The inboxes
+      # are those the agent answers in now (AiConnection#answering_inbox_ids).
       def hand_over(record)
-        Conversation.where(account_id: @account.id, inbox_id: record.connected_inbox_ids, status: :pending).find_each(&:bot_handoff!)
+        Conversation.where(account_id: @account.id, inbox_id: record.answering_inbox_ids, status: :pending).find_each(&:bot_handoff!)
       end
 
       def tell_service(record, token)
