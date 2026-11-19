@@ -28,6 +28,7 @@ module Inclamo
     # A new address is one line here, next to its routes.
     ADDRESSES = {
       '' => { 'PUT' => :put, 'GET' => :get },
+      '/storefront-chat' => { 'PUT' => :put, 'GET' => :get },
       '/removal' => { 'POST' => nil }
     }.freeze
 

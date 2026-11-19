@@ -4,6 +4,8 @@
 # any account and any user session: the only thing that opens them is the
 # signature made with the secret the operator shares with the app. Every answer
 # carries the provisioning header (InclamoProvisioningHeader).
+# Inclamo::Provisioning::StorefrontChatsController adds the storefront chat's
+# two calls on the same terms.
 class Inclamo::Provisioning::StoresController < ActionController::API
   PENDING_WAIT = 5.0
   # Seconds the app waits before it sends again a request still being answered.

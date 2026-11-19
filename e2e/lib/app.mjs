@@ -1,7 +1,9 @@
 // The store app's side of the end-to-end tests: the stand-in app of
 // e2e/stand-in-app/server.mjs, which signs the provisioning calls of
-// docs/app-provisioning.md, and a person of a provisioned account, who has no
-// place among the users e2e/setup.rb prepares.
+// docs/app-provisioning.md and the storefront chat's calls of
+// docs/app-storefront-chat.md and serves the storefront page with the chat,
+// and a person of a provisioned account, who has no place among the users
+// e2e/setup.rb prepares.
 const appUrl = () => process.env.E2E_APP_URL || 'http://stand-in-app:8091';
 const helpdeskUrl = () => process.env.HELPDESK_URL || 'http://localhost:3000';
 
@@ -21,7 +23,14 @@ export const storeApp = {
   provision: (domain, options = {}) => control('provision', { domain, ...options }),
   status: (domain, switches = {}) => control('status', { domain, ...switches }),
   removal: (domain, switches = {}) => control('removal', { domain, ...switches }),
+  // The store has its storefront inbox; options: storefront_url, body, switches.
+  storefrontChat: (domain, options = {}) => control('storefront-chat', { domain, ...options }),
+  storefrontChatStatus: (domain, switches = {}) => control('storefront-chat-status', { domain, ...switches }),
 };
+
+// The store's storefront page of the stand-in app: it loads the widget with
+// the two values the helpdesk last answered for the store.
+export const storefrontUrl = domain => `${appUrl()}/storefront/${domain}`;
 
 // The helpdesk that was given no provisioning secret (dev/docker-compose.e2e.yaml).
 export const unprovisionedUrl = () => process.env.E2E_UNPROVISIONED_URL || 'http://rails-unprovisioned:3000';
@@ -68,6 +77,20 @@ export async function personApi(email, password) {
   const api = {
     get: path => call('GET', path),
     post: (path, data) => call('POST', path, data),
+    patch: (path, data) => call('PATCH', path, data),
+    delete: path => call('DELETE', path),
+    // The same person with paths inside one account ("/inboxes"), which is
+    // what the helpers of e2e/lib/website.mjs take.
+    within: accountId => {
+      const base = `/api/v1/accounts/${accountId}`;
+      return {
+        accountId,
+        get: path => call('GET', `${base}${path}`),
+        post: (path, data) => call('POST', `${base}${path}`, data),
+        patch: (path, data) => call('PATCH', `${base}${path}`, data),
+        delete: path => call('DELETE', `${base}${path}`),
+      };
+    },
     profile: async () => (await api.get('/api/v1/profile')).body,
     // The person's accounts as their profile lists them: [{ id, name, role, ... }].
     accounts: async () => (await api.profile()).accounts || [],

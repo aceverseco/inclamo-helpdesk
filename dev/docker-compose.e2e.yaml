@@ -2,7 +2,8 @@
 # proxy that the tests control (e2e/proxy/server.mjs), and a stand-in for the
 # AI service answers for the AI agent (e2e/stand-in-agent/server.mjs). A
 # stand-in for the store app signs the provisioning calls with the stack's own
-# secret (e2e/stand-in-app/server.mjs). Never for an instance that serves real
+# secret and serves a storefront page with the chat widget
+# (e2e/stand-in-app/server.mjs). Never for an instance that serves real
 # customers: the proxy sees the store's access token, the stand-in app creates
 # accounts for whoever reaches it, and Chatwoot is let reach private addresses
 # so that it can call the stand-in.
