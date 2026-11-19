@@ -75,6 +75,9 @@ services:
       - INSTALLATION_ENV=docker
       - INCLAMO_E2E=1
       - ENABLE_RACK_ATTACK=false
+      # An administrator here connects the AI agent with a code of the
+      # stand-in agent, an address of this stack's own network.
+      - SAFE_FETCH_ALLOW_PRIVATE_NETWORK=true
       - INCLAMO_APP_PROVISIONING_SECRET=
       - INCLAMO_APP_PROVISIONING_SECRET_PREVIOUS=
     entrypoint: docker/entrypoints/rails.sh

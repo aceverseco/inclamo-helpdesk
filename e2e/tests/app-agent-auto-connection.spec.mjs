@@ -79,12 +79,20 @@ async function shopperWrites(browser, shop, websiteToken, text) {
   return (await conversationWith(shop.account, text)).id;
 }
 
+// What the stand-in agent received about a conversation of this store's
+// account: conversation ids are counted per account, so only the deliveries to
+// the account's own connections are looked at.
+async function deliveriesTo(shop, id) {
+  const own = new Set((await registrationsOf(shop)).map(entry => entry.connection_id));
+  return (await standIn.log()).filter(entry => entry.kind === 'delivery' && own.has(entry.connection_id) && entry.conversation_id === id);
+}
+
 // The agent has no turn in the conversation: it stays with the team and gets no reply.
 async function expectWithTheTeam(shop, id) {
   expect(await statusOf(shop, id)).toBe('open');
   await new Promise(resolve => setTimeout(resolve, 6_000));
   expect(await agentReplies(shop, id)).toEqual([]);
-  expect(await standIn.deliveries(id)).toEqual([]);
+  expect(await deliveriesTo(shop, id)).toEqual([]);
 }
 
 async function emailInbox(shop) {
