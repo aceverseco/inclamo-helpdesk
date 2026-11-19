@@ -36,6 +36,10 @@ export const storeApp = {
   agent: (domain, options = {}) => control('agent', { domain, ...options }),
   agentStatus: (domain, switches = {}) => control('agent-status', { domain, ...switches }),
   agentDisconnect: (domain, switches = {}) => control('agent-disconnect', { domain, ...switches }),
+  // A staff member comes in without a password (docs/app-admin-entry.md);
+  // options: staff (laid over { email, email_verified: true }), body, switches
+  // (and timestamp, which with request_id sends an earlier request unchanged).
+  entry: (domain, options = {}) => control('entry', { domain, ...options }),
   // Shopify's compliance requests (docs/app-store-erasure.md). `erasure`
   // takes body and switches; the two calls about one shopper take shopper
   // ({ email, phone }), order_ids, body and switches.

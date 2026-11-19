@@ -34,6 +34,13 @@
 //                             replaces it. Waits 15 s for the answer.
 //   POST   /__e2e/agent-status      { domain, ...switches }   GET stores/{domain}/agent
 //   POST   /__e2e/agent-disconnect  { domain, ...switches }   DELETE stores/{domain}/agent
+//   POST   /__e2e/entry       { domain, staff?, body?, ...switches }
+//                             POST stores/{domain}/entry: a staff member wants
+//                             into the store's account (docs/app-admin-entry.md).
+//                             `staff` is laid over { email, email_verified: true };
+//                             a field given as null is left out of it. `body`
+//                             replaces the whole body. The answer's entry_url
+//                             goes to the test and is kept nowhere.
 //   POST   /__e2e/erasure     { domain, body?, ...switches }
 //                             POST stores/{domain}/erasure: Shopify asked to
 //                             erase the store. `body` replaces { contract: 1 }.
@@ -52,6 +59,8 @@
 //   wrong_signature: true   signs with another secret
 //   stale: true             signs with a time ten minutes in the past
 //   request_id: "<uuid>"    repeats an earlier request id instead of a new one
+//   timestamp: <seconds>    signs with this time instead of now; with
+//                           request_id it sends an earlier request unchanged
 // and one for an installation that has no provisioning:
 //   helpdesk_url: "<url>"   sends to this helpdesk instead of the stack's own
 //
@@ -189,6 +198,14 @@ export const shopperBody = ({ shopper = {}, order_ids: orderIds } = {}) => ({
 // have, such as inboxes, which the helpdesk must ignore).
 export const agentBody = ({ service_url: serviceUrl, token }, extra = {}) => ({ contract: 1, service_url: serviceUrl, token, ...extra });
 
+// The body of "let this staff member in" (docs/app-admin-entry.md §1): the
+// email Shopify gave for the signed-in staff member, stated as verified, with
+// `staff` laid over it; a field given as null is left out.
+export const entryBody = (staff = {}) => ({
+  contract: 1,
+  staff: Object.fromEntries(Object.entries({ email: 'staff@example.test', email_verified: true, ...staff }).filter(([, value]) => value !== null)),
+});
+
 export function createStandInApp({ helpdeskUrl, secret, agentUrl, fetchImpl = fetch, quiet = false, now = () => Date.now(), silentMs = SILENT_MS } = {}) {
   // `chats` is what the app would keep where its theme extension reads it:
   // per store, the two widget values of the helpdesk's last answer. `keys` is
@@ -201,7 +218,7 @@ export function createStandInApp({ helpdeskUrl, secret, agentUrl, fetchImpl = fe
     if (!secret) return { status: 503, body: { error: 'stand_in_has_no_secret' } };
     const base = String(switches.helpdesk_url || helpdeskUrl || '').replace(/\/$/, '');
     const requestId = switches.request_id || randomUUID();
-    const timestamp = Math.floor(now() / 1000) - (switches.stale ? STALE_SECONDS : 0);
+    const timestamp = switches.timestamp ?? Math.floor(now() / 1000) - (switches.stale ? STALE_SECONDS : 0);
     const signature = sign(switches.wrong_signature ? OTHER_SECRET : secret, { timestamp, requestId, method, path, body: raw });
     const response = await fetchImpl(`${base}${path}`, {
       method,
@@ -254,6 +271,7 @@ export function createStandInApp({ helpdeskUrl, secret, agentUrl, fetchImpl = fe
     },
     'agent-status': ({ domain, ...switches }) => call('GET', storePath(domain, '/agent'), '', switches),
     'agent-disconnect': ({ domain, ...switches }) => call('DELETE', storePath(domain, '/agent'), '', switches),
+    entry: ({ domain, staff, body, ...switches }) => call('POST', storePath(domain, '/entry'), JSON.stringify(body === undefined ? entryBody(staff) : body), switches),
     erasure: ({ domain, body, ...switches }) => call('POST', storePath(domain, '/erasure'), JSON.stringify(body === undefined ? { contract: 1 } : body), switches),
     'shopper-erasure': ({ domain, shopper, order_ids: orderIds, body, ...switches }) =>
       call('POST', storePath(domain, '/shoppers/erasure'), JSON.stringify(body === undefined ? shopperBody({ shopper, order_ids: orderIds }) : body), switches),

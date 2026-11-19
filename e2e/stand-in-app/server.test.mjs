@@ -15,6 +15,7 @@ import { createStandInApp, sign, storefrontPage, STALE_SECONDS, KEY_REFUSALS } f
 
 const secret = 'secret-of-the-stand-in-app-test-0123456789abcdef';
 const link = 'https://helpdesk.example.test/app/auth/password/edit?reset_password_token=one-time-token';
+const entryUrl = 'https://helpdesk.example.test/inclamo/entry/one-time-entry-token';
 const store = 'example-store.myshopify.com';
 const WINDOW = 300;
 
@@ -82,6 +83,7 @@ function fakeHelpdesk() {
         if (entry.method === 'PUT') return answer(201, { ...inbox, outcome: 'created' });
         return chat.gone ? answer(404, { error: 'no_storefront_chat' }) : answer(200, inbox);
       }
+      if (entry.path.endsWith('/entry')) return answer(200, { contract: 1, entry_url: entryUrl, expires_in: 60 });
       if (entry.method === 'PUT') return answer(201, { contract: 1, account_id: 7, outcome: 'created', password_setup_url: link });
       if (entry.method === 'GET') return answer(404, { error: 'no_account' });
       return answer(200, { contract: 1, state: 'suspended' });
@@ -401,6 +403,36 @@ test('the switches work on the agent calls too, and its log holds no pairing tok
   assert.deepEqual([refused.body.status, stale.body.status], [401, 401]);
   assert.deepEqual(log.map(entry => [entry.method, entry.status]), [['PUT', 401], ['DELETE', 401]]);
   assert.equal(JSON.stringify(log).includes('pairing-token'), false);
+});
+
+test('signs the entry call over its method, whole path and exact body, and hands the address to the test only', async () => {
+  await control('log', null, 'DELETE');
+  const given = await control('entry', { domain: store, staff: { email: 'alex@example.test' } });
+
+  assert.deepEqual([given.body.status, given.body.body], [200, { contract: 1, entry_url: entryUrl, expires_in: 60 }]);
+  assert.deepEqual([received[0].method, received[0].path], ['POST', `/inclamo/provisioning/stores/${store}/entry`]);
+  assert.deepEqual(JSON.parse(received[0].raw), { contract: 1, staff: { email: 'alex@example.test', email_verified: true } });
+  assert.equal(received[0].signature, expected(secret, received[0]));
+  const log = JSON.stringify((await control('log', null, 'GET')).body.log);
+  for (const hidden of [entryUrl, 'one-time-entry-token', 'alex@example.test', 'sha256=']) assert.equal(log.includes(hidden), false, `the log holds ${hidden}`);
+});
+
+test('the entry call leaves out a field given as null, sends a replaced body as it is, and can send an earlier request unchanged', async () => {
+  await control('entry', { domain: store, staff: { email: 'alex@example.test', email_verified: null } });
+  await control('entry', { domain: store, body: { contract: 1, staff: { email: 'alex@example.test', email_verified: 'true' } } });
+  assert.deepEqual(JSON.parse(received[0].raw), { contract: 1, staff: { email: 'alex@example.test' } });
+  assert.equal(received[1].raw, '{"contract":1,"staff":{"email":"alex@example.test","email_verified":"true"}}');
+
+  const timestamp = Math.floor(Date.now() / 1000) - 7;
+  const first = await control('entry', { domain: store, staff: { email: 'alex@example.test' }, timestamp });
+  await control('entry', { domain: store, staff: { email: 'alex@example.test' }, timestamp, request_id: first.body.request_id });
+  const [sent, again] = received.slice(2);
+  assert.deepEqual(again, sent);
+  assert.equal(Number(sent.timestamp), timestamp);
+
+  const wrong = await control('entry', { domain: store, wrong_signature: true });
+  const elsewhere = await control('entry', { domain: store, helpdesk_url: otherUrl });
+  assert.deepEqual([wrong.body.status, elsewhere.body.status, elsewhere.body.provisioning], [401, 404, null]);
 });
 
 // The helpdesk's side of docs/app-store-access.md §2: a signed request for a

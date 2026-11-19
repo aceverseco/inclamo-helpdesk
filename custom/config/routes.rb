@@ -15,6 +15,9 @@ get '/inclamo/health', to: 'inclamo/health#show', defaults: { format: 'json' }
 # secret: any other installation answers them as it answers every unknown
 # address.
 if Inclamo::Provisioning.enabled?
+  # The one-time address a staff member's entry gives (docs/app-admin-entry.md);
+  # InclamoEntryPath has taken the token out of the path.
+  get '/inclamo/entry', to: 'inclamo/entry#show', format: false
   scope '/inclamo/provisioning/stores/:shop_domain', controller: 'inclamo/provisioning/stores',
                                                      constraints: { shop_domain: %r{[^/]+} } do
     put '', action: :update, format: false
@@ -26,6 +29,8 @@ if Inclamo::Provisioning.enabled?
     put 'agent', controller: 'inclamo/provisioning/agents', action: :update, format: false
     get 'agent', controller: 'inclamo/provisioning/agents', action: :show, format: false
     delete 'agent', controller: 'inclamo/provisioning/agents', action: :destroy, format: false
+    # A staff member comes in from the store app (docs/app-admin-entry.md).
+    post 'entry', controller: 'inclamo/provisioning/entries', action: :create, format: false
     # Shopify asked to erase the store (docs/app-store-erasure.md).
     post 'erasure', controller: 'inclamo/provisioning/erasures', action: :create, format: false
   end

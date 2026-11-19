@@ -14,6 +14,7 @@ the alternative coverage in the checker. No private workspace is required.
 - [ai-agent-connection](ai-agent-connection/spec.md)
 - [ai-order-authority](ai-order-authority/spec.md)
 - [ai-reply-ownership](ai-reply-ownership/spec.md)
+- [app-admin-entry](app-admin-entry/spec.md)
 - [app-agent-auto-connection](app-agent-auto-connection/spec.md)
 - [app-provisioned-account](app-provisioned-account/spec.md)
 - [app-store-access](app-store-access/spec.md)

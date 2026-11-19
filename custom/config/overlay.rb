@@ -42,6 +42,12 @@ provisioning_header = overlay_lib.join('inclamo_provisioning_header.rb')
 loader.ignore(provisioning_header.to_s)
 require provisioning_header
 Rails.application.config.middleware.insert_before(0, InclamoProvisioningHeader)
+# The one-time entry address's token is taken out of the path before the
+# request log sees it (InclamoEntryPath).
+entry_path = overlay_lib.join('inclamo_entry_path.rb')
+loader.ignore(entry_path.to_s)
+require entry_path
+Rails.application.config.middleware.insert_before(0, InclamoEntryPath)
 
 # Views: the overlay's templates are found before Chatwoot's, so a template of
 # the same path stands in for theirs (each one is recorded in CHATWOOT_FILES).
@@ -101,10 +107,15 @@ Rails.application.config.filter_parameters |= [/\Aturns\z/, /\Arecord\z/, /\Acal
 # The store app's provisioning calls (Inclamo::Provisioning): the one-time
 # password link and the named person never reach the request log.
 Rails.application.config.filter_parameters |= [:password_setup_url, 'admin.email', 'admin.name']
+# A staff member's entry: the email the app names.
+Rails.application.config.filter_parameters |= ['staff.email']
 
 # The limits of those calls are Rack::Attack rules, added once Chatwoot's own
 # are in place (Inclamo::Provisioning::Limits).
 Rails.application.config.after_initialize { Inclamo::Provisioning::Limits.install }
+# A staff member's entry has limits of its own, after those
+# (Inclamo::Provisioning::EntryLimits).
+Rails.application.config.after_initialize { Inclamo::Provisioning::EntryLimits.install }
 
 # Deliveries to the AI service are recorded (Inclamo::Ai::DeliveryRecorder).
 # Chatwoot's webhook sender has no extension hook, so it is prepended here,

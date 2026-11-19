@@ -51,6 +51,7 @@ const FILES = {
   'instance-installation': ['instance-installation.spec.mjs'],
   'interface-language': ['interface-language.spec.mjs'],
   'app-provisioned-account': ['app-provisioned-account.spec.mjs'],
+  'app-admin-entry': ['app-admin-entry.spec.mjs'],
   'app-storefront-chat': ['app-storefront-chat.spec.mjs'],
   'app-agent-auto-connection': ['app-agent-auto-connection.spec.mjs'],
   'app-store-access': ['app-store-access.spec.mjs'],
@@ -87,6 +88,12 @@ const ELSEWHERE = {
     'the limits are Rack::Attack rules and the test installation runs with ENABLE_RACK_ATTACK=false, as every other file needs; covered by custom/spec/requests/inclamo/provisioning/limits_spec.rb',
   'app-provisioned-account › Every provisioning attempt is recorded without personal data › A refused request is recorded':
     'the record is a table no address or page shows; covered by custom/spec/requests/inclamo/provisioning/events_spec.rb',
+  'app-admin-entry › Attempts are limited › One person asks too often':
+    'the limits are Rack::Attack rules and the test installation runs with ENABLE_RACK_ATTACK=false, as every other file needs; covered by custom/spec/requests/inclamo/provisioning/entry_limits_spec.rb',
+  'app-admin-entry › Attempts are recorded without the email, and the address is recorded nowhere › A refusal is recorded':
+    'the record is a table no address or page shows; covered by custom/spec/requests/inclamo/provisioning/entry_events_spec.rb',
+  'app-admin-entry › Attempts are recorded without the email, and the address is recorded nowhere › A given address is not kept':
+    'the record and the request log are seen by no address or page; covered by custom/spec/requests/inclamo/provisioning/entry_events_spec.rb ("holds no email, name, address or token in any record, and neither does the request log") and custom/spec/requests/inclamo/entry_opening_spec.rb ("never hold the token, the address or the email")',
   "app-store-access › The key is a secret › An installation without the app's address":
     "needs an installation with the shared secret and no address of the store app, and the test installation has both for the other scenarios; covered by custom/spec/requests/inclamo/provisioning/store_access_spec.rb (no request for a key without the app's address, or without an HTTPS one)",
   'app-store-access › Requests for a key are recorded without the key › A refusal is recorded':

@@ -66,7 +66,8 @@ module Inclamo
 
       def refuse(request)
         verdict = Gate.check(request.env)
-        ProvisioningEvent.record(outcome: 'limited', shop_domain: verdict.shop_domain, request_id: verdict.request_id)
+        outcome = verdict.count == :entry ? 'entry_limited' : 'limited'
+        ProvisioningEvent.record(outcome: outcome, shop_domain: verdict.shop_domain, request_id: verdict.request_id)
         match = request.env['rack.attack.match_data']
         retry_after = match[:period] - (match[:epoch_time] % match[:period])
         [429, { 'content-type' => 'application/json; charset=utf-8', 'retry-after' => retry_after.to_s },
