@@ -16,6 +16,8 @@
 # The AI agent's tests talk to a stand-in for the AI service that runs in the
 # stack; E2E_AI_CODE and E2E_AI_REFUSED_CODE make them use codes the AI service
 # issued instead (docs/ai-connector.md §8).
+# The store app's tests talk to a stand-in app that signs with a secret made for
+# this stack, and to a second helpdesk process that was given no such secret.
 # E2E_KEEP=1 leaves the stack running afterwards; E2E_OUTPUT is where reports go.
 set -eu
 
@@ -54,12 +56,13 @@ STAND_SECOND_ADMIN_EMAIL=e2e-second-admin@example.test
 STAND_SECOND_ADMIN_PASSWORD=A$(random 14)!z
 STAND_SUPER_ADMIN_EMAIL=e2e-super-admin@example.test
 STAND_SUPER_ADMIN_PASSWORD=A$(random 14)!z
+INCLAMO_APP_PROVISIONING_SECRET=$(random 32)
 ENV
 fi
 
 export HELPDESK_IMAGE HELPDESK_ENV_FILE="$stack_env"
 compose() {
-  docker compose -p "$project" --env-file "$stack_env" -f "$root/dev/docker-compose.yaml" -f "$root/dev/docker-compose.e2e.yaml" "$@"
+  docker compose -p "$project" --profile unprovisioned --env-file "$stack_env" -f "$root/dev/docker-compose.yaml" -f "$root/dev/docker-compose.e2e.yaml" "$@"
 }
 finish() {
   status=$?
@@ -70,12 +73,12 @@ finish() {
 trap finish EXIT INT TERM
 
 echo "e2e: starting $HELPDESK_IMAGE as project $project"
-compose up -d postgres redis shopify-proxy stand-in-agent >/dev/null
+compose up -d postgres redis shopify-proxy stand-in-agent stand-in-app >/dev/null
 compose run --rm -T rails bundle exec rails db:chatwoot_prepare >/dev/null
 # The users' passwords reach the container from the stack's env file.
 account=$(compose run --rm -T rails bundle exec rails runner - < "$root/e2e/setup.rb" | sed -n 's/^E2E_ACCOUNT_ID=//p' | tail -1)
 [ -n "$account" ] || { echo "e2e: the helpdesk could not be prepared" >&2; exit 1; }
-compose up -d rails sidekiq >/dev/null
+compose up -d rails sidekiq rails-unprovisioned >/dev/null
 
 echo "e2e: waiting for the helpdesk"
 ready=0
@@ -84,6 +87,12 @@ for attempt in $(seq 1 60); do
   sleep 3
 done
 [ "$ready" = 1 ] || { echo "e2e: the helpdesk did not come up" >&2; compose logs --tail 40 rails >&2; exit 1; }
+ready=0
+for attempt in $(seq 1 60); do
+  if compose exec -T rails-unprovisioned ruby -rnet/http -e 'exit(Net::HTTP.get_response(URI("http://127.0.0.1:3000/api")).code == "200" ? 0 : 1)' >/dev/null 2>&1; then ready=1; break; fi
+  sleep 3
+done
+[ "$ready" = 1 ] || { echo "e2e: the helpdesk without provisioning did not come up" >&2; compose logs --tail 40 rails-unprovisioned >&2; exit 1; }
 
 mkdir -p "$output"
 playwright=$(sed -n 's/.*"@playwright\/test": "\([0-9.]*\)".*/\1/p' "$root/e2e/package.json")
@@ -93,7 +102,7 @@ docker run --rm --ipc=host --network "${project}_default" \
   -e SHOPIFY_BENCH_DOMAIN -e SHOPIFY_BENCH_CLIENT_ID -e SHOPIFY_BENCH_CLIENT_SECRET \
   -e SHOPIFY_SEEDER_DOMAIN -e SHOPIFY_SEEDER_CLIENT_ID -e SHOPIFY_SEEDER_CLIENT_SECRET \
   -e SHOPIFY_LIMITED_DOMAIN -e SHOPIFY_LIMITED_CLIENT_ID -e SHOPIFY_LIMITED_CLIENT_SECRET \
-  -e HELPDESK_URL=http://rails:3000 -e E2E_PROXY_URL=http://shopify-proxy:8080 -e E2E_AGENT_URL=http://stand-in-agent:8090 -e E2E_ACCOUNT_ID="$account" \
+  -e HELPDESK_URL=http://rails:3000 -e E2E_PROXY_URL=http://shopify-proxy:8080 -e E2E_AGENT_URL=http://stand-in-agent:8090 -e E2E_APP_URL=http://stand-in-app:8091 -e E2E_UNPROVISIONED_URL=http://rails-unprovisioned:3000 -e E2E_ACCOUNT_ID="$account" \
   -e E2E_AI_CODE -e E2E_AI_REFUSED_CODE \
   -e E2E_OUTPUT=/out -e E2E_RUN="${E2E_RUN:-r$(date +%m%d%H%M%S)}" -e E2E_OTHER_SHOP_DOMAIN -e CI="${CI:-}" \
   -v "$root":/repo:ro -v "$output":/out -w /work \

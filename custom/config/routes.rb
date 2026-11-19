@@ -10,6 +10,18 @@
 # the names of the failing checks (Inclamo::Health).
 get '/inclamo/health', to: 'inclamo/health#show', defaults: { format: 'json' }
 
+# The store app's calls (docs/app-provisioning.md). Drawn only where the
+# operator set the shared secret: any other installation answers them as it
+# answers every unknown address.
+if Inclamo::Provisioning.enabled?
+  scope '/inclamo/provisioning/stores/:shop_domain', controller: 'inclamo/provisioning/stores',
+                                                     constraints: { shop_domain: %r{[^/]+} } do
+    put '', action: :update, format: false
+    get '', action: :show, format: false
+    post 'removal', action: :removal, format: false
+  end
+end
+
 # Signed delivery of validated website-widget images.
 get '/inclamo/widget-images/:id', to: 'inclamo/widget_images#show'
 

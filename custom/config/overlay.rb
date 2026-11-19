@@ -38,6 +38,10 @@ body_limit = overlay_lib.join('inclamo_support_body_limit.rb')
 loader.ignore(body_limit.to_s)
 require body_limit
 Rails.application.config.middleware.insert_before(0, InclamoSupportBodyLimit)
+provisioning_header = overlay_lib.join('inclamo_provisioning_header.rb')
+loader.ignore(provisioning_header.to_s)
+require provisioning_header
+Rails.application.config.middleware.insert_before(0, InclamoProvisioningHeader)
 
 # Views: the overlay's templates are found before Chatwoot's, so a template of
 # the same path stands in for theirs (each one is recorded in CHATWOOT_FILES).
@@ -94,6 +98,14 @@ Rails.application.config.filter_parameters |= [:private_key, :signature, :verifi
 # its turns, record and caller. Whole names only, so no other parameter is hidden.
 Rails.application.config.filter_parameters |= [/\Aturns\z/, /\Arecord\z/, /\Acaller\z/, /\Arecording_url\z/, /\Aline\z/]
 
+# The store app's provisioning calls (Inclamo::Provisioning): the one-time
+# password link and the named person never reach the request log.
+Rails.application.config.filter_parameters |= [:password_setup_url, 'admin.email', 'admin.name']
+
+# The limits of those calls are Rack::Attack rules, added once Chatwoot's own
+# are in place (Inclamo::Provisioning::Limits).
+Rails.application.config.after_initialize { Inclamo::Provisioning::Limits.install }
+
 # Deliveries to the AI service are recorded (Inclamo::Ai::DeliveryRecorder).
 # Chatwoot's webhook sender has no extension hook, so it is prepended here,
 # again after every code reload.
@@ -127,6 +139,9 @@ if defined?(Sidekiq::Cron::Job)
     # Owned support: outbox recovery, public event reconciliation, notification retry.
     Sidekiq::Cron::Job.create(name: 'inclamo_support_dispatch', cron: '* * * * *',
                               class: 'Inclamo::Support::DispatchJob', queue: 'scheduled_jobs')
+    # Records of provisioning attempts older than 90 days are removed once a day.
+    Sidekiq::Cron::Job.create(name: 'inclamo_provisioning_events_cleanup_job', cron: '40 3 * * *',
+                              class: 'Inclamo::ProvisioningEventsCleanupJob', queue: 'scheduled_jobs')
   end
 end
 

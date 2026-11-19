@@ -1,9 +1,11 @@
 # The helpdesk for end-to-end tests: every request to Shopify goes through a
 # proxy that the tests control (e2e/proxy/server.mjs), and a stand-in for the
-# AI service answers for the AI agent (e2e/stand-in-agent/server.mjs). Never
-# for an instance that serves real customers: the proxy sees the store's access
-# token, and Chatwoot is let reach private addresses so that it can call the
-# stand-in.
+# AI service answers for the AI agent (e2e/stand-in-agent/server.mjs). A
+# stand-in for the store app signs the provisioning calls with the stack's own
+# secret (e2e/stand-in-app/server.mjs). Never for an instance that serves real
+# customers: the proxy sees the store's access token, the stand-in app creates
+# accounts for whoever reaches it, and Chatwoot is let reach private addresses
+# so that it can call the stand-in.
 #
 #   docker compose -f dev/docker-compose.yaml -f dev/docker-compose.e2e.yaml up -d
 x-e2e: &e2e
@@ -40,4 +42,39 @@ services:
       - PUBLIC_URL=http://stand-in-agent:8090
     volumes:
       - ../e2e/stand-in-agent:/agent:ro
+    restart: unless-stopped
+  # Signs with INCLAMO_APP_PROVISIONING_SECRET of the stack's env file, the one
+  # the helpdesk reads; without it every call of the stand-in answers 503.
+  stand-in-app:
+    image: node:24-alpine
+    command: node /app/server.mjs
+    environment:
+      - PORT=8091
+      - HELPDESK_URL=http://rails:3000
+      - INCLAMO_APP_PROVISIONING_SECRET=${INCLAMO_APP_PROVISIONING_SECRET:-}
+    volumes:
+      - ../e2e/stand-in-app:/app:ro
+    restart: unless-stopped
+  # The same helpdesk as an installation whose operator set no provisioning
+  # secret (every self-hosted one), on the same database. Started only when it
+  # is asked for by name or by its profile; e2e/run.sh does.
+  rails-unprovisioned:
+    profiles: ['unprovisioned']
+    image: ${HELPDESK_IMAGE:-chatwoot/chatwoot:v4.19.1-ce}
+    env_file: ${HELPDESK_ENV_FILE:-.env}
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+      - INSTALLATION_ENV=docker
+      - INCLAMO_E2E=1
+      - ENABLE_RACK_ATTACK=false
+      - INCLAMO_APP_PROVISIONING_SECRET=
+      - INCLAMO_APP_PROVISIONING_SECRET_PREVIOUS=
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - storage:/app/storage
     restart: unless-stopped
