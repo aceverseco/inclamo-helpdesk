@@ -97,6 +97,27 @@ RSpec.describe Inclamo::AiAgentListener do
       .with(Events::Types::CONVERSATION_BOT_HANDOFF, anything, hash_including(conversation: conversation)).once
   end
 
+  # agent-inbox-selection, design D7: whether the inbox is the agent's is
+  # read from its bot link, once for the event.
+  it 'asks for the bot links of the inboxes once on the path of an event' do
+    message = create(:message, conversation: conversation, account: account, inbox: website, message_type: :outgoing, sender: bot, content: 'Text')
+    event = Events::Base.new('message.created', Time.zone.now, message: message)
+    links = 0
+    counter = ->(*, payload) { links += 1 if payload[:sql].include?('agent_bot_inboxes') }
+
+    ActiveSupport::Notifications.subscribed(counter, 'sql.active_record') { listener.message_created(event) }
+
+    expect(links).to eq(1)
+  end
+
+  it 'stops handing over in an inbox removed from the agent, at once' do
+    record.update!(inbox_ids: [])
+
+    message_by(agent)
+
+    expect(conversation.reload.status).to eq('pending')
+  end
+
   it 'is one of the listeners of Chatwoot dispatcher' do
     expect(AsyncDispatcher.new.listeners).to include(described_class.instance)
   end
