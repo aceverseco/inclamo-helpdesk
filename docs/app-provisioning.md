@@ -29,8 +29,9 @@ What this contract does not cover, each with a contract of its own on the same
 signed channel: connecting the AI agent to the new account
 (`app-agent-connection.md`), the store's data inside the helpdesk
 (`app-store-access.md`), getting in from the Shopify admin
-(`app-admin-entry.md`) and the chat on the storefront
-(`app-storefront-chat.md`). Erasing an account is not written yet.
+(`app-admin-entry.md`), the chat on the storefront
+(`app-storefront-chat.md`) and Shopify's requests to erase a store or one
+shopper (`app-store-erasure.md`).
 
 ## 1. Where it exists
 
@@ -50,6 +51,18 @@ All addresses are under the helpdesk's public address, over HTTPS:
 
 `{shop_domain}` is the store's permanent Shopify domain, lower-case, matching
 `^[a-z0-9][a-z0-9-]*\.myshopify\.com$`. A custom domain is not accepted.
+
+Every answer the helpdesk gives at an address under `/inclamo/provisioning/`,
+whatever its status (`401`, `404 no_account`, `409`, `422`, `429` and a `5xx`
+of the helpdesk's own included), carries the header
+
+```
+X-Inclamo-Provisioning: 1
+```
+
+A `404` without this header means "this installation has no provisioning",
+whatever its body says. An answer made by a proxy in front of the helpdesk
+does not carry it.
 
 ## 2. Who is asking
 
@@ -74,54 +87,85 @@ X-Inclamo-Signature: sha256=<hex>
 `<hex>` is HMAC-SHA256 with the secret over this text, joined by single dots:
 
 ```
-<timestamp>.<METHOD>.<path>.<raw body>
+<timestamp>.<request id>.<METHOD>.<path>.<raw body>
 ```
 
 - `timestamp`: Unix seconds, the same value as the header.
+- `request id`: the value of `X-Inclamo-Request-Id`, exactly as sent.
 - `METHOD`: upper-case (`PUT`, `GET`, `POST`).
 - `path`: the request path exactly as sent, without host and without a query
   string (these calls take none).
 - `raw body`: the bytes sent, unchanged. For a request without a body it is
   empty, so the text ends with a dot.
 
-The method and the path are signed so that a captured status request cannot be
-replayed as a removal.
+The request id is signed so that a captured request cannot be sent again under
+a new request id. The method and the path are signed so that a captured status
+request cannot be replayed as a removal.
 
-Worked example, with the secret `test-secret-not-for-production-0123456789abcdef`:
+Worked examples, with the secret `test-secret-not-for-production-0123456789abcdef`.
+This request:
 
 ```
 PUT /inclamo/provisioning/stores/example-store.myshopify.com
 X-Inclamo-Timestamp: 1794000000
+X-Inclamo-Request-Id: 6f1c2d0e-8a55-4c0a-9d5e-2b7f3c1a9e44
 
 {"contract":1,"shop":{"domain":"example-store.myshopify.com","name":"Example Store","locale":"en","timezone":"America/New_York"},"admin":{"email":"alex@example.com","name":"Alex Example","email_verified":true}}
 ```
 
-signs to
+has the signed text
 
 ```
-X-Inclamo-Signature: sha256=022264e7add0f4964389e0bbf7e1703ee0bdd90525e48f21efd9c2e071a551a0
+1794000000.6f1c2d0e-8a55-4c0a-9d5e-2b7f3c1a9e44.PUT./inclamo/provisioning/stores/example-store.myshopify.com.{"contract":1,"shop":{"domain":"example-store.myshopify.com","name":"Example Store","locale":"en","timezone":"America/New_York"},"admin":{"email":"alex@example.com","name":"Alex Example","email_verified":true}}
 ```
 
-and `GET` on the same path with the same timestamp and no body signs to
-`sha256=87226ebd191b47f07a987e51faa1f2def88e835ea484a1f5092d5a19c94ff2a6`.
+and signs to
+
+```
+X-Inclamo-Signature: sha256=305fc0be96cd96282165e88118f12f54bd26c9ae69d5b43c6c292a01efb139a0
+```
+
+`GET` on the same path with the same timestamp, the request id
+`2b8e4f7a-1c3d-4e5f-9a6b-7c8d9e0f1a2b` and no body has the signed text
+`1794000000.2b8e4f7a-1c3d-4e5f-9a6b-7c8d9e0f1a2b.GET./inclamo/provisioning/stores/example-store.myshopify.com.`
+and signs to
+`sha256=ddaaebebc719bc983b8c2ca8de20603fb5f43e10504d4cad5aa668aa3411b901`.
+The removal is worked out in §5.
 
 ### 2.3 What is refused
 
 - A signature that does not match the current or the previous secret.
 - A timestamp more than 300 seconds from the helpdesk's clock, either way.
-- A request id already seen with a different body.
 
 Each of these is answered `401 {"error":"unauthorized"}` with no detail about
-which check failed, and nothing is created or changed.
+which check failed, and nothing is created or changed. The request id is
+checked only after both have passed (§2.4).
 
 ### 2.4 Retries and the request id
 
 `X-Inclamo-Request-Id` is a UUID the app makes once per logical request and
-repeats on every retry of it. For ten minutes the helpdesk answers the same id
-with the same body from the answer it stored, without acting again. After ten
-minutes a retry is a new request, which is safe: every call here can be
-repeated any number of times and ends in the same state (§3.2, §5). A retry
-must be signed again with a fresh timestamp; the request id stays.
+repeats on every retry of it, with the same method, path and body bytes. A
+retry is signed again with a fresh timestamp; the request id stays.
+
+For ten minutes the helpdesk answers the same id with the same method, path
+and body from the answer it stored, without acting again. It keeps that
+answer, which may hold a `password_setup_url` (§3.3), only in its cache and
+only for those ten minutes, and never writes it to a log or to its record of
+requests. After ten minutes a retry is a new request, which is safe: every
+call here can be repeated any number of times and ends in the same state
+(§3.2, §5).
+
+Two answers concern the request id. Both come only after the request has
+passed §2.3, and nothing is created or changed by either:
+
+- `409 {"error":"request_id_reused"}`: the id was seen in the last ten minutes
+  with another method, path or body. A retry resends the bytes it sent the
+  first time, never a body built again.
+- `409 {"error":"in_progress"}` with a `Retry-After` header in seconds: the
+  first request with this id is still being answered. The helpdesk waits up
+  to 5 seconds for its answer before giving this one. The app retries after
+  `Retry-After` with the same id and the same bytes, and then gets the stored
+  answer.
 
 ## 3. The store has an account
 
@@ -152,11 +196,12 @@ Content-Type: application/json
 | `contract` | yes | `1` |
 | `shop.domain` | yes | Must equal `{shop_domain}` of the address |
 | `shop.name` | yes | Becomes the account's name when the account is created; ignored afterwards, the team may rename the account |
-| `shop.locale` | no | Two-letter language of the new account; ignored afterwards |
+| `shop.locale` | no | The language of the new account, when sent: a Chatwoot locale code (`pt_BR`) or a BCP 47 tag (`pt-BR`), mapped to Chatwoot's code. An unknown value is ignored. Ignored afterwards. An app may leave it out |
 | `shop.timezone` | no | IANA time zone of the new account; ignored afterwards |
 | `admin.email` | yes | The email of the Shopify staff member who asked |
-| `admin.name` | yes | Their name as Shopify gives it |
+| `admin.name` | no | Their name as Shopify gives it. When it is absent or empty, the helpdesk uses the email as the name |
 | `admin.email_verified` | yes | Must be `true` |
+| `store_access_url` | no | The app's address for this store's key requests (`app-store-access.md` §1), absolute and HTTPS. The helpdesk keeps it with the store's account. A later `PUT` that carries it replaces it; a `PUT` without it leaves the kept address as it is. A store with no kept address uses the address the operator configured for the installation |
 
 **What the app must guarantee.** The helpdesk cannot check who pressed the
 button; it trusts the app's statement. The app takes `admin.email` from
@@ -164,6 +209,10 @@ Shopify's own statement about the signed-in staff member of that store, never
 from a form or a parameter, and sends `email_verified: true` only when Shopify
 says that email is verified. A staff member without a verified email cannot be
 given an account this way; the app tells them so.
+
+The helpdesk does not tell staff members, store owners and collaborators
+apart: it trusts the verified email the app sends. Whether a collaborator of
+the store may press the button is the app's rule.
 
 ### 3.2 The answers
 
@@ -176,6 +225,7 @@ given an account this way; the app tells them so.
   "helpdesk_url": "https://helpdesk.example.com",
   "state": "active",
   "outcome": "created",
+  "admin_is_member": true,
   "created_at": "2026-11-17T10:00:00Z",
   "password_setup_url": "https://helpdesk.example.com/…"
 }
@@ -186,6 +236,11 @@ given an account this way; the app tells them so.
 | `created` | `201` | A new account named after the store; the named person is its administrator |
 | `existed` | `200` | The store already had an active account. Nothing was created, the name was not changed, and **the named person was not added to it** |
 | `restored` | `200` | The store's suspended account is active again with everything it held; the named person is one of its administrators, next to the earlier ones |
+
+`admin_is_member` says whether the named person is a user of the account
+after this request. It is always `true` on `created` and `restored`. On
+`existed` it is `true` for a person who was already a user of the account and
+`false` for anybody else.
 
 One store has one account. Two requests for the same new store arriving
 together both answer with the same `account_id`.
@@ -206,10 +261,21 @@ the account's administrator invites them in the helpdesk.
   their other accounts and their roles there are untouched. The answer does not
   reveal which of the two cases it was, except through `password_setup_url`.
 
-`password_setup_url` is present **only when this request created the user**.
-It opens the helpdesk's page for setting a password for that user and nobody
-else. It works once and for a limited time: 6 hours on an installation with
-Chatwoot v4.19.1 defaults (`config/initializers/devise.rb:203`,
+`password_setup_url` is present in two cases:
+
+- **This request created the user**: on `created`, or on `restored` for a
+  person the installation did not know.
+- **The named person is a user of this account who has never signed in**, on
+  `existed` and on `restored`. This is how a person whose first answer was
+  lost, or whose link passed unused, gets a link: the app sends the `PUT`
+  again. Each such answer carries a new link, and the earlier one stops
+  working.
+
+It is never present for a person who has signed in to the helpdesk.
+
+The link opens the helpdesk's page for setting a password for that user and
+nobody else. It works once and for a limited time: 6 hours on an installation
+with Chatwoot v4.19.1 defaults (`config/initializers/devise.rb:203`,
 `reset_password_within`); an operator may have set another value, so the app
 does not state a duration it has not been told.
 
@@ -218,12 +284,14 @@ Rules for the app:
 - Show the link to the person who pressed the button, at once, as an optional
   step ("Set a password to sign in outside Shopify").
 - Do not store it, log it or send it anywhere else. It is a credential.
-- There is no call that issues another link. A person whose link has passed
-  gets in from the Shopify admin and sets a password in their profile, or uses
-  "Forgot password" on an installation that sends mail.
+- A person who has signed in gets no link from this contract: they get in
+  from the Shopify admin (`app-admin-entry.md`) and set a password in their
+  profile, or use "Forgot password" on an installation that sends mail.
 
-The link is absent on `existed`, for a person the installation already knew,
-and in an answer repeated after the stored answer (§2.4) is gone.
+The helpdesk keeps the answer that carries the link only in its cache, for the
+ten minutes of §2.4, and never writes the link to a log or to its record of
+requests. A retry inside those ten minutes gets the stored answer with the
+same link; a retry after them is a new request and follows the rules above.
 
 ### 3.4 Errors
 
@@ -234,8 +302,8 @@ and in an answer repeated after the stored answer (§2.4) is gone.
 | `shop_domain_invalid` | The address's domain is not a `myshopify.com` domain, or `shop.domain` differs from it |
 | `shop_name_missing` | `shop.name` is absent or empty |
 | `admin_email_missing` | `admin.email` is absent or does not read as an email |
-| `admin_name_missing` | `admin.name` is absent or empty |
 | `admin_email_unverified` | `admin.email_verified` is absent or not `true` |
+| `store_access_url_invalid` | `store_access_url` is present and is not an absolute HTTPS address |
 | `contract_unsupported` | `contract` is not a version this installation speaks |
 
 `message` is English text for a developer's log, not for a merchant.
@@ -262,13 +330,32 @@ GET /inclamo/provisioning/stores/example-store.myshopify.com
 `404 {"error":"no_account"}`. The answer never holds users, conversations or
 any shopper's data.
 
+This call is for an explicit "check again" and a daily reconciliation, not for
+page views: the app keeps `account_id`, `helpdesk_url`, `state` and
+`created_at` from the `PUT` answer. The limit of §6 is set for that use.
+
 ## 5. The app was removed
 
 ```
 POST /inclamo/provisioning/stores/example-store.myshopify.com/removal
+X-Inclamo-Timestamp: 1794000000
+X-Inclamo-Request-Id: 8d3a6c1e-5b7f-4a29-8e40-3f2c1b9d7a65
+X-Inclamo-Signature: sha256=24efa7bcf373e4235ff262ddfb79b6bf64ee98589dd9c50452e03911a58eadcb
+Content-Length: 0
 ```
 
-No body. `200 {"contract": 1, "state": "suspended"}`, or
+No body and no `Content-Type`. The signed text ends with the path, a dot and
+the empty body:
+
+```
+1794000000.8d3a6c1e-5b7f-4a29-8e40-3f2c1b9d7a65.POST./inclamo/provisioning/stores/example-store.myshopify.com/removal.
+```
+
+With the secret of §2.2 it signs to the value above. A request that carries
+`{}` or any other body is not refused for it: the helpdesk ignores the body,
+but the signature must cover the bytes actually sent.
+
+`200 {"contract": 1, "state": "suspended"}`, or
 `{"contract": 1, "state": "none"}` for a store that has no account. Repeating
 it changes nothing and answers the same.
 
@@ -281,18 +368,34 @@ A suspended account:
   other channels are not taken in;
 - keeps everything: conversations, contacts, settings, users.
 
-The app sends this when Shopify tells it the store uninstalled the app. A new
-`PUT` for the same store (§3) restores the same account.
+The app sends this when Shopify tells it the store uninstalled the app, and
+only then. The end of a store's plan in the app, without an uninstall, is not
+a removal: the helpdesk changes nothing for it. A new `PUT` for the same store
+(§3) restores the same account.
 
-Suspension is not erasure. Erasing a store's account is a separate contract.
+Suspension is not erasure. Erasing a store's account on Shopify's request is
+`app-store-erasure.md`.
 
 ## 6. Limits
 
 The helpdesk limits accepted requests for the installation as a whole and per
-store. The defaults are 30 `PUT` an hour for the installation, 5 an hour for
-one store and 300 `GET` an hour; an operator may change them. A request over
-a limit is answered `429` with a `Retry-After` header in seconds and creates
-nothing. Requests that fail §2.3 do not count against these limits.
+store. The defaults, each of which an operator may change:
+
+| Requests | Default limit |
+|---|---|
+| `PUT` for one store: the account (§3), its storefront chat (`app-storefront-chat.md`) and its agent (`app-agent-connection.md`), counted together | 15 an hour |
+| The same `PUT`s for the whole installation | 120 an hour |
+| Status calls (`GET`) for the whole installation: the account (§4), the storefront chat, the agent and the shopper requests (`app-store-erasure.md` §6), counted together | 300 an hour |
+| The removal (§5) and the agent's `DELETE` | not limited |
+
+A request over a limit is answered `429` with a `Retry-After` header in seconds
+and creates nothing. Requests that fail §2.3 do not count, and neither does an
+answer repeated from the stored answer (§2.4). A request answered `422`
+counts. The removal and the agent's `DELETE` pass only the checks of §2.3 and
+§2.4.
+
+The entry call (`app-admin-entry.md` §4) and the erasure requests
+(`app-store-erasure.md` §7) have limits of their own.
 
 ## 7. Summary of answers
 
@@ -302,10 +405,15 @@ nothing. Requests that fail §2.3 do not count against these limits.
 | `201` | account | Created |
 | `401` | `{"error":"unauthorized"}` | §2.3 |
 | `404` | `{"error":"no_account"}` | `GET` for a store without an account |
-| `404` | none or Chatwoot's page | The installation has no provisioning (§1) |
+| `404` | anything, without `X-Inclamo-Provisioning` | The installation has no provisioning (§1) |
+| `409` | `{"error":"request_id_reused"}` | §2.4 |
+| `409` | `{"error":"in_progress"}` + `Retry-After` | §2.4 |
 | `422` | `{"error","message"}` | §3.4 |
 | `429` | `{"error":"rate_limited"}` + `Retry-After` | §6 |
-| `5xx` or no answer in 10 s | — | Retry with the same request id (§2.4) |
+| `5xx` or no answer in 10 s | — | Retry with the same request id and the same bytes (§2.4) |
+
+Every answer of the helpdesk at these addresses carries
+`X-Inclamo-Provisioning: 1` (§1).
 
 ## 8. Testing against this contract
 
@@ -317,16 +425,21 @@ the address and the secret.
 
 A checklist for the app's side:
 
-1. The signature of §2.2 reproduces both worked examples.
+1. The signature of §2.2 reproduces the three worked examples (§2.2 and §5).
 2. `admin.email` comes from Shopify's statement about the signed-in staff
    member, and a staff member without a verified email is told so instead of
    being sent.
-3. A retry repeats the request id and signs again with a fresh timestamp.
-4. `existed` is shown to a person who is not yet a user of the account as "ask
-   your administrator to invite you", not as success.
-5. `password_setup_url` is shown once and kept nowhere.
-6. The removal notice is sent on uninstall and is safe to send twice.
-7. `404` without a body is understood as "this helpdesk has no provisioning".
+3. A retry repeats the request id and the exact body bytes of the first
+   attempt and signs again with a fresh timestamp; `409 in_progress` is
+   retried after `Retry-After`.
+4. `existed` with `"admin_is_member": false` is shown as "ask your
+   administrator to invite you", not as success.
+5. `password_setup_url` is shown once and kept nowhere, whichever outcome
+   carries it.
+6. The removal notice is sent on uninstall, without a body, and is safe to
+   send twice.
+7. A `404` without the `X-Inclamo-Provisioning` header is understood as "this
+   helpdesk has no provisioning".
 
 ## 9. Versions
 
@@ -335,5 +448,5 @@ version; the app ignores fields it does not know. A change to a request, to
 the signature or to the meaning of an answer is a new version, and the
 helpdesk answers `contract_unsupported` to a version it does not speak.
 
-Revision note: written 2026-11-17 as the agreed target; the helpdesk's side is
-not implemented yet.
+Revision note: written 2026-11-17 and revised 2026-11-19 as the agreed target;
+the helpdesk's side is not live yet.

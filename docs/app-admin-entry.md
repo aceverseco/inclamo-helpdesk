@@ -41,19 +41,26 @@ Content-Type: application/json
 ```
 
 It exists only where provisioning exists (`app-provisioning.md` §1); elsewhere
-it answers `404`.
+it answers `404`, without the `X-Inclamo-Provisioning` header that every
+answer of this call carries.
 
-The request is signed as in `app-provisioning.md` §2.2, with `POST` and this
-path in the signed text. The email is the signed-in staff member's, under the
-guarantee of `app-provisioning.md` §3.1: taken from Shopify's own statement
-about that person, never from a form or a parameter, and sent with
-`email_verified: true` only when Shopify says so.
+The request is signed as in `app-provisioning.md` §2.2, with the request id,
+`POST` and this path in the signed text. The email is the signed-in staff
+member's, under the guarantee of `app-provisioning.md` §3.1: taken from
+Shopify's own statement about that person, never from a form or a parameter,
+and sent with `email_verified: true` only when Shopify says so.
+
+Any user of the store's account comes in this way by their email. The
+helpdesk does not tell staff members, store owners and collaborators apart;
+whether a collaborator of the store may use this button is the app's rule, as
+in `app-provisioning.md` §3.1.
 
 ### 1.1 The request id is single-use
 
 This call differs from the other provisioning calls in one rule: an
 `X-Inclamo-Request-Id` the helpdesk has seen in the last ten minutes is
-refused with `401`, even with the same body. The app makes a new id for every
+refused with `409 {"error":"request_id_reused"}` (after the signature passed,
+as in `app-provisioning.md` §2.3), even with the same body. The app makes a new id for every
 press of the button. An answered request is never retried; if the answer was
 lost, the app asks again with a new id and a fresh timestamp.
 
@@ -67,21 +74,26 @@ request.
 ```
 {
   "contract": 1,
-  "entry_url": "https://helpdesk.example.com/app/login?email=…&sso_auth_token=…&sso_account_id=42",
+  "entry_url": "https://helpdesk.example.com/inclamo/entry/…",
   "expires_in": 60
 }
 ```
 
-`entry_url` signs in the named user and nobody else, and opens the store's
-account, also for a person who belongs to several accounts. It works once and
-stops working `expires_in` seconds after it was made, used or not.
+`entry_url` is the helpdesk's own one-time address,
+`https://<helpdesk>/inclamo/entry/<token>`, where the token is an opaque
+value. It carries no email and nothing else about the person. The helpdesk
+serves it with `Referrer-Policy: no-referrer` and does not write the token to
+its access log. Opening it signs in the named user and nobody else, and
+opens the store's account, also for a person who belongs to several accounts.
+It works once and stops working `expires_in` seconds after it was made, used
+or not.
 
 Rules for the app:
 
 - Send the browser to `entry_url` at once, at top level (a new tab or the top
   window). The helpdesk does not render inside the Shopify admin's frame.
 - Treat it as a credential: do not store it, do not log it, do not put it in
-  analytics or error reports. It contains the person's email.
+  analytics or error reports. Whoever opens it first is signed in.
 - Do not fetch it from the server side; only the person's browser opens it.
 - Ask for a new one on every press. Never reuse an address.
 
@@ -103,7 +115,8 @@ page, where the password form is.
 | `422` | `staff_email_missing` | developer text | `staff.email` is absent or does not read as an email |
 | `422` | `staff_email_unverified` | developer text | `staff.email_verified` is absent or not `true` |
 | `422` | `contract_unsupported` | developer text | `contract` is not a version this installation speaks |
-| `401` | `unauthorized` | — | The signature, the timestamp or the request id (§1.1); no detail is given |
+| `401` | `unauthorized` | — | The signature or the timestamp; no detail is given |
+| `409` | `request_id_reused` | — | The request id was seen in the last ten minutes (§1.1) |
 | `429` | `rate_limited` | — | §4; `Retry-After` in seconds |
 
 Nothing is created by this call in any case: no user, no membership, no
@@ -139,6 +152,8 @@ or its secret part.
 - That an email known to Shopify is known to the helpdesk. A staff member's
   Shopify email and their helpdesk email may differ; then they are
   `not_a_user` and use their password, or are invited by the Shopify email.
+  Once that invitation is accepted, the user with the Shopify email comes in
+  through this call, whatever other users the same person has.
 - That `200` means the person ended up signed in. The address may be opened
   too late; the person then sees the login page.
 - That the answer can be cached per person. It cannot (§1.1, §2).
@@ -164,5 +179,5 @@ with a test secret. A checklist for the app's side:
 contract. A field added to an answer is not a new version. A change to the
 request, to the single-use rule or to the meaning of an answer is.
 
-Revision note: written 2026-11-17 as the proposed target; the helpdesk's side
-is not implemented yet.
+Revision note: written 2026-11-17 and revised 2026-11-19 as the proposed
+target; the helpdesk's side is not implemented yet.

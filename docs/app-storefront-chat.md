@@ -46,8 +46,9 @@ provisioning (`app-provisioning.md` §1):
 | `PUT /inclamo/provisioning/stores/{shop_domain}/storefront-chat` | The store has its storefront inbox: find it, or create it when there is none (§2) |
 | `GET /inclamo/provisioning/stores/{shop_domain}/storefront-chat` | What is there (§3) |
 
-Headers, signature, request id, retries and the `401` answer are those of
-`app-provisioning.md` §2. The signed `path` is the full path above.
+Headers, signature, request id, retries and the `401` and `409` answers are
+those of `app-provisioning.md` §2. The signed `path` is the full path above.
+Every answer carries `X-Inclamo-Provisioning: 1` (`app-provisioning.md` §1).
 
 ## 2. The store has its storefront inbox
 
@@ -112,11 +113,17 @@ conversations, its contacts or its members.
 The inbox is an ordinary website inbox of the account. The team may rename it,
 change its settings, add people to it and delete it (§6).
 
-The AI agent is meant to answer in this inbox from the start. These calls
-attach no bot themselves: connecting the agent (`app-agent-connection.md`)
-puts it on the storefront inbox by default, and the merchant's team turns it
-off or on in the helpdesk's **AI agent** page, not in the app. Until the agent
-is connected, conversations in the inbox go to the team.
+The inbox is created without a domain restriction: its allowed domains are
+empty, so the widget loads on the store's primary domain, on `{shop_domain}`
+(a theme preview, for example) and on any later domain of the store. The team
+may set allowed domains in the inbox's settings.
+
+The AI agent is meant to answer in this inbox from the start. Connecting the
+agent (`app-agent-connection.md`) puts it on the storefront inbox by default,
+and the merchant's team turns it off or on in the helpdesk's **AI agent**
+page, not in the app. Until the agent is connected, conversations in the inbox
+go to the team. A `PUT` that creates the inbox while the agent is connected
+gives the agent the new inbox too (§6).
 
 ### 2.4 Errors
 
@@ -126,7 +133,7 @@ is connected, conversations in the inbox go to the team.
 | `409` | `account_suspended` | The store's account is suspended. Restore it first |
 | `422` | `storefront_url_invalid` | `storefront_url` is present and is not absolute or not HTTPS |
 | `422` | `contract_unsupported` | `contract` is not a version this installation speaks |
-| `429` | `rate_limited` | With `Retry-After`. These requests count with the store's other provisioning requests |
+| `429` | `rate_limited` | With `Retry-After`. These requests count with the store's account `PUT` and agent `PUT`: 15 an hour for one store (`app-provisioning.md` §6) |
 
 Nothing is created on any of them.
 
@@ -146,6 +153,10 @@ loaded now would be served:
 `404 {"error":"no_storefront_chat"}` when the account has no storefront inbox
 (never made, or deleted by the team). `404 {"error":"no_account"}` when the
 store has no account.
+
+This call counts with the installation's other status calls, 300 an hour for
+the whole installation (`app-provisioning.md` §6). The app may ask it once a
+day for each store, spread over the day.
 
 ## 4. Showing the widget from a theme app extension
 
@@ -178,7 +189,11 @@ What the app's side builds, and what it must not do:
 - **No presentation options.** Do not set `window.chatwootSettings` position,
   type, launcher title, dark mode or locale in the embed: an explicit option on
   the page overrides what the merchant's team saved in the helpdesk's widget
-  editor, and they would no longer be able to change it there.
+  editor, and they would no longer be able to change it there. Acting on the
+  widget is not a presentation option: the embed may open it
+  (`$chatwoot.toggle('open')`) and set the conversation's custom attributes
+  (`$chatwoot.setConversationCustomAttributes`). The inbox keeps custom
+  attributes set from the widget, like any website inbox.
 - **Only for merchants who chose this helpdesk.** Make the block available
   through `available_if` on an app-data metafield, so a merchant who uses
   another helpdesk does not find it in the theme editor.
@@ -195,6 +210,9 @@ What the app's side builds, and what it must not do:
   not state a rule about scripts a block loads itself. Check this against
   Shopify's current review requirements before building the block; the calls
   in this contract do not depend on the answer.
+- **The script's address is stable.** `{widget_base_url}/packs/js/sdk.js`
+  keeps its address across helpdesk releases; the versioned files it loads
+  behind it may change.
 
 For the app's listing: conversations collected through the widget are stored
 in the merchant's own helpdesk account, where the merchant's team reads them.
@@ -236,14 +254,19 @@ Where the path breaks:
   `no_storefront_chat`; a token may stop working a few seconds before §3 says
   so. The helpdesk does not make a new inbox by itself. A new `PUT` creates a
   new inbox with a **new token** and none of the earlier conversations; the app
-  then replaces the stored values.
+  then replaces the stored values. When the store's agent is connected at that
+  moment, the helpdesk adds the new inbox to the agent's inboxes, as an
+  administrator's change on the **AI agent** page does (`ai-connector.md`
+  §1.4). When the AI service does not accept that change, the new inbox stays
+  with the team and the **AI agent** page says so. The `PUT` answers
+  `created` either way.
 - **The account is suspended** (the app was removed, `app-provisioning.md`
   §5). The widget is refused; nothing is deleted. After restoration the same
   token serves the widget again and a returning shopper finds their earlier
   conversation.
 
-The app asks §3 when the merchant opens the app's chat settings, and after a
-restoration, to keep its stored values true.
+The app asks §3 when the merchant opens the app's chat settings, after a
+restoration, and once a day, to keep its stored values true.
 
 ## 7. Summary of answers
 
@@ -254,8 +277,9 @@ restoration, to keep its stored values true.
 | `401` | `{"error":"unauthorized"}` | `app-provisioning.md` §2.3 |
 | `404` | `{"error":"no_account"}` | The store has no account |
 | `404` | `{"error":"no_storefront_chat"}` | `GET`: the account has no storefront inbox |
-| `404` | none or Chatwoot's page | The installation has no provisioning |
+| `404` | anything, without `X-Inclamo-Provisioning` | The installation has no provisioning |
 | `409` | `{"error":"account_suspended"}` | `PUT` for a suspended account |
+| `409` | `{"error":"request_id_reused"}` or `{"error":"in_progress"}` | `app-provisioning.md` §2.4 |
 | `422` | `{"error","message"}` | §2.4 |
 | `429` | `{"error":"rate_limited"}` + `Retry-After` | §2.4 |
 
@@ -280,5 +304,6 @@ side:
 `contract: 1` is this document, under the versioning rule of
 `app-provisioning.md` §9.
 
-Revision note: written 2026-11-17 as the proposed target; the helpdesk's side
-is not implemented yet and the shapes are not yet agreed with an app's side.
+Revision note: written 2026-11-17 and revised 2026-11-19 as the proposed
+target; the helpdesk's side is not live yet and the shapes are not yet agreed
+with an app's side.

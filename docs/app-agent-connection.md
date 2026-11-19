@@ -56,6 +56,19 @@ refusals and the same use of the request id as `app-provisioning.md` §2. The
 method and the path are part of the signed text, so the three calls above
 each have their own signature.
 
+A retry of `PUT …/agent` that arrives while the first request with the same
+request id is still registering is answered `409 {"error":"in_progress"}`
+with `Retry-After`, as `app-provisioning.md` §2.4 says for every call.
+
+The helpdesk answers `PUT …/agent` within 15 seconds: it waits at most
+10 seconds for the AI service (§3.2) and needs the rest for its own work. The
+app waits 15 seconds for this call, instead of the 10 of
+`app-provisioning.md` §7, and retries only after that.
+
+The limits are those of `app-provisioning.md` §6: `PUT …/agent` counts with
+the store's other `PUT`s, `GET …/agent` with the installation's status calls,
+and `DELETE …/agent` is not limited.
+
 ## 3. Connecting
 
 ### 3.1 The request
@@ -92,6 +105,11 @@ What `ai-connector.md` §1.2 describes, in the same order: the agent bot, the
 the labels and the bot attached to those inboxes; on a refusal or no answer within 10 s nothing is left in the
 account.
 
+The registration's `helpdesk_url` (`ai-connector.md` §1.2) has the same
+origin as the `helpdesk_url` of the provisioning answer
+(`app-provisioning.md` §3.2), so an AI service that minted its token for that
+origin and `account_id` can compare them.
+
 ### 3.3 The allowed address
 
 The registration call hands the bot's access token and secret to
@@ -101,6 +119,10 @@ listed for the installation. `service_url` must equal a listed address
 `service_url_not_allowed` before anything is created and before any request
 leaves the helpdesk. The app and the operator agree the address once, when
 the installation is set up.
+
+The list may hold several addresses, for example one for each of the app's
+records in Shopify that the installation serves. Adding an address never
+touches a connection made with another one.
 
 ### 3.4 Where the agent answers
 
@@ -123,7 +145,9 @@ storefront chat inbox, and connects the agent after that.
 No call of this contract changes the inboxes afterwards. Repeating the
 request does not attach a storefront chat inbox that appeared after the
 connection (§3.5, `existed`). Where the agent answers after the connection is
-the account's own matter (§4).
+the account's own matter (§4); the one thing the helpdesk does by itself is
+to give the agent a storefront chat inbox made again after the team deleted
+the earlier one (`app-storefront-chat.md` §6).
 
 ### 3.5 The answers
 
@@ -144,7 +168,7 @@ connection already existed:
 | `outcome` | Status | What happened |
 |---|---|---|
 | `connected` | `201` | The account was not connected; it is now |
-| `existed` | `200` | The account is already connected to the same `service_url`. Nothing was registered again, **the token was not used**, and the inboxes were not changed |
+| `existed` | `200` | The account is already connected to the same `service_url`, also when that connection was made earlier on the **AI agent** page with a code. Nothing was registered again, **the token was not used**, and the inboxes were not changed |
 
 `inbox_ids` is the list of inboxes the agent answers in at the moment of the
 answer. It is there for the app to show ("the agent answers in your site's
@@ -162,15 +186,21 @@ Nothing is connected or changed by a request that ends in one of these.
 | `404` | `no_account` | The store has no account |
 | `409` | `account_suspended` | The store's account is suspended; restore it first (`app-provisioning.md` §3) |
 | `409` | `agent_connected` | The account is connected with another `service_url`; disconnect first |
-| `409` | `busy` | The account's connection is being changed right now; `Retry-After` in seconds |
+| `409` | `busy` | The account's connection is being changed right now by another request; `Retry-After` in seconds |
 | `422` | `service_url_invalid` | Not an HTTPS address |
 | `422` | `service_url_not_allowed` | §3.3 |
-| `422` | `agent_refused` | The AI service answered the registration with a `4xx`. The body adds `message` and `service_error` as the AI service gave them |
+| `422` | `agent_refused` | The AI service answered the registration with a `4xx`. The body adds `service_error`, the AI service's `error` verbatim, and `message`, its message |
 | `422` | `contract_unsupported` | `contract` is not a version this installation speaks |
 | `502` | `agent_not_answered` | The AI service gave no usable answer within 10 s |
 | `503` | `not_ready` | The installation cannot keep the bot's secret (no encryption keys); the operator has to fix it |
 
-`401` and `429` are those of `app-provisioning.md` §2.3 and §6.
+`401`, the `409` answers about the request id and `429` are those of
+`app-provisioning.md` §2.3, §2.4 and §6.
+
+`service_error` is passed on unchanged, so the app can tell its AI service's
+refusals apart. The store app's AI service, for example, answers
+`invalid_token`, `wrong_helpdesk`, `wrong_account`, `already_connected` and
+`store_inactive`.
 
 After `agent_refused` or `agent_not_answered` the pairing token must be taken
 as spent: mint a new one for the next attempt.
@@ -185,14 +215,16 @@ made by the store app instead of naming a person. An administrator can press
 app should read that as the merchant's decision and offer to connect again,
 not reconnect by itself.
 
-The inboxes are the page's to choose, not the app's. In this revision the
-page changes them the way it always has: an administrator disconnects and
-connects again there with a connection code and the inboxes they pick. The
-status call then answers `connected_via: "page"` with the new `inbox_ids`,
-and the app leaves that connection as it is. Changing the inboxes of a live
-connection without disconnecting is planned as a later revision; it will add
-a call between the helpdesk and the AI service (`ai-connector.md`) and
-nothing to this contract.
+The inboxes are the page's to choose, not the app's. An administrator adds
+and removes them on the page without disconnecting, and the helpdesk tells
+the AI service the new list first (`ai-connector.md` §1.4); the connection
+stays the same, and so does its `connected_via`. The status call (§5) then
+answers the new `inbox_ids`. With an AI service that does not implement that
+call, the page changes them the way it always has: an administrator
+disconnects and connects again there with a connection code and the inboxes
+they pick, and the status call then answers `connected_via: "page"`. Either
+way the app leaves that connection as it is. Nothing in this contract changes
+the inboxes.
 
 ## 5. How the connection is doing
 
@@ -230,6 +262,10 @@ now, which may differ from what a connection of the app started with (§4).
 account. A suspended account answers with its last state, which is
 `disconnected` (§7).
 
+`never_connected` is a normal state for a live account: a store may have its
+account and its storefront chat without an agent, for example when the app
+connects the agent only for stores with a plan that includes it.
+
 ## 6. Disconnecting
 
 ```
@@ -250,6 +286,10 @@ An account that is not connected answers `200` with its state
 (`disconnected` or `never_connected`) and `"ai_service_told": true`. Repeating
 the call changes nothing.
 
+This is the call that takes the agent away from a store whose account stays,
+for example when the merchant moves the store's support to another helpdesk.
+It is not limited (`app-provisioning.md` §6).
+
 ## 7. Suspension and restoration
 
 The removal notice of `app-provisioning.md` §5 disconnects the agent as part
@@ -268,7 +308,8 @@ together: the stand-in app takes a pairing token from the stand-in agent and
 makes the three calls. A checklist for the app's side:
 
 1. The pairing token is minted for the store of the request, immediately
-   before it, and a new one after any failed attempt.
+   before it, and a new one after any failed attempt. The app waits
+   15 seconds for `PUT …/agent` before it retries (§2).
 2. `service_url` is the address agreed with the helpdesk's operator, not a
    value taken from a request or a form.
 3. The connection is asked for after the account exists, and the request
@@ -287,7 +328,8 @@ makes the three calls. A checklist for the app's side:
 `contract: 1` is this document, and moves together with `app-provisioning.md`.
 A field added to an answer is not a new version.
 
-Revision note: written 2026-11-17 as a draft to agree; the helpdesk's side is
-not implemented yet. Open with the AI service's builder: whether its
-registration accepts `"inbox_ids": []` (§3.4), and the later call that tells
-it a live connection's new inboxes (§4).
+Revision note: written 2026-11-17 and revised 2026-11-19 as a draft to
+agree; the helpdesk's side is not implemented yet. The store app's AI service
+accepts `"inbox_ids": []` in its registration (§3.4). Open with the AI
+service's builder: the call that tells it a live connection's new inboxes
+(`ai-connector.md` §1.4).
