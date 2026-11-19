@@ -23,6 +23,7 @@ RSpec.describe 'App storefront chat: the provisioning channel\'s rules', type: :
         expect { call.call }.to not_change(Inbox, :count).and not_change(Inclamo::ProvisioningEvent, :count)
         expect(response).to have_http_status(:not_found)
         expect(response.body).not_to match(/unauthorized|no_account|no_storefront_chat/)
+        expect(response.headers['X-Inclamo-Provisioning']).to be_nil
       end
       expect(storefront_inbox).to be_nil
     end
@@ -79,15 +80,61 @@ RSpec.describe 'App storefront chat: the provisioning channel\'s rules', type: :
       end
     end
 
-    it 'refuses a request id already used for another request' do
+    it 'refuses a request id already used for another request as reused' do
       request_id = SecureRandom.uuid
       ask_for_chat(request_id: request_id)
       expect(response).to have_http_status(:created)
 
       ask_for_chat(request_id: request_id, with: { storefront_url: 'https://another-address.example' })
-      expect_unauthorized
+      expect(response).to have_http_status(:conflict)
+      expect(response.parsed_body).to eq('error' => 'request_id_reused')
       ask_chat_status(request_id: request_id)
+      expect(response.parsed_body).to eq('error' => 'request_id_reused')
+      # The account's own call is another request too.
+      provision(request_id: request_id)
+      expect(response.parsed_body).to eq('error' => 'request_id_reused')
+      expect(Inbox.where(account_id: account.id).count).to eq(1)
+    end
+
+    it 'signs the request id: a captured request sent again under another id is refused' do
+      ask_for_chat(request_id: SecureRandom.uuid, signed_id: SecureRandom.uuid)
+
       expect_unauthorized
+      expect(storefront_inbox).to be_nil
+    end
+
+    it 'tells a repetition still being answered to try again' do
+      request_id = SecureRandom.uuid
+      body = JSON.generate(contract: 1)
+      path = provisioning_path(ProvisioningRequests::STORE, '/storefront-chat')
+      Inclamo::Provisioning::RequestStore.reserve(request_id, Inclamo::Provisioning::RequestStore.digest(method: 'PUT', path: path, body: body))
+      stub_const('Inclamo::Provisioning::StoresController::PENDING_WAIT', 0.2)
+
+      ask_for_chat(body: body, request_id: request_id)
+
+      expect(response).to have_http_status(:conflict)
+      expect(response.parsed_body).to eq('error' => 'in_progress')
+      expect(response.headers['Retry-After']).to eq('1')
+      expect(storefront_inbox).to be_nil
+    end
+
+    it 'marks every answer of both addresses as provisioning\'s' do
+      ask_chat_status
+      expect([response.status, response.headers['X-Inclamo-Provisioning']]).to eq([404, '1'])
+      ask_for_chat(body: { contract: 2 })
+      expect([response.status, response.headers['X-Inclamo-Provisioning']]).to eq([422, '1'])
+      ask_for_chat(secret: other_secret)
+      expect([response.status, response.headers['X-Inclamo-Provisioning']]).to eq([401, '1'])
+      ask_for_chat
+      expect([response.status, response.headers['X-Inclamo-Provisioning']]).to eq([201, '1'])
+      ask_chat_status
+      expect([response.status, response.headers['X-Inclamo-Provisioning']]).to eq([200, '1'])
+      ask_for_chat('unknown-store.myshopify.com')
+      expect([response.status, response.headers['X-Inclamo-Provisioning']]).to eq([404, '1'])
+      remove_app
+      ask_for_chat
+      expect([response.status, response.headers['X-Inclamo-Provisioning']]).to eq([409, '1'])
+      expect(response.parsed_body).to eq('error' => 'account_suspended')
     end
 
     context 'with the request limits on' do
@@ -163,6 +210,28 @@ RSpec.describe 'App storefront chat: the provisioning channel\'s rules', type: :
         expect_limited
         ask_for_chat(headers: outside)
         expect(response).to have_http_status(:created)
+      end
+
+      it 'does not count a request answered from its stored answer' do
+        request_id = SecureRandom.uuid
+        3.times do
+          ask_for_chat(request_id: request_id, headers: outside)
+          expect(response).to have_http_status(:created)
+        end
+        status_id = SecureRandom.uuid
+        3.times do
+          ask_chat_status(request_id: status_id, headers: outside)
+          expect(response).to have_http_status(:ok)
+        end
+
+        provision(headers: outside)
+        expect(response).to have_http_status(:ok)
+        ask_for_chat(headers: outside)
+        expect_limited
+        ask_status(headers: outside)
+        expect(response).to have_http_status(:ok)
+        ask_chat_status(headers: outside)
+        expect_limited
       end
 
       it 'does not count requests that are not the app\'s' do

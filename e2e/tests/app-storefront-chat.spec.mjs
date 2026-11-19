@@ -111,7 +111,7 @@ test.describe('A new account has its storefront inbox', () => {
     shop.shopName = `Maple & Oak ${run}`;
 
     // The call that created the account says nothing of the inbox.
-    expect(Object.keys(shop.answer.body).sort()).toEqual(['account_id', 'contract', 'created_at', 'helpdesk_url', 'outcome', 'password_setup_url', 'state']);
+    expect(Object.keys(shop.answer.body).sort()).toEqual(['account_id', 'admin_is_member', 'contract', 'created_at', 'helpdesk_url', 'outcome', 'password_setup_url', 'state']);
 
     // The account has one inbox: a website inbox named after the store, at the
     // store's own Shopify address, with the administrator as its member.
@@ -481,14 +481,15 @@ test.describe("The storefront chat calls follow the provisioning channel's rules
       await storeApp.storefrontChatStatus(made.maple.domain, { wrong_signature: true }),
     ];
 
-    for (const answer of refused) expect([answer.status, answer.body]).toEqual([401, UNAUTHORIZED]);
+    for (const answer of refused) expect([answer.status, answer.body, answer.provisioning]).toEqual([401, UNAUTHORIZED, '1']);
     // The account has no new inbox, and the store that has one told nothing of it.
     expect((await storeApp.storefrontChatStatus(shop.domain)).body).toEqual(NO_CHAT);
     expect(await inboxesOf(shop.account)).toEqual([]);
-    // A request id is used once: the same id with another request is refused.
+    // A request id is used once: the same id with another request is refused
+    // as reused, which the app tells from a wrong secret.
     const first = await storeApp.storefrontChatStatus(made.maple.domain);
     const reused = await storeApp.storefrontChat(shop.domain, { request_id: first.request_id });
-    expect([reused.status, reused.body]).toEqual([401, UNAUTHORIZED]);
+    expect([reused.status, reused.body]).toEqual([409, { error: 'request_id_reused' }]);
     expect(await inboxesOf(shop.account)).toEqual([]);
   });
 
@@ -496,8 +497,9 @@ test.describe("The storefront chat calls follow the provisioning channel's rules
     const asked = await storeApp.storefrontChat(store('nobody'), { storefront_url: `https://nobody-${run}.example` });
     const status = await storeApp.storefrontChatStatus(store('nobody'));
 
-    expect([asked.status, asked.body]).toEqual([404, NO_ACCOUNT]);
-    expect([status.status, status.body]).toEqual([404, NO_ACCOUNT]);
+    // Marked as this installation's answers, so not "no provisioning here".
+    expect([asked.status, asked.body, asked.provisioning]).toEqual([404, NO_ACCOUNT, '1']);
+    expect([status.status, status.body, status.provisioning]).toEqual([404, NO_ACCOUNT, '1']);
     // No account came of it.
     const account = await storeApp.status(store('nobody'));
     expect([account.status, account.body]).toEqual([404, NO_ACCOUNT]);
@@ -519,6 +521,7 @@ test.describe("The storefront chat calls follow the provisioning channel's rules
       for (const answer of answers) {
         expect(answer.body?.error).not.toBe('no_account');
         expect(answer.body?.error).not.toBe('no_storefront_chat');
+        expect(answer.provisioning).toBeNull();
         expect(answer.body?.website_token).toBeUndefined();
       }
     }

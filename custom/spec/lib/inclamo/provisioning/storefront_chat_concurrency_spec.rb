@@ -49,12 +49,14 @@ RSpec.describe 'App storefront chat: two requests at the same moment', type: :re
       Thread.new do
         ActiveRecord::Base.connection_pool.with_connection do
           timestamp = Time.now.to_i
-          signature = Inclamo::Provisioning::Signature.sign(ProvisioningRequests::SECRET, timestamp: timestamp, method: 'PUT', path: path, body: raw)
+          request_id = SecureRandom.uuid
+          signature = Inclamo::Provisioning::Signature.sign(ProvisioningRequests::SECRET, timestamp: timestamp, request_id: request_id,
+                                                                                         method: 'PUT', path: path, body: raw)
           session = ActionDispatch::Integration::Session.new(Rails.application)
           start.pop
           session.put(path, params: raw, headers: {
                         'CONTENT_TYPE' => 'application/json', 'X-Inclamo-Timestamp' => timestamp.to_s,
-                        'X-Inclamo-Request-Id' => SecureRandom.uuid, 'X-Inclamo-Signature' => signature
+                        'X-Inclamo-Request-Id' => request_id, 'X-Inclamo-Signature' => signature
                       })
           [session.response.status, session.response.parsed_body]
         end

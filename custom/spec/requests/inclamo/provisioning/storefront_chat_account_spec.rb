@@ -34,9 +34,10 @@ RSpec.describe 'App storefront chat: the inbox made with the account', type: :re
       account = provisioned.account
       expect(response.parsed_body.except('password_setup_url')).to eq(
         'contract' => 1, 'account_id' => account.id, 'helpdesk_url' => ProvisioningRequests::HELPDESK_URL,
-        'state' => 'active', 'outcome' => 'created', 'created_at' => account.created_at.utc.iso8601
+        'state' => 'active', 'outcome' => 'created', 'created_at' => account.created_at.utc.iso8601, 'admin_is_member' => true
       )
-      expect(response.parsed_body.keys).to contain_exactly('contract', 'account_id', 'helpdesk_url', 'state', 'outcome', 'created_at', 'password_setup_url')
+      expect(response.parsed_body.keys).to contain_exactly('contract', 'account_id', 'helpdesk_url', 'state', 'outcome', 'created_at',
+                                                           'admin_is_member', 'password_setup_url')
       expect(response.body).not_to include(storefront_inbox.channel.website_token)
       expect(response.body).not_to include(storefront_inbox.channel.hmac_token)
       expect(Inclamo::ProvisioningEvent.pluck(:outcome)).to eq(['created'])

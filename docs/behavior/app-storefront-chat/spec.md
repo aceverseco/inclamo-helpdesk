@@ -149,19 +149,19 @@ While a store's account is suspended, a widget loaded with its token SHALL NOT b
 
 ### Requirement: The storefront chat calls follow the provisioning channel's rules
 
-Requests about the storefront chat SHALL be accepted only under the same conditions as the other provisioning requests: signed with the shared secret over the time, the method, the path and the body, with a key used once; limited; recorded with the time, the store's domain and the outcome and without personal data; and absent on an installation that has no shared secret. A request for a store that has no provisioned account SHALL be answered that there is no account and SHALL create nothing.
+Requests about the storefront chat SHALL be accepted only under the same conditions as the other provisioning requests: signed with the shared secret over the time, the key, the method, the path and the body, with a key used once, and a correctly signed request under a key already used for another request refused as a reused key; limited, the request for the inbox counting on the same count for its store as the request for the account, and a repetition answered from the first answer not counting; marked, in every answer, as the answer of this installation's provisioning; recorded with the time, the store's domain and the outcome and without personal data; and absent on an installation that has no shared secret. A request for a store that has no provisioned account SHALL be answered that there is no account and SHALL create nothing.
 
 #### Scenario: A request without a valid signature
 
-- **WHEN** a request for a store's storefront inbox arrives with a signature made with another secret
-- **THEN** it is refused as not authorised and the account has no new inbox
+- **WHEN** a request for a store's storefront inbox arrives with a signature made with another secret, or correctly signed under a key already used for another request
+- **THEN** the first is refused as not authorised and the second as a reused key, and the account has no new inbox
 
 #### Scenario: A store without an account
 
 - **WHEN** the app sends a correctly signed request for a store that never had an account
-- **THEN** the answer says there is no account, and no account and no inbox are created
+- **THEN** the answer says there is no account, marked as the answer of this installation's provisioning, and no account and no inbox are created
 
 #### Scenario: A self-hosted installation
 
 - **WHEN** a request arrives at a storefront chat address of an installation that has no shared secret
-- **THEN** it is answered as not found and nothing is created
+- **THEN** it is answered as not found without the provisioning mark, and nothing is created
