@@ -307,7 +307,8 @@ RSpec.describe 'App provisioning: the store has an account', type: :request do
         expect(Inclamo::ProvisioningEvent.all.flat_map { |event| event.attributes.values }.join(' ')).not_to include(token)
       end
       expect(log.string).not_to include('password/edit')
-      expect(Inclamo::ProvisioningEvent.column_names).to contain_exactly('id', 'shop_domain', 'outcome', 'request_id', 'account_id', 'created_at')
+      expect(Inclamo::ProvisioningEvent.column_names).to contain_exactly('id', 'shop_domain', 'outcome', 'request_id', 'account_id', 'user_id',
+                                                                          'created_at')
 
       url = links.last
       token = Rack::Utils.parse_query(URI(url).query).fetch('reset_password_token')

@@ -56,7 +56,8 @@ RSpec.describe 'App agent connection: the record of attempts', type: :request do
     [AgentProvisioningRequests::PAIRING_TOKEN, bot.access_token.token, bot.secret, ProvisioningRequests::SECRET].each do |secret|
       expect(values.join("\n")).not_to include(secret)
     end
-    expect(Inclamo::ProvisioningEvent.column_names).to contain_exactly('id', 'shop_domain', 'outcome', 'request_id', 'account_id', 'created_at')
+    expect(Inclamo::ProvisioningEvent.column_names).to contain_exactly('id', 'shop_domain', 'outcome', 'request_id', 'account_id', 'user_id',
+                                                                        'created_at')
   end
 
   it 'answers a repeated request id from the stored answer and records it again with the same outcome' do
