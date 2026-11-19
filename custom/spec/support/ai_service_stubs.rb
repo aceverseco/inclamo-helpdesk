@@ -24,6 +24,17 @@ module AiServiceStubs
     stub_request(:delete, "#{AI_SERVICE_URL}/connections/#{connection_id}").to_return(status: status)
   end
 
+  # The change of a connection's inboxes (docs/ai-connector.md §1.4). Each
+  # list the AI service is told is pushed to `told`; `status` may be a list,
+  # answered one per call (the last one repeats).
+  def stub_ai_inbox_change(status: 204, body: '', connection_id: 'conn-1', told: [])
+    statuses = Array(status)
+    stub_request(:put, "#{AI_SERVICE_URL}/connections/#{connection_id}/inboxes").to_return do |request|
+      told << JSON.parse(request.body)['inbox_ids']
+      { status: statuses[[told.size, statuses.size].min - 1], body: body.is_a?(String) ? body : body.to_json, headers: AI_JSON_HEADERS }
+    end
+  end
+
   # An account connected the way Inclamo::Ai::Connect leaves it, without the
   # AI service: the bot attached to `inboxes`, a Phone inbox, the record.
   def connect_ai_agent(account, inboxes, webhook_url: "#{AI_SERVICE_URL}/webhooks/conn-1")

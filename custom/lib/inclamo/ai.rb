@@ -8,7 +8,8 @@ module Inclamo
   module Ai
     CONTRACT = 1
     CODE_PREFIX = 'aic1.'
-    # Time the AI service has to answer a registration or a removal.
+    # Time the AI service has to answer a registration, a removal or a change
+    # of the inboxes.
     TIME_LIMIT = 10
 
     # Labels the agent may add: `inclamo_` and Chatwoot's label form
@@ -45,9 +46,9 @@ module Inclamo
     }.freeze
     ADDED_LABEL_DESCRIPTION = 'Set by the AI agent'
 
-    # One connection or disconnection of an account at a time. The lock is
-    # kept in Redis, so no database transaction stays open while the AI
-    # service is asked.
+    # One connection, disconnection or change of the inboxes of an account at
+    # a time. The lock is kept in Redis, so no database transaction stays open
+    # while the AI service is asked.
     def self.with_account_lock(account, seconds: 60)
       key = "inclamo:ai:#{account.id}:connection"
       owner = SecureRandom.hex(8)
