@@ -55,6 +55,11 @@ class InclamoAPI extends ApiClient {
     return axios.post(`${this.url}/ai/connection`, payload);
   }
 
+  // { inbox_ids: [...] }: the whole list the agent answers in after the change.
+  changeAiInboxes(payload) {
+    return axios.patch(`${this.url}/ai/connection`, payload);
+  }
+
   disconnectAi() {
     return axios.delete(`${this.url}/ai/connection`);
   }
