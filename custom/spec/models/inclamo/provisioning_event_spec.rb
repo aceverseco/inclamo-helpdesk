@@ -5,10 +5,10 @@ require 'rails_helper'
 RSpec.describe Inclamo::ProvisioningEvent do
   let(:request_id) { SecureRandom.uuid }
 
-  it 'holds the time, the domain, the outcome, the request id and the account, and has no other column' do
+  it 'holds the time, the domain, the outcome, the request id, the account and the user, and has no other column' do
     event = described_class.record(outcome: 'created', shop_domain: 'Example-Store.myshopify.com', request_id: request_id.upcase)
 
-    expect(event.reload.attributes.keys).to contain_exactly('id', 'shop_domain', 'outcome', 'request_id', 'account_id', 'created_at')
+    expect(event.reload.attributes.keys).to contain_exactly('id', 'shop_domain', 'outcome', 'request_id', 'account_id', 'user_id', 'created_at')
     expect(event).to have_attributes(shop_domain: 'example-store.myshopify.com', outcome: 'created', request_id: request_id)
     expect(event.created_at).to be_within(5.seconds).of(Time.current)
   end
