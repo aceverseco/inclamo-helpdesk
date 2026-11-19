@@ -101,10 +101,9 @@ labels stay. The token is refused from that moment: a call with it answers
 
 ### 1.4 Changing the inboxes
 
-An addition to contract 1 (§9), proposed and not implemented on the
-helpdesk's side yet. An AI service that does not implement it keeps working:
-the helpdesk then reports that the inboxes of the connection cannot be changed
-and the administrator disconnects and connects again.
+An addition to contract 1 (§9). An AI service that does not implement it
+keeps working: the helpdesk then reports that the inboxes of the connection
+cannot be changed and the administrator disconnects and connects again.
 
 While connected, the administrator may change which inboxes the agent answers
 in on the **AI agent** page. The helpdesk makes the same change by itself in
@@ -150,7 +149,12 @@ What the AI service has to do:
   bot is detached.
 - Conversations that existed in an added inbox before the change stay with
   the team. Only conversations created after it are Pending and held for the
-  agent.
+  agent. One case follows Chatwoot's own rule for an inbox with a bot
+  (`app/models/message.rb`, `reopen_resolved_conversation`): a conversation of
+  the added inbox that was resolved before the change, and in which the
+  shopper writes again after it, comes back Pending, with no AI assignee and
+  with the person it was assigned to, if any. Its events are delivered as for
+  any Pending conversation of a listed inbox, and the calls of §5 accept it.
 - Do not treat the list as a promise that each inbox exists. When the team
   deletes an inbox, it stops sending events at once and leaves the list only
   with the next call of this section.
@@ -420,7 +424,8 @@ signature, a timestamp older than five minutes and a repeated delivery.
 
 For §1.4 the stand-in keeps the list it was last told, takes no turn outside
 it, and can be switched to refuse the change, to stay silent and to answer
-`404` as a service without the call.
+`404` as a service without the call; the scenarios are in
+`e2e/tests/agent-inbox-selection.spec.mjs`.
 
 The tests assert what the helpdesk shows and stores, never the agent's words.
 The same file runs against the AI service:
