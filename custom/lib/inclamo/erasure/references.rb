@@ -23,6 +23,8 @@ module Inclamo
         'inclamo_ai_policies' => { 'account_id' => :restrict },
         'inclamo_ai_proposals' => { 'account_id' => :restrict, 'conversation_id' => :restrict },
         'inclamo_call_conversations' => { 'account_id' => :cascade, 'conversation_id' => :cascade, 'contact_id' => :none },
+        # The tickets' contact is never a shopper (Erasure::Ticket).
+        'inclamo_data_request_inboxes' => { 'account_id' => :cascade, 'contact_id' => :nullify },
         'inclamo_discount_presets' => { 'account_id' => :cascade },
         # The erasures' own record: it outlives what it names (KEPT).
         'inclamo_erasure_requests' => { 'account_id' => :none, 'conversation_id' => :none, 'order_ids' => :none },

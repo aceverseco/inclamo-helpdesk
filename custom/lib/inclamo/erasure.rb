@@ -12,11 +12,20 @@ module Inclamo
   # the store's row keeps only its domain, the fact and the time. Each
   # completed erasure is also written to a journal outside the database
   # (Journal), so that it can be applied again after a restore (Reapply).
+  #
+  # A request about one shopper becomes a ticket for the merchant's
+  # administrators (ShopperRequest, Ticket); an administrator deletes, holds
+  # or marks it answered (ShopperActions), and an erasure nobody acted on is
+  # carried out by the daily run when its waiting time has passed.
   module Erasure
     # The waiting time of a store's erasure, in days: an operator setting with
     # this default and this range. A value outside it falls back to the default.
     STORE_WAIT_DAYS = 7
     STORE_WAIT_RANGE = (0..21)
+    # The same for the automatic deletion of a shopper's data, counted from the
+    # ticket.
+    SHOPPER_WAIT_DAYS = 14
+    SHOPPER_WAIT_RANGE = (1..25)
     # Due erasures are looked for once a day.
     CHECK_CRON = '10 4 * * *'
 
@@ -29,6 +38,16 @@ module Inclamo
 
         days = whole(ENV.fetch('INCLAMO_ERASURE_WAIT_DAYS', nil))
         (days && STORE_WAIT_RANGE.cover?(days) ? days : STORE_WAIT_DAYS).days
+      end
+
+      # The time between a shopper's erasure ticket and the automatic deletion
+      # of the shopper's data. The end-to-end stack counts it in seconds.
+      def shopper_wait
+        seconds = e2e_seconds('INCLAMO_SHOPPER_ERASURE_WAIT_SECONDS')
+        return seconds.seconds if seconds
+
+        days = whole(ENV.fetch('INCLAMO_SHOPPER_ERASURE_WAIT_DAYS', nil))
+        (days && SHOPPER_WAIT_RANGE.cover?(days) ? days : SHOPPER_WAIT_DAYS).days
       end
 
       # When the daily run comes: once a day, or in the end-to-end stack every

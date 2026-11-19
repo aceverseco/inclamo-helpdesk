@@ -36,6 +36,9 @@ x-e2e: &e2e
     - INCLAMO_ERASURE_WAIT_SECONDS=30
     - INCLAMO_ERASURE_CHECK_SECONDS=5
     - INCLAMO_ERASURE_JOURNAL_PATH=/tmp/inclamo-erasure-journal.jsonl
+    # A shopper's data is deleted a minute and a half after the ticket, not
+    # 14 days (honoured only with INCLAMO_E2E=1).
+    - INCLAMO_SHOPPER_ERASURE_WAIT_SECONDS=90
 
 services:
   rails:

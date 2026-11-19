@@ -41,13 +41,20 @@ contract in `docs/app-store-erasure.md`, behavior contract
 [app-store-erasure](behavior/app-store-erasure/spec.md)). Its settings, the
 daily run and the journal are described under
 [Erasing a store on Shopify's request](#erasing-a-store-on-shopifys-request).
+It also carries Shopify's two requests about one shopper of a store, to erase
+the shopper's data or to give the store owner a copy of it
+(`.../stores/{shop_domain}/shoppers/erasure`, `.../shoppers/data-request`,
+and `.../shoppers/requests` for how many wait), which become tickets for the
+store's administrators: see
+[Requests about one shopper](#requests-about-one-shopper).
 
 ## Settings
 
 All are environment variables of the helpdesk's web process, and the secret,
-the two store key settings and the erasure journal's place of its worker
-process too (in the development stack, `dev/.env`; see `dev/env.example`). They are read when the process
-starts: restart it after changing one.
+the two store key settings, the shopper's waiting time and the erasure
+journal's place of its worker process too (in the development stack,
+`dev/.env`; see `dev/env.example`). They are read when the process starts:
+restart it after changing one.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -59,10 +66,11 @@ starts: restart it after changing one.
 | `INCLAMO_APP_PROVISIONING_ENTRY_PERSON_LIMIT` | `20` | Entry requests accepted in an hour for one person in one store. See [A staff member's entry from the app](#a-staff-members-entry-from-the-app) |
 | `INCLAMO_APP_PROVISIONING_ENTRY_STORE_LIMIT` | `300` | Entry requests accepted in an hour for one store, whoever they name |
 | `INCLAMO_APP_PROVISIONING_ENTRY_OPEN_LIMIT` | `30` | One-time entry addresses opened from one network address in five minutes |
-| `INCLAMO_APP_PROVISIONING_ERASURE_LIMIT` | `60` | Erasure requests accepted in an hour, for the installation |
-| `INCLAMO_APP_PROVISIONING_ERASURE_STORE_LIMIT` | `20` | Erasure requests accepted in an hour for one store |
+| `INCLAMO_APP_PROVISIONING_ERASURE_LIMIT` | `60` | Erasure requests (a store's erasure and the two requests about one shopper, together) accepted in an hour, for the installation |
+| `INCLAMO_APP_PROVISIONING_ERASURE_STORE_LIMIT` | `20` | The same requests accepted in an hour for one store |
 | `INCLAMO_ERASURE_WAIT_DAYS` | `7` | Days between the app's first request to erase a store and the destruction of its account, a whole number from 0 to 21; any other value falls back to 7. Read by the web process (the date the app is answered) |
-| `INCLAMO_ERASURE_JOURNAL_PATH` | unset | The file completed erasures are journaled to, outside the database. Read by the background workers. See [The journal](#the-journal) |
+| `INCLAMO_SHOPPER_ERASURE_WAIT_DAYS` | `14` | Days between a ticket to erase one shopper and the automatic deletion of the shopper's data when no administrator deleted or held it, a whole number from 1 to 25; any other value falls back to 14. Read by the web process (the date the ticket and the app are given). See [Requests about one shopper](#requests-about-one-shopper) |
+| `INCLAMO_ERASURE_JOURNAL_PATH` | unset | The file completed erasures are journaled to, outside the database. Read by the background workers and by the web process (an administrator's "Delete" in a ticket is journaled there). See [The journal](#the-journal) |
 | `FRONTEND_URL` | Chatwoot's own | The address people open. The answers give it to the app as `helpdesk_url` and, for the storefront chat, as `widget_base_url`; the password link starts with it |
 | `INCLAMO_APP_URL` | unset | The store app's address for store keys, HTTPS, with any path prefix the app chose (`https://app.example.com/helpdesk`). Used for a store whose provisioning request named no address of its own. Needed by the web and the worker processes |
 | `INCLAMO_APP_KEY_PAUSE` | `30` | Seconds a store's connection waits before it asks the app for a key again while the app gives none. A longer `Retry-After` of the app is kept |
@@ -199,9 +207,11 @@ whole number falls back to the default.
   A request refused for its body (`422`) is counted.
 - The removal notice is not limited.
 - The erasure requests have counts of their own, for the installation and
-  for one store, apart from the `PUT`s. They follow the same rules: only
+  for one store, apart from the `PUT`s: a store's erasure and the two
+  requests about one shopper count together. They follow the same rules: only
   signed requests count, a repetition from the stored answer does not, a
-  request refused for its body does.
+  request refused for its body does. The status call about a store's shopper
+  requests (`.../shoppers/requests`) counts with the other status calls.
 - The limits are Rack::Attack rules and follow Chatwoot's settings for it:
   with `ENABLE_RACK_ATTACK=false` there are no limits at all, and requests
   from an address on the allow-list (`127.0.0.1`, `::1` and those of
@@ -262,17 +272,23 @@ lifecycle rules remove them.
 A backup of the database taken before an erasure does not hold its
 completion, so restoring that backup brings the erased account back. Each
 completed erasure is therefore also written, as one line of JSON, to a file
-outside the database: `INCLAMO_ERASURE_JOURNAL_PATH`. A line names the store's
-domain, the account's id and the times, and no person.
+outside the database: `INCLAMO_ERASURE_JOURNAL_PATH`. A store's line names the
+store's domain, the account's id and the times, and no person. A shopper's
+line (see [Requests about one shopper](#requests-about-one-shopper)) names the
+request, the store, the account, Shopify's order ids, the shopper's email and
+phone as keyed digests only, whether an administrator or the helpdesk did it,
+and the times.
 
-- Set it on the background workers to a file on a volume that is not part of
-  the database and is not restored with it, and copy the file off the machine
-  together with the backups. The workers create the file (mode `600`) and
-  append to it.
+- Set it on the background workers and on the web process to the same file,
+  on a volume that is not part of the database and is not restored with it,
+  and copy the file off the machine together with the backups. The process
+  that completes an erasure creates the file (mode `600`) and appends to it.
 - Without it, erasures still complete, and every completion logs a warning
   that it cannot be applied again after a restore.
-- A path that cannot be written keeps the erasure `erasing`, with the alert
-  above, until it can.
+- A path that cannot be written keeps a store's erasure `erasing`, with the
+  alert above, until it can. An administrator's "Delete" in a ticket is then
+  refused with a message and nothing is deleted; an automatic deletion is
+  logged with `[inclamo erasure] ALERT` and tried again at the next daily run.
 
 ### After a restore
 
@@ -291,6 +307,17 @@ An account created after the erasure is never taken, whatever its id. It
 waits up to ten minutes (`WAIT=<seconds>` to change it) for the background
 workers to finish each one, so start them first; an erasure they have not
 finished by then is reported as still being erased and is finished by them.
+
+For a shopper's line it deletes again, in that account, every contact made
+before the erasure was completed whose email or phone has the line's digests,
+with what the helpdesk keeps about it and about the line's orders, and
+finishes the line's ticket when the restore brought it back unfinished, as it
+was finished (by the same administrator, or automatically, at the same time).
+It prints
+`Shopper of store example-store.myshopify.com, account 42, request 7 (erased 2026-12-04T04:10:12Z): 1 contact(s) erased again, its ticket finished again`.
+A ticket the restore brought back waiting or held whose completion the
+journal does not hold stays as it is: its own date and hold decide.
+
 Running it twice is harmless: the second run prints `Nothing to erase again.`
 
 Backups are not rewritten. An erased account stays in the backups taken
@@ -303,8 +330,83 @@ decides how long erased data outlives the erasure there.
 domain, the account's id at the time, the state (`scheduled`, `erasing`,
 `erased`, or `cancelled` when the store installed the app again in time), when
 it was received and when it was completed, and the ids of the users deleted
-with the account. A completed row is removed 90 days after completion by the
-daily run.
+with the account. It also holds one row per ticket about a shopper (see
+below). A completed row is removed 90 days after completion by the daily run;
+a waiting or held row is kept for as long as it is not done.
+
+## Requests about one shopper
+
+Shopify asks the app to erase one shopper's data (`customers/redact`) and to
+give the store owner a copy of one shopper's data (`customers/data_request`).
+The app passes each on, naming the shopper by the email and the phone Shopify
+gave. The helpdesk looks for that shopper in the store's account only:
+contacts whose email is the same without regard to letter case, and contacts
+whose phone has the same digits. Nothing else is searched, so a conversation
+the same person started under another email or on a channel without an email
+or a phone is not found; an administrator can delete such a contact by hand.
+
+When it finds any, it makes a **ticket** for the account's administrators and
+answers the app with its state; the request itself deletes nothing.
+
+- The tickets live in an inbox of the account named "Data requests" (in the
+  account's language), an API inbox the helpdesk makes with the account's
+  first such request. It has no members, so only the account's
+  administrators see it, and no bot. Every ticket belongs to one contact of the
+  account, "Shopify data requests", never to the shopper. Deleting that inbox
+  or that contact by hand deletes the tickets with it; the next request makes
+  new ones.
+- A ticket is open, has the priority "high" and the label
+  `inclamo_erasure_request` or `inclamo_data_request`, starts no SLA timer and
+  is listed by none of the ready team queues. Its first note says what was
+  asked, how many contacts and conversations were found and, for an erasure,
+  the date of automatic deletion. The shopper's email and phone and the
+  contacts found are shown on the ticket's card ("Data request", in the
+  conversation sidebar's Manage tab), only to administrators, and only until
+  the ticket is done.
+- On an erasure ticket an administrator chooses **Delete** (the contacts found
+  at that moment are deleted whole, with their conversations, messages and
+  files, and what the helpdesk keeps about them and about the orders Shopify
+  named), or **Hold** with a reason, which stops the automatic deletion until
+  an administrator chooses **Lift hold**. From the hold on, the store answers
+  for the request. On a data-request ticket the team answers the shopper from
+  the contacts the card links to and an administrator chooses **Mark
+  answered**; the helpdesk never closes it by itself.
+- If nobody deleted and no hold stands, the daily run deletes the shopper's
+  data on the date: `INCLAMO_SHOPPER_ERASURE_WAIT_DAYS` days after the ticket
+  (14 by default). A suspended account is treated the same. A lifted hold does
+  not start the days again: the data is deleted on the original date, or at
+  the next daily run when that date has passed. A store's own erasure takes
+  everything with the account, held tickets included.
+- When a ticket is done, the shopper's email and phone, and the hold's
+  reason, are removed from its row, and the email and the phone's digits are
+  replaced with "[removed]" in every message of the ticket, where a colleague
+  may have written them; a name or an address typed into a note by hand is
+  not found. A last note says it is done, when, and by which administrator or
+  that the helpdesk did it, and the ticket is resolved.
+- The daily run writes reminders into tickets as private notes: for a waiting
+  erasure 7 days and 1 day before its date, for a held one every 30 days, for
+  a waiting data request on days 7, 14, 21 and 27.
+- A private note of Chatwoot notifies only the people it mentions, and the
+  inbox has no members, so a ticket's first note and every reminder mention
+  every administrator the account has at that moment, never an agent. Each
+  administrator gets Chatwoot's notification of a mention in the dashboard,
+  and finds the ticket among their mentions; a mail is sent only where the
+  installation sends mail and the administrator chose mail for mentions in
+  their notification settings. The notes of a hold, its lifting and the end
+  of a ticket mention nobody.
+
+The app also asks how many of a store's requests wait, are held, or are
+overdue (unmet 30 days after they were received), without any shopper's data.
+
+What is kept: a ticket's row in `inclamo_erasure_requests` holds the kind, the
+store, the account, the ticket's conversation, Shopify's order ids, the date
+of automatic deletion, a hold (author, time and reason), who did it and when,
+the time of the last reminder, and the shopper's email and phone encrypted at
+rest while the ticket is open and as keyed digests (HMAC-SHA256 under a key
+derived from the installation's `SECRET_KEY_BASE`) afterwards. A request that
+finds nobody makes no row; it is recorded among the app's attempts. Neither
+the email nor the phone is written to the request log, and no answer to the
+app holds them.
 
 ## An account made by hand
 
@@ -443,7 +545,13 @@ with its user.
   `erased`, `none` or `refused`; `erasure_cancelled` when a scheduled erasure
   is withdrawn, with the request id of the `PUT` that restored the account, or
   without one when the daily run finds the account made active by hand; and
-  `erased`, without a request id, when an erasure is completed). The
+  `erased`, without a request id, when an erasure is completed; for the
+  requests about one shopper `shopper_ticket_made`, `shopper_ticket_found` (a
+  repetition answered from the ticket there is), `shopper_none`,
+  `data_request_made`, `data_request_found`, `data_request_none` or `refused`,
+  and, without a request id, `shopper_deleted`, `shopper_held`,
+  `shopper_hold_lifted` and `data_request_answered` when a ticket is acted
+  on). The
   helpdesk's own requests for a store key are recorded here too, with the
   account: `key_granted`, `key_refused:<the app's code>`
   (`store_not_installed`, `account_mismatch`, `store_unavailable`,

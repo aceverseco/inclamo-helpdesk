@@ -19,8 +19,10 @@ module Inclamo
       module_function
 
       # Applies the first covering policy, with its targets as they are now.
+      # A ticket about a shopper's data (Inclamo::Erasure::Ticket) has none.
       def apply!(conversation)
         return if Inclamo::SlaTimer.exists?(conversation_id: conversation.id)
+        return if Inclamo::DataRequestInbox.ticket_inbox?(conversation.inbox_id)
 
         policy = Inclamo::SlaPolicy.covering(conversation)
         return unless policy

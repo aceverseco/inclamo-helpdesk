@@ -33,6 +33,12 @@ if Inclamo::Provisioning.enabled?
     post 'entry', controller: 'inclamo/provisioning/entries', action: :create, format: false
     # Shopify asked to erase the store (docs/app-store-erasure.md).
     post 'erasure', controller: 'inclamo/provisioning/erasures', action: :create, format: false
+    # Shopify's requests about one shopper, and how many of them wait (the same document).
+    scope 'shoppers', controller: 'inclamo/provisioning/shopper_requests', format: false do
+      post 'erasure', action: :erasure
+      post 'data-request', action: :data_request
+      get 'requests', action: :counts
+    end
   end
 end
 
@@ -115,6 +121,15 @@ namespace :api, defaults: { format: 'json' } do
           get 'conversation_slas', to: '/api/v1/accounts/inclamo/conversation_sla_batches#index'
           # A finished call of the AI phone agent (docs/ai-connector-calls.md).
           post 'calls', to: '/api/v1/accounts/inclamo/ai_calls#create'
+          # The ticket of a request about one shopper, and its actions (administrators only).
+          resources :shopper_requests, only: [:show] do
+            member do
+              post 'delete', action: :erase
+              post :hold
+              post :lift
+              post :answered
+            end
+          end
           namespace :ai do
             resource :connection, only: [:show, :create, :destroy], controller: '/api/v1/accounts/inclamo/ai_connections'
             scope 'conversations/:conversation_id', controller: '/api/v1/accounts/inclamo/ai_conversations' do

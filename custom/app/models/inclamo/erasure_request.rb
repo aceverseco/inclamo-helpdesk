@@ -40,4 +40,24 @@ class Inclamo::ErasureRequest < ApplicationRecord
   def store?
     kind == 'store'
   end
+
+  def shopper_erasure?
+    kind == 'shopper_erasure'
+  end
+
+  def data_request?
+    kind == 'shopper_data_request'
+  end
+
+  def waiting?
+    state == 'waiting'
+  end
+
+  def held?
+    state == 'held'
+  end
+
+  def done?
+    state == 'done'
+  end
 end
