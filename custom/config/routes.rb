@@ -26,6 +26,8 @@ if Inclamo::Provisioning.enabled?
     put 'agent', controller: 'inclamo/provisioning/agents', action: :update, format: false
     get 'agent', controller: 'inclamo/provisioning/agents', action: :show, format: false
     delete 'agent', controller: 'inclamo/provisioning/agents', action: :destroy, format: false
+    # Shopify asked to erase the store (docs/app-store-erasure.md).
+    post 'erasure', controller: 'inclamo/provisioning/erasures', action: :create, format: false
   end
 end
 

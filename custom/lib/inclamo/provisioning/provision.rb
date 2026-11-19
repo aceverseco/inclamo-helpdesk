@@ -6,11 +6,14 @@ module Inclamo
     # person as administrator, finds the one it has, or restores a suspended
     # one. Safe to repeat and safe to run twice at once. The app's address for
     # the store's key requests, when the request gives one, is kept on the
-    # store's row in each case.
+    # store's row in each case. A store whose account was erased, or is being
+    # erased, gets a new and empty one (docs/app-store-erasure.md §3.4), and
+    # restoring an account withdraws its scheduled erasure.
     class Provision
       # `admin_is_member`: whether the named person is a user of the account
-      # once the request is done.
-      Result = Struct.new(:row, :account, :outcome, :admin_is_member, :password_setup_url, keyword_init: true)
+      # once the request is done. `erasure_cancelled`: a scheduled erasure of
+      # the restored account was withdrawn.
+      Result = Struct.new(:row, :account, :outcome, :admin_is_member, :password_setup_url, :erasure_cancelled, keyword_init: true)
 
       ATTEMPTS = 3
 
@@ -54,6 +57,7 @@ module Inclamo
       def existing(row)
         row.with_lock do
           row.update!(store_access_url: @payload.store_access_url) if @payload.store_access_url
+          next recreate(row) unless row.account
           row.active? ? existed(row, row.account) : restore(row, row.account)
         end
       end
@@ -72,12 +76,25 @@ module Inclamo
       # becomes an administrator next to whoever was there.
       def restore(row, account)
         account.update!(status: :active)
+        cancelled = Erasure.cancel!(row)
         row.update!(state: 'active')
         user, created = administrator
         membership = AccountUser.find_or_initialize_by(account_id: account.id, user_id: user.id)
         membership.update!(role: :administrator)
         Result.new(row: row, account: account, outcome: 'restored', admin_is_member: true,
-                   password_setup_url: (password_link(user) if created || never_signed_in?(user)))
+                   password_setup_url: (password_link(user) if created || never_signed_in?(user)), erasure_cancelled: cancelled)
+      end
+
+      # The store's account was erased (or is being erased): a new one is made
+      # into the store's row, as for a store that never had one. Nothing of the
+      # erased account comes back.
+      def recreate(row)
+        user, created = administrator
+        account = build_account(user)
+        row.update!(account: account, state: 'active', erase_after: nil, erased_at: nil)
+        StorefrontChat.create!(row, account)
+        Result.new(row: row, account: account, outcome: 'created', admin_is_member: true,
+                   password_setup_url: (password_link(user) if created))
       end
 
       # No session was ever given to them: the login page counts its sign-ins

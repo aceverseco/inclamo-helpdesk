@@ -7,15 +7,19 @@
 # that begin with `agent_` the AI agent's three calls (docs/app-agent-connection.md).
 # Those that begin with `key_` are the helpdesk's own requests for a store key
 # (docs/app-store-access.md), which also name the account.
+# ERASURE_OUTCOMES are those of the erasure requests (docs/app-store-erasure.md);
+# `erasure_cancelled` and the completion `erased` are recorded without a request id.
 class Inclamo::ProvisioningEvent < ApplicationRecord
   OUTCOMES = %w[created existed restored suspended none refused limited chat_created chat_existed chat_refused
                 agent_connected agent_existed agent_refused agent_not_answered agent_disconnected agent_status].freeze
+  ERASURE_OUTCOMES = %w[erasure_scheduled erasure_cancelled erasing erased shopper_ticket_made shopper_deleted shopper_held
+                        shopper_hold_lifted data_request_made data_request_answered].freeze
   KEEP = 90.days
   DOMAIN = /\A[a-z0-9][a-z0-9.-]{0,254}\z/
   UUID = /\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/
   KEY_OUTCOME = /\Akey_(?:granted|no_answer|refused:[a-z0-9_]{1,40}|invalid:[a-z_]{1,40})\z/
 
-  validates :outcome, inclusion: { in: OUTCOMES }, unless: -> { KEY_OUTCOME.match?(outcome.to_s) }
+  validates :outcome, inclusion: { in: OUTCOMES + ERASURE_OUTCOMES }, unless: -> { KEY_OUTCOME.match?(outcome.to_s) }
 
   scope :expired, ->(now = Time.current) { where(created_at: ...(now - KEEP)) }
 

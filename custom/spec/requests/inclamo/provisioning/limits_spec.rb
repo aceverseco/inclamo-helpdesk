@@ -203,7 +203,8 @@ RSpec.describe 'App provisioning: limits', type: :request do
     expect(gets).to include('')
     expect(Inclamo::Provisioning::ADDRESSES.fetch('/removal')).to eq('POST' => nil)
     expect(Rack::Attack.throttles.keys.grep(%r{\Ainclamo/provisioning/})).to contain_exactly(
-      'inclamo/provisioning/put', 'inclamo/provisioning/put/store', 'inclamo/provisioning/get'
+      'inclamo/provisioning/put', 'inclamo/provisioning/put/store', 'inclamo/provisioning/get',
+      'inclamo/provisioning/erasure', 'inclamo/provisioning/erasure/store'
     )
   end
 

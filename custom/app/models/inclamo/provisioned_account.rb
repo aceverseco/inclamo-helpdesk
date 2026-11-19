@@ -9,8 +9,12 @@
 # (docs/app-store-access.md), as the app's latest request that gave one named
 # it; empty when none did, and then the installation's configured address
 # applies.
+#
+# A store whose account is erased on Shopify's request (Inclamo::Erasure) is
+# `erasing` and then `erased`: from then on the row names no account and keeps
+# only the domain, the state and the time (`erased_at`).
 class Inclamo::ProvisionedAccount < ApplicationRecord
-  STATES = %w[active suspended].freeze
+  STATES = %w[active suspended erasing erased].freeze
 
   belongs_to :account, optional: true
   # The store's storefront chat (Inclamo::Provisioning::StorefrontChat). The
@@ -32,5 +36,13 @@ class Inclamo::ProvisionedAccount < ApplicationRecord
 
   def suspended?
     state == 'suspended'
+  end
+
+  def erasing?
+    state == 'erasing'
+  end
+
+  def erased?
+    state == 'erased'
   end
 end

@@ -6,7 +6,10 @@ module Inclamo
     # Provisioning::ADDRESSES for which request joins which):
     #   put        the `PUT`s of the installation as a whole;
     #   put/store  the `PUT`s of one store, every address's `PUT` together;
-    #   get        the status calls of the installation, every address's together.
+    #   get        the status calls of the installation, every address's together;
+    #   erasure, erasure/store
+    #              the erasure requests (docs/app-store-erasure.md), for the
+    #              installation and for one store, apart from the `PUT`s.
     # The removal notice joins none of them.
     #
     # Only requests that pass the gate and will be acted on are counted: a
@@ -36,6 +39,13 @@ module Inclamo
         end
         Rack::Attack.throttle("#{PREFIX}get", limit: ->(_) { Provisioning.limit(:get) }, period: PERIOD) do |request|
           'installation' if Limits.counted(request)&.count == :get
+        end
+        Rack::Attack.throttle("#{PREFIX}erasure", limit: ->(_) { Provisioning.limit(:erasure) }, period: PERIOD) do |request|
+          'installation' if Limits.counted(request)&.count == :erasure
+        end
+        Rack::Attack.throttle("#{PREFIX}erasure/store", limit: ->(_) { Provisioning.limit(:erasure_store) }, period: PERIOD) do |request|
+          verdict = Limits.counted(request)
+          verdict.shop_domain if verdict&.count == :erasure
         end
 
         default = Rack::Attack.throttled_responder
