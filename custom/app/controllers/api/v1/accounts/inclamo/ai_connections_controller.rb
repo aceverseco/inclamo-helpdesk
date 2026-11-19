@@ -65,6 +65,8 @@ class Api::V1::Accounts::Inclamo::AiConnectionsController < Api::V1::Accounts::B
       phone_inbox_id: record.phone_inbox_id,
       connected_at: record.connected_at,
       connected_by: record.connected_by&.name,
+      # `app` for a connection the store app made: no person made it.
+      connected_via: record.connected_via,
       last_delivered_at: record.last_delivered_at,
       last_failed_at: record.last_failed_at,
       last_error: record.last_error,

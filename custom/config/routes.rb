@@ -22,6 +22,10 @@ if Inclamo::Provisioning.enabled?
     post 'removal', action: :removal, format: false
     put 'storefront-chat', controller: 'inclamo/provisioning/storefront_chats', action: :update, format: false
     get 'storefront-chat', controller: 'inclamo/provisioning/storefront_chats', action: :show, format: false
+    # The store's AI agent (docs/app-agent-connection.md).
+    put 'agent', controller: 'inclamo/provisioning/agents', action: :update, format: false
+    get 'agent', controller: 'inclamo/provisioning/agents', action: :show, format: false
+    delete 'agent', controller: 'inclamo/provisioning/agents', action: :destroy, format: false
   end
 end
 

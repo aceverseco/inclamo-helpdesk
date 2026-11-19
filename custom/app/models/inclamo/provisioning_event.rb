@@ -3,9 +3,11 @@
 # One provisioning attempt: the time, the store's domain, the outcome and the
 # request id. Never the person's email or name, the signature, the body, the
 # password link or a website token. The outcomes that begin with `chat_` are
-# those of the storefront chat's request (docs/app-storefront-chat.md).
+# those of the storefront chat's request (docs/app-storefront-chat.md), and those
+# that begin with `agent_` the AI agent's three calls (docs/app-agent-connection.md).
 class Inclamo::ProvisioningEvent < ApplicationRecord
-  OUTCOMES = %w[created existed restored suspended none refused limited chat_created chat_existed chat_refused].freeze
+  OUTCOMES = %w[created existed restored suspended none refused limited chat_created chat_existed chat_refused
+                agent_connected agent_existed agent_refused agent_not_answered agent_disconnected agent_status].freeze
   KEEP = 90.days
   DOMAIN = /\A[a-z0-9][a-z0-9.-]{0,254}\z/
   UUID = /\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/

@@ -1,7 +1,8 @@
 // The store app's side of the end-to-end tests: the stand-in app of
 // e2e/stand-in-app/server.mjs, which signs the provisioning calls of
-// docs/app-provisioning.md and the storefront chat's calls of
-// docs/app-storefront-chat.md and serves the storefront page with the chat,
+// docs/app-provisioning.md, the storefront chat's calls of
+// docs/app-storefront-chat.md and the agent's calls of
+// docs/app-agent-connection.md and serves the storefront page with the chat,
 // and a person of a provisioned account, who has no place among the users
 // e2e/setup.rb prepares.
 const appUrl = () => process.env.E2E_APP_URL || 'http://stand-in-app:8091';
@@ -26,6 +27,13 @@ export const storeApp = {
   // The store has its storefront inbox; options: storefront_url, body, switches.
   storefrontChat: (domain, options = {}) => control('storefront-chat', { domain, ...options }),
   storefrontChatStatus: (domain, switches = {}) => control('storefront-chat-status', { domain, ...switches }),
+  // The store's AI agent (docs/app-agent-connection.md). Options of `agent`:
+  // service_url, token (without one the app takes a new pairing token from
+  // the stand-in agent), refuse (passed to the stand-in agent with the
+  // token), extra (laid over the body), body, switches.
+  agent: (domain, options = {}) => control('agent', { domain, ...options }),
+  agentStatus: (domain, switches = {}) => control('agent-status', { domain, ...switches }),
+  agentDisconnect: (domain, switches = {}) => control('agent-disconnect', { domain, ...switches }),
 };
 
 // The store's storefront page of the stand-in app: it loads the widget with

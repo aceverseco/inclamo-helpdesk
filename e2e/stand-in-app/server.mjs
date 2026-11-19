@@ -1,5 +1,6 @@
 // A stand-in for the store app, for the end-to-end tests. It plays the app's
-// side of docs/app-provisioning.md and docs/app-storefront-chat.md: it signs
+// side of docs/app-provisioning.md, docs/app-storefront-chat.md and
+// docs/app-agent-connection.md: it signs
 // the calls with the secret it shares with the helpdesk and sends them, and it
 // serves a storefront page that shows the chat widget as the app's theme embed
 // would, so every scenario runs without the store app.
@@ -21,6 +22,17 @@
 //                             has its storefront inbox. `body` replaces the body.
 //   POST   /__e2e/storefront-chat-status  { domain, ...switches }
 //                             GET stores/{domain}/storefront-chat
+//   POST   /__e2e/agent       { domain, service_url?, token?, refuse?, extra?, body?, ...switches }
+//                             PUT stores/{domain}/agent: the store's account is
+//                             connected to the AI agent. Without `token` the
+//                             app takes a new pairing token from the stand-in
+//                             agent (`refuse` is passed to it, to make the AI
+//                             service refuse or answer late) and sends the
+//                             address the agent gave unless `service_url` names
+//                             another. `extra` is laid over the body; `body`
+//                             replaces it. Waits 15 s for the answer.
+//   POST   /__e2e/agent-status      { domain, ...switches }   GET stores/{domain}/agent
+//   POST   /__e2e/agent-disconnect  { domain, ...switches }   DELETE stores/{domain}/agent
 //   GET    /__e2e/log         what was sent since the last DELETE /__e2e/log
 //   DELETE /__e2e/log
 //
@@ -45,7 +57,7 @@
 //
 // It never logs or answers the secret or a signature, and its log holds no
 // body: a password link passes through to the test that asked and is kept
-// nowhere. The two widget values it keeps are public ones. No dependencies:
+// nowhere, and so does a pairing token, which the helpdesk is sent once. The two widget values it keeps are public ones. No dependencies:
 // node >= 20.
 import { createServer } from 'node:http';
 import { createHmac, randomUUID } from 'node:crypto';
@@ -108,14 +120,19 @@ const inline = value => JSON.stringify(String(value)).replace(/</g, '\\u003c');
 // field is left out.
 export const chatBody = storefrontUrl => ({ contract: 1, ...(storefrontUrl === undefined ? {} : { storefront_url: storefrontUrl }) });
 
-export function createStandInApp({ helpdeskUrl, secret, fetchImpl = fetch, quiet = false, now = () => Date.now() } = {}) {
+// The body of "the store's account is connected to the agent": the pairing
+// token's two fields, and `extra` laid over them (fields the contract does not
+// have, such as inboxes, which the helpdesk must ignore).
+export const agentBody = ({ service_url: serviceUrl, token }, extra = {}) => ({ contract: 1, service_url: serviceUrl, token, ...extra });
+
+export function createStandInApp({ helpdeskUrl, secret, agentUrl, fetchImpl = fetch, quiet = false, now = () => Date.now() } = {}) {
   // `chats` is what the app would keep where its theme extension reads it:
   // per store, the two widget values of the helpdesk's last answer.
   const state = { log: [], chats: new Map() };
   const say = (...args) => quiet || console.log('stand-in app:', ...args);
 
   // Signs one call and sends it. The body is signed as the bytes that are sent.
-  async function call(method, path, raw, switches = {}) {
+  async function call(method, path, raw, switches = {}, waitMs = 10_000) {
     if (!secret) return { status: 503, body: { error: 'stand_in_has_no_secret' } };
     const base = String(switches.helpdesk_url || helpdeskUrl || '').replace(/\/$/, '');
     const requestId = switches.request_id || randomUUID();
@@ -130,7 +147,7 @@ export function createStandInApp({ helpdeskUrl, secret, fetchImpl = fetch, quiet
         'X-Inclamo-Signature': signature,
       },
       body: raw || undefined,
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(waitMs),
     });
     const text = await response.text();
     const body = parse(text);
@@ -162,7 +179,31 @@ export function createStandInApp({ helpdeskUrl, secret, fetchImpl = fetch, quiet
     'storefront-chat': async ({ domain, storefront_url: storefrontUrl, body, ...switches }) =>
       remember(domain, await call('PUT', storePath(domain, '/storefront-chat'), JSON.stringify(body === undefined ? chatBody(storefrontUrl) : body), switches)),
     'storefront-chat-status': async ({ domain, ...switches }) => remember(domain, await call('GET', storePath(domain, '/storefront-chat'), '', switches)),
+    agent: async ({ domain, service_url: serviceUrl, token, refuse, extra, body, ...switches }) => {
+      let raw = body === undefined ? null : JSON.stringify(body);
+      if (raw === null) {
+        const pairing = token === undefined ? await mint(refuse) : { token };
+        raw = JSON.stringify(agentBody({ service_url: serviceUrl ?? pairing.service_url, token: pairing.token }, extra));
+      }
+      return call('PUT', storePath(domain, '/agent'), raw, switches, 15_000);
+    },
+    'agent-status': ({ domain, ...switches }) => call('GET', storePath(domain, '/agent'), '', switches),
+    'agent-disconnect': ({ domain, ...switches }) => call('DELETE', storePath(domain, '/agent'), '', switches),
   };
+
+  // A one-time pairing token for the store, made immediately before the
+  // request, as the app makes one with the AI service (docs/app-agent-connection.md §3.1).
+  async function mint(refuse = null) {
+    if (!agentUrl) throw new Error('the stand-in app has no AI service to take a pairing token from');
+    const response = await fetchImpl(`${String(agentUrl).replace(/\/$/, '')}/__e2e/tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refuse }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (response.status !== 201) throw new Error(`the stand-in agent answered ${response.status} to a pairing token`);
+    return response.json();
+  }
 
   // Keeps the two values of an answer that carries them, as the app does
   // after the `PUT`. The store is the same store whatever the case of its letters.
@@ -234,6 +275,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT || 8091);
   const helpdeskUrl = process.env.HELPDESK_URL || 'http://rails:3000';
   const secret = (process.env.INCLAMO_APP_PROVISIONING_SECRET || '').trim();
+  const agentUrl = process.env.AGENT_URL || 'http://stand-in-agent:8090';
   if (!secret) console.log('stand-in app: no INCLAMO_APP_PROVISIONING_SECRET, every call will answer 503');
-  createStandInApp({ helpdeskUrl, secret }).server.listen(port, () => console.log(`stand-in app: listening on ${port} for ${helpdeskUrl}`));
+  createStandInApp({ helpdeskUrl, secret, agentUrl }).server.listen(port, () => console.log(`stand-in app: listening on ${port} for ${helpdeskUrl}`));
 }

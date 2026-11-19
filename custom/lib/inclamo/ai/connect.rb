@@ -14,6 +14,13 @@ module Inclamo
     #      keep_pending_on_bot_failure, create the fixed labels and the
     #      attributes of a call, attach the bot to the chosen inboxes and save
     #      the connection, all in one transaction.
+    #
+    # Two doors lead here. The "AI agent" page gives a pasted `code`, the
+    # person who pasted it and the inboxes they chose, at least one. The store
+    # app's door (Inclamo::Provisioning::AgentConnection) gives a `pairing`
+    # (the code's two fields), no person, `via: 'app'`, and `inbox_ids` as a
+    # callable that is read under the account's lock; with `allow_no_inboxes`
+    # an empty choice connects the account for calls only.
     class Connect
       PHONE_INBOX_NAME = 'Phone'
 
@@ -21,18 +28,21 @@ module Inclamo
         new(...).call
       end
 
-      def initialize(account:, user:, code:, inbox_ids:, client: ServiceClient.new)
+      def initialize(account:, user:, inbox_ids:, code: nil, pairing: nil, allow_no_inboxes: false, via: 'page', client: ServiceClient.new)
         @account = account
         @user = user
         @code_text = code
+        @pairing = pairing
         @inbox_ids = inbox_ids
+        @allow_no_inboxes = allow_no_inboxes
+        @via = via
         @client = client
       end
 
       def call
         raise Error::EncryptionNotConfigured, 'encryption is not configured' unless Chatwoot.encryption_configured?
 
-        code = ConnectionCode.read(@code_text)
+        code = @pairing || ConnectionCode.read(@code_text)
         Ai.with_account_lock(@account) do
           record = Inclamo::AiConnection.find_or_initialize_by(account_id: @account.id)
           raise Error::AlreadyConnected, 'the account is connected' if record.persisted? && record.active?
@@ -78,7 +88,7 @@ module Inclamo
           record.update!(
             service_url: code.service_url, connection_id: registration.connection_id, agent_bot_id: bot.id,
             phone_inbox_id: phone.id, inbox_ids: inboxes.map(&:id), state: 'connected', connected_by: @user,
-            connected_at: Time.current, disconnected_at: nil, removal_error: nil,
+            connected_via: @via, connected_at: Time.current, disconnected_at: nil, removal_error: nil,
             last_delivered_at: nil, last_failed_at: nil, last_error: nil, last_reply_at: nil
           )
         end
@@ -97,7 +107,9 @@ module Inclamo
       end
 
       def chosen_inboxes(record)
-        ids = Array(@inbox_ids).map(&:to_i).select(&:positive?).uniq
+        chosen = @inbox_ids.respond_to?(:call) ? @inbox_ids.call : @inbox_ids
+        ids = Array(chosen).map(&:to_i).select(&:positive?).uniq
+        return [] if ids.empty? && @allow_no_inboxes
         raise Error::NoInboxes, 'no inbox was chosen' if ids.empty?
 
         inboxes = @account.inboxes.where(id: ids).to_a

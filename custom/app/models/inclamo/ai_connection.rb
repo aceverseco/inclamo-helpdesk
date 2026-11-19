@@ -7,10 +7,14 @@
 class Inclamo::AiConnection < ApplicationRecord
   STATES = %w[connected failing disconnected].freeze
   ACTIVE_STATES = %w[connected failing].freeze
+  # The door the connection came through: an administrator with a code on the
+  # "AI agent" page, or the store app (capability app-agent-auto-connection).
+  VIAS = %w[page app].freeze
 
   belongs_to :account
   belongs_to :agent_bot, optional: true
   belongs_to :phone_inbox, class_name: 'Inbox', optional: true
+  # Empty for a connection the store app made: no person made it.
   belongs_to :connected_by, class_name: 'User', optional: true
 
   enum :state, STATES.index_with(&:itself)
@@ -19,6 +23,7 @@ class Inclamo::AiConnection < ApplicationRecord
 
   validates :account_id, uniqueness: true
   validates :service_url, presence: true
+  validates :connected_via, inclusion: { in: VIAS }
   # The bot's secret is stored encrypted only when keys are configured
   # (Chatwoot's WebhookSecretable): without them a connection is refused.
   validate :encryption_must_be_configured, unless: :disconnected?

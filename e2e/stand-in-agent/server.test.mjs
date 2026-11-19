@@ -228,6 +228,45 @@ test('files a finished call with the bot token, and logs its id and the answer o
   assert.ok(!JSON.stringify(filed).includes('A caller turn'));
 });
 
+test('mints a pairing token for the store app that registers once, and keeps the latest code connection as the default', async () => {
+  const before = await (await fetch(`${agentUrl}/__e2e/connection`)).json();
+  const { status, body: minted } = await post('/__e2e/tokens', {});
+  assert.equal(status, 201);
+  assert.equal(minted.service_url, agentUrl);
+  const registration = { contract: 1, helpdesk_url: helpdeskUrl, account: { id: 31, name: 'Store' }, bot: { id: 9, access_token: 'pairing-bot-token', secret: 's' }, phone_inbox_id: 40, inbox_ids: [] };
+
+  const first = await post('/connections', registration, { Authorization: `Bearer ${minted.token}` });
+  const again = await post('/connections', registration, { Authorization: `Bearer ${minted.token}` });
+
+  assert.equal(first.status, 201);
+  assert.equal(again.status, 409);
+  // Without an account the latest connection made with a code; with one, that account's latest.
+  assert.equal((await (await fetch(`${agentUrl}/__e2e/connection`)).json()).id, before.id);
+  const own = await (await fetch(`${agentUrl}/__e2e/connection?account_id=31`)).json();
+  assert.deepEqual([own.id, own.inbox_ids, own.phone_inbox_id, own.via], [first.body.connection_id, [], 40, 'pairing']);
+  calls.length = 0;
+  await post('/__e2e/call', { account_id: 31, call: { call_id: 'c-pairing' } });
+  assert.deepEqual(calls.map(entry => [entry.url, entry.token]), [['/api/v1/accounts/31/inclamo/calls', 'pairing-bot-token']]);
+});
+
+test('answers a refusal late when told to, as an AI service slower than the helpdesk', async () => {
+  const { body: minted } = await post('/__e2e/tokens', { refuse: { status: 503, error: 'slow', message: 'Late.', delay_ms: 300 } });
+  const started = Date.now();
+
+  const answer = await post('/connections', { contract: 1 }, { Authorization: `Bearer ${minted.token}` });
+
+  assert.equal(answer.status, 503);
+  assert.ok(Date.now() - started >= 290, 'the answer came at once');
+});
+
+test('logs a request to an address it does not serve', async () => {
+  await post('/unlisted/connections', { contract: 1 });
+  const { log } = await (await fetch(`${agentUrl}/__e2e/log`)).json();
+
+  const unknown = log.filter(entry => entry.kind === 'unknown_request').at(-1);
+  assert.deepEqual([unknown.method, unknown.path], ['POST', '/unlisted/connections']);
+});
+
 test('keeps no token or secret in its log', async () => {
   const log = await (await fetch(`${agentUrl}/__e2e/log`)).text();
 

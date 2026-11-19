@@ -1,7 +1,8 @@
 <script setup>
 // Settings → AI agent, for administrators (design D9). Without a connection it
 // says what the agent does and where to get it, and takes a connection code
-// and the inboxes the agent answers in. With one it shows the inboxes, the
+// and the inboxes the agent answers in. With one it shows the inboxes (or that
+// it takes calls only), who connected it (a person, or the store app), the
 // state, the agent's last reply and the last failed delivery, and offers to
 // disconnect. It never shows a conversation's content.
 import { ref, reactive, computed, onMounted } from 'vue';
@@ -27,6 +28,8 @@ const connected = computed(() => !!page.value?.connected);
 const connection = computed(() => page.value?.connection || {});
 const inboxes = computed(() => page.value?.inboxes || []);
 const connectedInboxes = computed(() => inboxes.value.filter(inbox => inbox.connected));
+// The store app, for a connection it made; else the person who pasted the code.
+const connectedBy = computed(() => (connection.value.connected_via === 'app' ? t('SETTINGS.AI_AGENT.BY_APP') : connection.value.connected_by || ''));
 const canConnect = computed(() => page.value?.encryption_configured && form.code.trim() !== '' && form.inboxIds.length > 0 && !busy.value);
 
 const show = data => {
@@ -122,7 +125,12 @@ onMounted(load);
             <dt class="text-n-slate-11">{{ t('SETTINGS.AI_AGENT.INBOXES') }}</dt>
             <dd data-testid="inclamo-ai-inboxes">
               <span v-for="inbox in connectedInboxes" :key="inbox.id" class="mr-3" :data-testid="`inclamo-ai-connected-${inbox.id}`">{{ inbox.name }}</span>
+              <span v-if="connectedInboxes.length === 0" class="text-n-slate-11" data-testid="inclamo-ai-calls-only">{{ t('SETTINGS.AI_AGENT.CALLS_ONLY') }}</span>
             </dd>
+            <template v-if="connectedBy">
+              <dt class="text-n-slate-11">{{ t('SETTINGS.AI_AGENT.CONNECTED_BY') }}</dt>
+              <dd data-testid="inclamo-ai-connected-by" :data-via="connection.connected_via || 'page'">{{ connectedBy }}</dd>
+            </template>
             <dt class="text-n-slate-11">{{ t('SETTINGS.AI_AGENT.LAST_REPLY') }}</dt>
             <dd data-testid="inclamo-ai-last-reply">{{ connection.last_reply_at ? dateTime(connection.last_reply_at) : t('SETTINGS.AI_AGENT.NO_REPLY_YET') }}</dd>
             <dt class="text-n-slate-11">{{ t('SETTINGS.AI_AGENT.LAST_ERROR') }}</dt>
