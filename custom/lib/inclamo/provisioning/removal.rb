@@ -8,7 +8,8 @@ module Inclamo
     # sessions are left alone since they may belong to other accounts.
     # Returns the state afterwards: 'suspended', or 'none' for a store that has
     # no account. Repeating it changes nothing. The account's AI agent is
-    # disconnected as part of it (AgentConnection.suspending).
+    # disconnected as part of it (AgentConnection.suspending), and the key to
+    # its store deleted (Shopify::AppConnection.forget_key!).
     class Removal
       def initialize(shop_domain)
         @shop_domain = shop_domain
@@ -22,6 +23,7 @@ module Inclamo
           row.with_lock do
             row.account.update!(status: :suspended) unless row.account.suspended?
             row.update!(state: 'suspended') unless row.suspended?
+            Inclamo::Shopify::AppConnection.forget_key!(row.account)
           end
         end
         'suspended'

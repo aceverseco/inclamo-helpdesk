@@ -23,11 +23,18 @@ for the two public values its widget needs on two more addresses
 [app-storefront-chat](behavior/app-storefront-chat/spec.md)). It has no
 setting of its own.
 
+The same secret also signs the helpdesk's own requests to the app for a key to
+a store, which connect such an account to its store without anyone entering
+credentials (contract in `docs/app-store-access.md`, behavior contract
+[app-store-access](behavior/app-store-access/spec.md)). That needs the app's
+address; see [Store keys from the app](#store-keys-from-the-app).
+
 ## Settings
 
-All are environment variables of the helpdesk's web process (in the
-development stack, `dev/.env`; see `dev/env.example`). They are read when the
-process starts: restart it after changing one.
+All are environment variables of the helpdesk's web process, and the secret
+and the two store key settings of its worker process too (in the development
+stack, `dev/.env`; see `dev/env.example`). They are read when the process
+starts: restart it after changing one.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -37,6 +44,8 @@ process starts: restart it after changing one.
 | `INCLAMO_APP_PROVISIONING_STORE_LIMIT` | `15` | `PUT` requests accepted in an hour for one store, every address's `PUT` counted together |
 | `INCLAMO_APP_PROVISIONING_GET_LIMIT` | `300` | Status requests (`GET`) accepted in an hour, for the installation, every address's counted together |
 | `FRONTEND_URL` | Chatwoot's own | The address people open. The answers give it to the app as `helpdesk_url` and, for the storefront chat, as `widget_base_url`; the password link starts with it |
+| `INCLAMO_APP_URL` | unset | The store app's address for store keys, HTTPS, with any path prefix the app chose (`https://app.example.com/helpdesk`). Used for a store whose provisioning request named no address of its own. Needed by the web and the worker processes |
+| `INCLAMO_APP_KEY_PAUSE` | `30` | Seconds a store's connection waits before it asks the app for a key again while the app gives none. A longer `Retry-After` of the app is kept |
 
 ## The secret
 
@@ -85,6 +94,70 @@ it retries them.
 
 The previous secret alone turns nothing on, and like the current one it is
 ignored when shorter than 32 bytes.
+
+## Store keys from the app
+
+An account the store app provisioned is connected to its store through the
+app: after the account is created or restored, a background job asks the app
+for a short-lived key to the store (`POST {address}/stores/{shop_domain}/store-key`,
+signed with the secret), checks it against the store and saves the connection.
+The provisioning answer never waits for it. From then on the helpdesk asks for
+a new key about five minutes before the current one ends, one request per
+store however many people are working, and only when store data is needed.
+The key is stored encrypted, deleted when the account is suspended, and never
+logged or returned by an endpoint.
+
+**The app's address.** The app may name an address for each store in its
+provisioning request (`store_access_url`); the helpdesk keeps the latest one
+and uses it for that store. A store without one uses `INCLAMO_APP_URL`. With
+neither, or without the secret or Chatwoot's encryption keys, a provisioned
+account simply has no store connection, the button "Connect through the
+Inclamo app" is not shown, and no request leaves the helpdesk. The address
+must be public HTTPS: requests go through Chatwoot's SSRF filter, which
+refuses private addresses unless `SAFE_FETCH_ALLOW_PRIVATE_NETWORK` is on (a
+test stack only), and a redirect is not followed. Each request waits at most
+10 seconds.
+
+**From an unset address to a working panel.**
+
+1. Set `INCLAMO_APP_URL` (next to the secret) on the web and the worker
+   processes and restart both: a key is asked for by either.
+2. In a provisioned account without a connection, an administrator opens a
+   conversation; the Orders section offers **Connect through the Inclamo
+   app**. Press it. Its answer says what went wrong if anything did (the app
+   did not answer, answered for another store, lacks a scope, or does not
+   have the store).
+3. The Orders section shows the customer's orders, and its **Store** menu
+   reads "Connected through the Inclamo app" with the last check and the last
+   renewal of the key.
+
+Accounts created or restored after step 1 are connected by themselves.
+
+**When the app does not answer.** While the current key works (a key lives up
+to an hour) nothing changes. After that the Orders section says the store's
+data is temporarily unavailable and recovers by itself: the next request for
+store data asks the app again, at most once per `INCLAMO_APP_KEY_PAUSE`
+seconds per store. The connection is not marked broken. A conversation that
+arrives meanwhile is handled as one whose store is silent: its automation rules
+run without store facts. An outage of the app longer than a key's life stops
+store data for every provisioned account at once, so watch the app as you
+watch the helpdesk.
+
+**When the app refuses.** `store_not_installed` marks the connection broken and
+tells the account's administrator to install the app again; `account_mismatch`
+marks it broken and tells them to contact support (the app does not know this
+account for the store, for example because the store's account was made by
+another installation). "Check again" asks for a new key and repairs the
+connection once the app gives one. `503`, `422`, `429` and a server error count
+as no answer.
+
+**The alarm on 401.** The app answers `401` when it does not accept the
+helpdesk's signature: the two sides do not hold the same secret (a rotation
+done on one side only). Such a request is reported through Chatwoot's exception
+tracker, which writes it to the error log as
+`Inclamo::Shopify::AppKey::SecretRefused` and sends it to Sentry when
+`SENTRY_DSN` is set. Alert on that name. The connections keep working on their
+current keys meanwhile, then show the store's data as unavailable.
 
 ## Limits
 
@@ -158,8 +231,13 @@ before provisioning is turned on.
   the time, the store's domain, the request id and the outcome (`created`,
   `existed`, `restored`, `suspended`, `none`, `refused`, `limited`, and for
   the storefront chat's request `chat_created`, `chat_existed`,
-  `chat_refused`). It never holds an email, a name, a signature, a password
-  link or a website token. Rows older than 90
+  `chat_refused`). The helpdesk's own requests for a store key are recorded
+  here too, with the account: `key_granted`, `key_refused:<the app's code>`
+  (`store_not_installed`, `account_mismatch`, `store_unavailable`,
+  `unauthorized`, `rate_limited`, ...), `key_no_answer`, and
+  `key_invalid:<why>` for a key that was not taken (`other_store`,
+  `short_life`, `unreadable`). It never holds an email, a name, a signature, a
+  password link, a website token or a key. Rows older than 90
   days are removed once a day by `Inclamo::ProvisioningEventsCleanupJob`, on
   the `scheduled_jobs` queue of the normal Sidekiq schedule.
 - Request ids and their answers for ten minutes, in Redis. This is the only
@@ -178,3 +256,7 @@ helpdesk sends no letter when it creates an account this way.
 Unset `INCLAMO_APP_PROVISIONING_SECRET` and restart: the addresses are gone
 and the app's requests are answered `404`. Accounts created through it stay as
 ordinary accounts, and their rows stay for the day it is turned on again.
+
+Without the secret, or without any address of the app, the store connections
+made through the app can no longer be renewed: each keeps working until its key
+ends, then shows the store's data as unavailable.

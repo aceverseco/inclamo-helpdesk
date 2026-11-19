@@ -47,6 +47,43 @@ module Inclamo
       # administrator has checked or renewed it.
       class ConnectionBroken < Error; end
 
+      # A connection through the store app: the app gave no key (it did not
+      # answer, or answered that it cannot now) and the key the helpdesk holds
+      # has ended. The store was not asked; the connection is not broken.
+      # `retry_after` is the wait the app asked for, in seconds, when it did.
+      class StoreDataUnavailable < Error
+        attr_reader :code, :retry_after
+
+        def initialize(message = 'the store app gave no key to the store', code: 'no_answer', retry_after: nil)
+          super(message)
+          @code = code
+          @retry_after = retry_after
+        end
+      end
+
+      # The store app handed out a key to another store than the account's.
+      # Taken as no answer by a renewal; a connection is not made with it.
+      class OtherStoreKey < StoreDataUnavailable
+        def initialize(message = 'the store app answered with a key to another store')
+          super(message, code: 'other_store')
+        end
+      end
+
+      # The store app refused the key for a reason that breaks the connection:
+      # `reason` is one of ShopifyConnection::BROKEN_REASONS.
+      class AppKeyRefused < ConnectionBroken
+        attr_reader :reason
+
+        def initialize(reason)
+          @reason = reason
+          super("the store app refused the key: #{reason}")
+        end
+      end
+
+      # The account was not provisioned by the store app, or this installation
+      # cannot reach the app: a connection through the app cannot be made.
+      class NotThroughApp < Error; end
+
       # What was entered is not a `<name>.myshopify.com` domain.
       class InvalidDomain < Error; end
 

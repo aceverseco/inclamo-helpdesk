@@ -13,8 +13,8 @@ import { canPerform } from '../permissions';
 import { insertIntoReply } from '../reply';
 import { ORDER_ROLES_ROUTE } from '../routes';
 import { useCommerce, acceptPanel } from '../widgets/commerce';
-import { t } from '../i18n';
-import { money, date } from '../format';
+import { t, has } from '../i18n';
+import { money, date, dateTime } from '../format';
 
 const props = defineProps({
   conversationId: { type: [Number, String], required: true },
@@ -38,6 +38,8 @@ const lookupResult = ref(null);
 const connectDialog = ref(null);
 const newOrderDialog = ref(null);
 const confirmingRemoval = ref(false);
+const connectingThroughApp = ref(false);
+const appError = ref('');
 
 const state = computed(() => panel.value?.state);
 const viewer = computed(() => panel.value?.viewer || { administrator: false, can_act_on_orders: false });
@@ -45,6 +47,28 @@ const connection = computed(() => panel.value?.connection || { connected: false 
 const markedId = computed(() => panel.value?.marked_order?.id);
 const can = computed(() => panel.value?.can || {});
 const lookupStates = ['none', 'no_identifier', 'limited'];
+// An account the store app provisioned: its connection is the app's, made
+// through it, never replaced with credentials or removed here.
+const managedByApp = computed(() => connection.value.managed_by_app === true || connection.value.auth_kind === 'app_key');
+const throughApp = computed(() => connection.value.auth_kind === 'app_key');
+const brokenText = computed(() => {
+  const reason = connection.value.broken_reason;
+  return throughApp.value && reason && has(`ORDERS.APP.BROKEN.${reason}`) ? t(`ORDERS.APP.BROKEN.${reason}`) : t('ORDERS.BROKEN.TEXT');
+});
+const brokenAdminHint = computed(() => {
+  const reason = connection.value.broken_reason;
+  return reason && has(`ORDERS.APP.ADMIN_HINT.${reason}`) ? t(`ORDERS.APP.ADMIN_HINT.${reason}`) : t('ORDERS.APP.ADMIN_HINT.other');
+});
+const storeDataUnavailable = computed(() => state.value === 'unavailable' && panel.value?.reason === 'store_data_unavailable');
+// What each action needs that the Inclamo app was not given at the store.
+const appActions = computed(() => (connection.value.actions || []).map(action => ({
+  ...action,
+  text: action.available
+    ? t('ORDERS.APP.AVAILABLE')
+    : action.reason === 'missing_scope'
+      ? t('ORDERS.APP.MISSING_SCOPE', { scopes: (action.missing_scopes || []).join(', ') })
+      : t(`ORDER.WHY_NOT.${action.reason}`),
+})));
 const openActionFor = order => (panel.value?.open_actions || []).find(action => action.order_id === order.id) || null;
 
 // A new order is offered to whoever may act on orders; when the connected app
@@ -122,9 +146,13 @@ const choose = customerId => mutate(id => InclamoAPI.chooseCustomer(id, customer
 const forget = () => mutate(id => InclamoAPI.forgetCustomer(id));
 const mark = order => mutate(id => InclamoAPI.markOrder(id, order.id));
 const unmark = () => mutate(id => InclamoAPI.clearOrder(id));
+// A refused check is not an error of the section: the panel read after it
+// shows what the store or the store app said (broken, with its reason).
 const recheck = async () => {
   try {
     await InclamoAPI.recheck();
+  } catch {
+    // shown by the read below
   } finally {
     await load();
   }
@@ -134,6 +162,20 @@ const remove = async () => {
   confirmingRemoval.value = false;
   await load();
 };
+const connectThroughApp = async () => {
+  connectingThroughApp.value = true;
+  appError.value = '';
+  try {
+    await InclamoAPI.connectThroughApp();
+    await load();
+  } catch (failure) {
+    const data = failure.response?.data || {};
+    const key = `ORDERS.APP.ERRORS.${data.error}`;
+    appError.value = has(key) ? t(key, { scopes: (data.missing_scopes || []).join(', ') }) : t('ORDERS.APP.ERRORS.other');
+  } finally {
+    connectingThroughApp.value = false;
+  }
+};
 
 watch(entry, () => {
   lookupNumber.value = '';
@@ -141,6 +183,7 @@ watch(entry, () => {
   lookupBusy.value = false;
   loadingMore.value = false;
   confirmingRemoval.value = false;
+  appError.value = '';
 });
 </script>
 
@@ -163,8 +206,10 @@ watch(entry, () => {
       v-else-if="failed || state === 'unavailable'"
       class="flex flex-col items-start gap-2"
       data-testid="inclamo-orders-unavailable"
+      :data-reason="storeDataUnavailable ? 'store_data_unavailable' : undefined"
     >
-      <p>{{ t("ORDERS.UNAVAILABLE") }}</p>
+      <p v-if="storeDataUnavailable" data-testid="inclamo-orders-store-data-unavailable">{{ t("ORDERS.APP.UNAVAILABLE") }}</p>
+      <p v-else>{{ t("ORDERS.UNAVAILABLE") }}</p>
       <button
         type="button"
         class="text-n-blue-text"
@@ -180,7 +225,21 @@ watch(entry, () => {
       class="flex flex-col items-start gap-2"
       data-testid="inclamo-orders-not-connected"
     >
-      <template v-if="viewer.administrator">
+      <template v-if="viewer.administrator && managedByApp">
+        <p>{{ connection.through_app ? t("ORDERS.APP.NOT_CONNECTED") : t("ORDERS.APP.NOT_SET_UP") }}</p>
+        <button
+          v-if="connection.through_app"
+          type="button"
+          class="rounded-md bg-n-brand px-3 py-1.5 text-white disabled:opacity-50"
+          :disabled="connectingThroughApp"
+          data-testid="inclamo-connect-app"
+          @click="connectThroughApp"
+        >
+          {{ t("ORDERS.APP.CONNECT") }}
+        </button>
+        <p v-if="appError" role="alert" class="text-n-ruby-11" data-testid="inclamo-connect-app-error">{{ appError }}</p>
+      </template>
+      <template v-else-if="viewer.administrator">
         <p>
           {{
             connection.encryption_configured === false
@@ -206,8 +265,14 @@ watch(entry, () => {
       class="flex flex-col items-start gap-2"
       data-testid="inclamo-orders-broken"
     >
-      <p class="text-n-ruby-11">{{ t("ORDERS.BROKEN.TEXT") }}</p>
-      <template v-if="viewer.administrator">
+      <p class="text-n-ruby-11" data-testid="inclamo-orders-broken-text" :data-reason="throughApp ? connection.broken_reason || 'other' : undefined">{{ brokenText }}</p>
+      <template v-if="viewer.administrator && throughApp">
+        <p class="text-xs" data-testid="inclamo-orders-broken-hint">{{ brokenAdminHint }}</p>
+        <button type="button" class="text-n-blue-text" data-testid="inclamo-broken-recheck" @click="recheck">
+          {{ t("ORDERS.MANAGE.CHECK_AGAIN") }}
+        </button>
+      </template>
+      <template v-else-if="viewer.administrator">
         <div class="flex gap-3">
           <button
             type="button"
@@ -232,7 +297,7 @@ watch(entry, () => {
     >
       <p class="text-n-ruby-11">{{ t("ORDERS.REFUSED.TEXT") }}</p>
       <template v-if="viewer.administrator">
-        <p class="text-xs">{{ t("ORDERS.REFUSED.ADMIN_HINT") }}</p>
+        <p class="text-xs">{{ throughApp ? t("ORDERS.APP.REFUSED_HINT") : t("ORDERS.REFUSED.ADMIN_HINT") }}</p>
         <button
           type="button"
           class="text-n-blue-text"
@@ -266,7 +331,7 @@ watch(entry, () => {
       >
         <p>{{ t("ORDERS.LIMITED.TEXT") }}</p>
         <p v-if="viewer.administrator" class="text-xs">
-          {{ t("ORDERS.LIMITED.WHY") }}
+          {{ throughApp ? t("ORDERS.APP.LIMITED_WHY") : t("ORDERS.LIMITED.WHY") }}
         </p>
       </div>
       <p
@@ -501,6 +566,21 @@ watch(entry, () => {
             {{ t("ORDERS.FORGET_CUSTOMER") }}
           </button>
         </div>
+        <section
+          v-if="throughApp"
+          class="mt-3 flex flex-col gap-1 border-t border-n-weak pt-2 text-xs"
+          data-testid="inclamo-app-connection"
+        >
+          <p class="font-medium">{{ t("ORDERS.APP.CONNECTED") }}</p>
+          <p data-testid="inclamo-app-store">{{ connection.shop_name }} · {{ connection.shop_domain }}</p>
+          <p data-testid="inclamo-app-checked">{{ t("ORDERS.APP.LAST_CHECK", { time: dateTime(connection.last_checked_at) }) }}</p>
+          <p v-if="connection.renewed_at" data-testid="inclamo-app-renewed">{{ t("ORDERS.APP.LAST_RENEWAL", { time: dateTime(connection.renewed_at) }) }}</p>
+          <ul class="flex flex-col gap-0.5" data-testid="inclamo-app-actions">
+            <li v-for="action in appActions" :key="action.name" :data-testid="`inclamo-app-action-${action.name}`" :data-available="action.available ? 'true' : 'false'">
+              <span class="font-medium">{{ t(`ACTION_RIGHTS.${action.name}`) }}</span>: <span :class="action.available ? '' : 'text-n-slate-11'">{{ action.text }}</span>
+            </li>
+          </ul>
+        </section>
         <div
           v-if="viewer.administrator"
           class="mt-3 flex flex-wrap items-center gap-3 border-t border-n-weak pt-2 text-xs"
@@ -522,7 +602,7 @@ watch(entry, () => {
             >{{ t("ORDERS.MANAGE.WHO_CAN_ACT") }}</router-link
           >
           <button
-            v-if="!confirmingRemoval"
+            v-if="!confirmingRemoval && !managedByApp"
             type="button"
             class="text-n-ruby-11"
             data-testid="inclamo-manage-remove"
@@ -530,7 +610,7 @@ watch(entry, () => {
           >
             {{ t("ORDERS.MANAGE.REMOVE") }}
           </button>
-          <span v-else class="flex flex-col gap-1">
+          <span v-else-if="!managedByApp" class="flex flex-col gap-1">
             <span>{{ t("ORDERS.MANAGE.REMOVE_CONFIRM") }}</span>
             <span class="flex gap-3">
               <button

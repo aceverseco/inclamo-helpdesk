@@ -3,13 +3,20 @@
 # The account's Shopify store connection. Every member may read what is
 # connected; only administrators connect, check again and remove. No answer of
 # this controller carries the client secret or a token.
+#
+# An account the store app provisioned is connected through the app
+# (Inclamo::Shopify::AppConnection): `create` with `via: "app"` makes that
+# connection, and credentials, a second store and removal are refused
+# (`managed_by_app`); reading it and checking it again stay.
 class Api::V1::Accounts::Inclamo::ShopifyConnectionsController < Api::V1::Accounts::BaseController
   before_action :require_administrator, except: [:show]
 
   ERROR_STATUS = {
     forbidden: :forbidden,
+    managed_by_app: :forbidden,
     not_connected: :not_found,
-    store_unreachable: :bad_gateway
+    store_unreachable: :bad_gateway,
+    app_unavailable: :bad_gateway
   }.freeze
 
   def show
@@ -18,6 +25,8 @@ class Api::V1::Accounts::Inclamo::ShopifyConnectionsController < Api::V1::Accoun
 
   def create
     return refuse(:encryption_not_configured) unless Chatwoot.encryption_configured?
+    return connect_through_app if params[:via].to_s == 'app'
+    return refuse(:managed_by_app) if provisioned?
 
     domain = ::Inclamo::Shopify::Verifier.normalize_domain(params[:shop_domain])
     existing = connection
@@ -43,11 +52,36 @@ class Api::V1::Accounts::Inclamo::ShopifyConnectionsController < Api::V1::Accoun
   end
 
   def destroy
+    return refuse(:managed_by_app) if provisioned?
+
     connection&.destroy!
     head :no_content
   end
 
   private
+
+  # The connection of an account the store app provisioned, made with a key
+  # from the app; nobody enters anything.
+  def connect_through_app
+    return refuse(:not_through_app) unless provisioned?
+
+    existing = connection
+    record = ::Inclamo::Shopify::AppConnection.connect!(Current.account)
+    render json: present(record), status: existing ? :ok : :created
+  rescue ::Inclamo::Shopify::Error => e
+    refuse_for(e)
+  end
+
+  def provisioned?
+    return @provisioned if defined?(@provisioned)
+
+    @provisioned = ::Inclamo::Shopify::AppConnection.provisioned?(Current.account.id)
+  end
+
+  # Whether "Connect through the Inclamo app" can work on this installation.
+  def through_app?
+    provisioned? && ::Inclamo::Shopify::AppConnection.available?(::Inclamo::Shopify::AppConnection.row_of(Current.account.id))
+  end
 
   def connection
     @connection ||= ::Inclamo::ShopifyConnection.find_by(account_id: Current.account.id)
@@ -79,15 +113,16 @@ class Api::V1::Accounts::Inclamo::ShopifyConnectionsController < Api::V1::Accoun
   end
 
   def present(record)
-    return { connected: false, encryption_configured: Chatwoot.encryption_configured?, viewer: viewer } unless record
+    app = { managed_by_app: provisioned?, through_app: through_app? }
+    return { connected: false, encryption_configured: Chatwoot.encryption_configured?, viewer: viewer }.merge(app) unless record
 
     {
       viewer: viewer,
       connected: true, status: record.status, shop_name: record.shop_name, shop_domain: record.shop_domain,
       shop_currency: record.shop_currency, auth_kind: record.auth_kind, customer_data: record.customer_data_mode,
       scopes: record.scopes, actions: record.actions_report, api_version: record.api_version,
-      last_checked_at: record.last_checked_at
-    }
+      last_checked_at: record.last_checked_at, broken_reason: record.broken_reason, renewed_at: record.renewed_at
+    }.merge(app)
   end
 
   # What the signed-in member may do; the dashboard shows or hides by it, the
@@ -99,18 +134,24 @@ class Api::V1::Accounts::Inclamo::ShopifyConnectionsController < Api::V1::Accoun
 
   def refuse_for(error)
     case error
+    when ::Inclamo::Shopify::Error::AppKeyRefused then refuse(error.reason.to_sym)
+    when ::Inclamo::Shopify::Error::OtherStoreKey then refuse(:other_store)
+    when ::Inclamo::Shopify::Error::StoreDataUnavailable then refuse(:app_unavailable)
+    when ::Inclamo::Shopify::Error::NotThroughApp then refuse(:not_through_app)
+    when ::Inclamo::Shopify::Error::MissingScopes
+      refuse(:missing_scopes, missing_scopes: error.scopes, message_key: (:missing_app_scopes if provisioned?))
     when ::Inclamo::Shopify::Error::InvalidDomain then refuse(:invalid_domain)
     when ::Inclamo::Shopify::Error::AppNotInstalled then refuse(:app_not_installed)
-    when ::Inclamo::Shopify::Error::Unauthorized then refuse(:credentials_refused)
-    when ::Inclamo::Shopify::Error::MissingScopes then refuse(:missing_scopes, missing_scopes: error.scopes)
-    when ::Inclamo::Shopify::Error::OrdersRefused then refuse(:orders_refused)
+    when ::Inclamo::Shopify::Error::Unauthorized then refuse(provisioned? ? :key_refused : :credentials_refused)
+    when ::Inclamo::Shopify::Error::OrdersRefused then refuse(:orders_refused, message_key: (:orders_refused_app if provisioned?))
     when ::Inclamo::Shopify::Error::ShopUnavailable then refuse(:shop_unavailable)
     else refuse(:store_unreachable)
     end
   end
 
   def refuse(code, extra = {})
-    message = I18n.t("inclamo.shopify_connection.errors.#{code}", **extra.transform_values { |value| Array(value).join(', ') })
+    key = extra.delete(:message_key) || code
+    message = I18n.t("inclamo.shopify_connection.errors.#{key}", **extra.transform_values { |value| Array(value).join(', ') })
     render json: { error: code, message: message }.merge(extra), status: ERROR_STATUS.fetch(code, :unprocessable_entity)
   end
 end

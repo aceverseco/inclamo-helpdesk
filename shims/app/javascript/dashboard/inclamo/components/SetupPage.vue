@@ -37,6 +37,7 @@ const run = async action => {
 };
 const review = () => run(() => InclamoAPI.reviewSetup(step.value, page.value.review_digests[step.value]));
 const recheck = () => run(() => InclamoAPI.recheck());
+const connectThroughApp = () => run(() => InclamoAPI.connectThroughApp());
 const complete = () => run(() => InclamoAPI.completeSetup());
 onMounted(load);
 </script>
@@ -59,8 +60,10 @@ onMounted(load);
             <h3 class="font-semibold">{{ t('SETUP.STEPS.store') }}</h3>
             <p>{{ t('SETUP.STORE_HELP') }}</p>
             <p v-if="page.store">{{ page.store.domain }} · {{ t(page.checks.store ? 'SETUP.WORKING' : 'SETUP.BROKEN') }}</p>
+            <p v-if="page.managed_by_app" data-testid="setup-through-app">{{ page.through_app || page.store ? t('SETUP.THROUGH_APP') : t('ORDERS.APP.NOT_SET_UP') }}</p>
             <div class="flex flex-wrap gap-3">
-              <button type="button" class="rounded-md bg-n-brand px-3 py-2 text-white" data-testid="setup-connect" @click="connectDialog.open(page.store?.domain)">{{ t(page.store ? 'SETUP.RECONNECT' : 'SETUP.CONNECT') }}</button>
+              <button v-if="page.managed_by_app && !page.store && page.through_app" type="button" class="rounded-md bg-n-brand px-3 py-2 text-white" :disabled="busy" data-testid="setup-connect-app" @click="connectThroughApp">{{ t('SETUP.CONNECT_APP') }}</button>
+              <button v-if="!page.managed_by_app" type="button" class="rounded-md bg-n-brand px-3 py-2 text-white" data-testid="setup-connect" @click="connectDialog.open(page.store?.domain)">{{ t(page.store ? 'SETUP.RECONNECT' : 'SETUP.CONNECT') }}</button>
               <button v-if="page.store" type="button" class="rounded-md border border-n-weak px-3 py-2" :disabled="busy" data-testid="setup-recheck" @click="recheck">{{ t('SETUP.RECHECK') }}</button>
               <button type="button" class="text-n-blue-text" @click="choose('channels')">{{ t('SETUP.NEXT') }}</button>
             </div>

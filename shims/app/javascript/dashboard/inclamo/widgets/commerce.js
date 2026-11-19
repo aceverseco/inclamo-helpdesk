@@ -32,9 +32,13 @@ export function acceptPanel(entry, data) {
 // A forced read (after an order action) must not be answered by a read that
 // started before the action: it starts its own, and the earlier one's answer
 // is dropped by the generation check.
+// An answer that could not show the store's data (the store or the store app
+// did not answer, the connection is broken) is not kept: the next look at the
+// conversation reads again, so the panel recovers by itself.
+const keptFresh = panel => Boolean(panel) && !['unavailable', 'broken'].includes(panel.state);
 export async function readCommerce(entry, force = false) {
   if (entry.pending && !force) return entry.pending;
-  if (!force && entry.panel && Date.now() - entry.updatedAt < FRESHNESS_MS) return entry.panel;
+  if (!force && keptFresh(entry.panel) && Date.now() - entry.updatedAt < FRESHNESS_MS) return entry.panel;
   const generation = ++entry.generation;
   // A refresh reads as many orders as are shown and replaces them at once: an
   // order further down the list, and a dialog its card opened, stay in place.

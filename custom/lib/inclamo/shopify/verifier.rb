@@ -6,6 +6,10 @@ module Inclamo
     # "check again": gets a token, reads the shop and the scopes the app holds,
     # and learns whether the store gives the app its orders and customers'
     # personal data.
+    #
+    # A key from the store app (AppKey) comes with the scopes the app granted:
+    # those are the connection's scopes, and the app's installation at the
+    # store is not read for them. The shop must be the account's own.
     class Verifier
       Result = Struct.new(:shop_domain, :shop_name, :shop_currency, :scopes, :customer_data_mode,
                           :access_token, :token_expires_at, keyword_init: true)
@@ -14,10 +18,12 @@ module Inclamo
         value.to_s.strip.downcase.sub(%r{\Ahttps?://}, '').sub(%r{/.*\z}, '')
       end
 
-      # Give either client_id and client_secret, or access_token (legacy app).
-      def self.call(domain:, client_id: nil, client_secret: nil, access_token: nil)
+      # Give either client_id and client_secret, or access_token (legacy app),
+      # or access_token with the scopes the store app granted it.
+      def self.call(domain:, client_id: nil, client_secret: nil, access_token: nil, granted_scopes: nil)
         domain = normalize_domain(domain)
         raise Error::InvalidDomain, 'not a myshopify.com domain' unless Shopify.valid_domain?(domain)
+        return granted(domain, access_token, granted_scopes) if granted_scopes
 
         expires_at = nil
         if access_token.blank?
@@ -42,6 +48,20 @@ module Inclamo
           token_expires_at: expires_at
         )
       end
+
+      def self.granted(domain, access_token, granted_scopes)
+        scopes = Array(granted_scopes).map(&:to_s).uniq.sort
+        missing = ShopifyConnection::READ_SCOPES - scopes
+        raise Error::MissingScopes, missing if missing.any?
+
+        client = Client.new(domain: domain, access_token: access_token)
+        shop = client.query(:shop_identity)['shop'] || {}
+        raise Error::OtherStoreKey unless shop['myshopifyDomain'].to_s.downcase == domain
+
+        Result.new(shop_domain: domain, shop_name: shop['name'], shop_currency: shop['currencyCode'], scopes: scopes,
+                   customer_data_mode: customer_data_mode(client), access_token: access_token, token_expires_at: nil)
+      end
+      private_class_method :granted
 
       def self.customer_data_mode(client)
         client.query(:customer_data_probe)

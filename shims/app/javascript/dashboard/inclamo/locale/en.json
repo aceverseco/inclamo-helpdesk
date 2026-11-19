@@ -50,6 +50,39 @@
       "REMOVE": "Remove connection",
       "REMOVE_CONFIRM": "Remove the store connection? The credentials are deleted; earlier notes and action records stay.",
       "REMOVE_YES": "Remove"
+    },
+    "APP": {
+      "NOT_CONNECTED": "Your store connects through the Inclamo app. Nothing needs to be entered.",
+      "NOT_SET_UP": "Your store connects through the Inclamo app, which this installation cannot reach yet. Contact support.",
+      "CONNECT": "Connect through the Inclamo app",
+      "ERRORS": {
+        "app_unavailable": "The Inclamo app did not answer. Try again in a moment.",
+        "other_store": "The Inclamo app answered for another store.",
+        "missing_scopes": "The Inclamo app does not have this permission at your store: {scopes}.",
+        "app_removed": "The Inclamo app is not installed on this store. Install it again in Shopify, then try again.",
+        "account_mismatch": "The Inclamo app does not know this account for the store. Contact support.",
+        "not_through_app": "This account cannot be connected through the Inclamo app here. Contact support.",
+        "other": "The store could not be connected. Try again in a moment."
+      },
+      "BROKEN": {
+        "app_removed": "The Inclamo app was removed from the store.",
+        "account_mismatch": "The Inclamo app does not know this account for the store.",
+        "missing_read_scope": "The Inclamo app can no longer read the store's orders and customers."
+      },
+      "ADMIN_HINT": {
+        "app_removed": "Install the Inclamo app again in Shopify, then check again.",
+        "account_mismatch": "Contact support.",
+        "missing_read_scope": "Check again to see which permission is missing.",
+        "other": "Check again. If it stays like this, contact support."
+      },
+      "UNAVAILABLE": "The store's data is temporarily unavailable. It comes back by itself.",
+      "CONNECTED": "Connected through the Inclamo app",
+      "LAST_CHECK": "Last checked {time}",
+      "LAST_RENEWAL": "Key last renewed {time}",
+      "AVAILABLE": "available",
+      "MISSING_SCOPE": "the Inclamo app does not have this permission at your store ({scopes})",
+      "REFUSED_HINT": "Check again. If Shopify keeps refusing, contact support.",
+      "LIMITED_WHY": "Names, emails and addresses are unavailable and the address cannot be changed here: the store does not give them to the Inclamo app."
     }
   },
   "ORDER": {
@@ -937,7 +970,9 @@
     "TEST_CHANNEL": "Verify the customer reply and email delivery. If AI is connected, test its proposals, approvals and handoff to your team.",
     "OPEN_CONVERSATIONS": "Open conversations",
     "EVIDENCE_HELP": "The actions below were accepted by Shopify. Setup completion does not verify the customer page, email delivery or real AI behavior.",
-    "NO_ACTIONS": "No completed order actions recorded yet."
+    "NO_ACTIONS": "No completed order actions recorded yet.",
+    "THROUGH_APP": "Your store connects through the Inclamo app.",
+    "CONNECT_APP": "Connect through the Inclamo app"
   },
   "BRAND": {
     "NAME": "Inclamo",

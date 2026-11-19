@@ -148,6 +148,34 @@ scopes and release it. Then open the app from your store's admin (**Settings →
 Apps**): Shopify asks you to approve the new access. Back in the helpdesk press
 **Orders → Check again**.
 
+## Connected through the Inclamo app
+
+On a hosted helpdesk whose account was made for your store by the Inclamo app
+(the app you install from your store's admin), none of the steps above is
+needed: the connection page reads **Connected through the Inclamo app**. The
+helpdesk asks the Inclamo app for a short-lived key to your store, renews it by
+itself, and calls your store with it; the Inclamo app's own credentials never
+reach the helpdesk. Behavior contract:
+[app-store-access](behavior/app-store-access/spec.md).
+
+- **What the helpdesk can do** is what you gave the Inclamo app at your store,
+  among the scopes of step 1. An action whose scope the app does not have is
+  shown as unavailable, with "the Inclamo app does not have this permission at
+  your store". To give it, approve the permission for the Inclamo app in your
+  store's admin, then press **Check again**.
+- **The connection is the app's.** It cannot be removed here, pointed at
+  another store or replaced with an app of your own. Any member can see which
+  store is connected, its scopes and when it was last checked; administrators
+  can press **Check again**, which asks the app for a new key.
+- **If the Inclamo app does not answer** for a while, nothing changes as long
+  as the helpdesk's current key works (up to an hour). After that the Orders
+  section says the store's data is temporarily unavailable and comes back by
+  itself once the app answers; the connection is not called broken.
+- **If the Inclamo app was removed from your store**, the Orders section says
+  so. Install the app again in Shopify and press **Check again**. Earlier order
+  actions and their notes stay.
+- If the app says it does not know your account for the store, contact support.
+
 ## An older custom app with a permanent token
 
 If your store still has a custom app created in the store's admin before 2026,

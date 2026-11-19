@@ -27,6 +27,9 @@ x-e2e: &e2e
     # (docs/app-agent-connection.md §3.3): the stand-in agent, and the same
     # with another path, for a second address the operator allowed.
     - INCLAMO_APP_AGENT_SERVICE_URLS=http://stand-in-agent:8090,http://stand-in-agent:8090/second
+    # Where the helpdesk asks the store app for store keys (docs/app-store-access.md):
+    # the stand-in app, under a path prefix of its own.
+    - INCLAMO_APP_URL=http://stand-in-app:8091/helpdesk
 
 services:
   rails:

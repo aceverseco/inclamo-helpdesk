@@ -22,6 +22,11 @@ class InclamoAPI extends ApiClient {
     return axios.post(`${this.url}/shopify/connection/recheck`);
   }
 
+  // An account the store app provisioned: connected with a key from the app.
+  connectThroughApp() {
+    return axios.post(`${this.url}/shopify/connection`, { via: 'app' });
+  }
+
   disconnect() {
     return axios.delete(`${this.url}/shopify/connection`);
   }

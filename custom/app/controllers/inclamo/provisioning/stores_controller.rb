@@ -19,6 +19,7 @@ class Inclamo::Provisioning::StoresController < ActionController::API
   def update
     result = Inclamo::Provisioning::Provision.new(Inclamo::Provisioning::Payload.new(request.raw_post, @verdict.shop_domain)).call
     record(result.outcome)
+    Inclamo::Shopify::AppConnection.after_provisioning(result)
     body = account_body(result.row, result.account).merge(outcome: result.outcome, admin_is_member: result.admin_is_member)
     body[:password_setup_url] = result.password_setup_url if result.password_setup_url
     render json: body, status: result.outcome == 'created' ? :created : :ok

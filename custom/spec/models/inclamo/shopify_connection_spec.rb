@@ -31,6 +31,44 @@ RSpec.describe Inclamo::ShopifyConnection do
     expect(record.errors[:base].join).to include('encryption')
   end
 
+  describe 'a connection through the store app' do
+    let(:through_app) do
+      build(:inclamo_shopify_connection, auth_kind: 'app_key', client_id: nil, client_secret: nil, access_token: 'key-from-the-app', token_expires_at: 50.minutes.from_now)
+    end
+
+    it 'needs no client ID or secret, and is renewed by the helpdesk' do
+      expect(through_app).to be_valid
+      expect(through_app).to be_renewable
+      expect(build(:inclamo_shopify_connection, :legacy)).not_to be_renewable
+    end
+
+    it 'may be kept without a key, as it is while its account is suspended' do
+      through_app.assign_attributes(access_token: nil, token_expires_at: nil, scopes: [])
+
+      expect(through_app).to be_valid
+    end
+
+    it 'keeps its key encrypted at rest' do
+      through_app.save!
+      row = described_class.connection.select_one("SELECT access_token FROM inclamo_shopify_connections WHERE id = #{through_app.id}")
+
+      expect(row['access_token']).not_to include('key-from-the-app')
+      expect(through_app.reload.access_token).to eq('key-from-the-app')
+    end
+
+    it 'is refused on an installation without encryption keys' do
+      allow(Chatwoot).to receive(:encryption_configured?).and_return(false)
+
+      expect(through_app).not_to be_valid
+      expect { through_app.save! }.to raise_error(ActiveRecord::RecordInvalid, /encryption/)
+    end
+
+    it 'is broken only for a reason it knows' do
+      expect(build(:inclamo_shopify_connection, status: 'broken', broken_reason: 'app_removed')).to be_valid
+      expect(build(:inclamo_shopify_connection, status: 'broken', broken_reason: 'something_else')).not_to be_valid
+    end
+  end
+
   it 'accepts only a myshopify.com domain' do
     expect(build(:inclamo_shopify_connection, shop_domain: 'shop.example.com')).not_to be_valid
   end
