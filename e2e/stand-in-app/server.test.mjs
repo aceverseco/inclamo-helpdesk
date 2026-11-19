@@ -26,9 +26,10 @@ const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', ()
 // The signature as the contract words it, written out again here so that a
 // mistake in the stand-in's own routine is not checked against itself.
 const expected = (key, request) =>
-  `sha256=${createHmac('sha256', key).update([request.timestamp, request.method, request.path, request.raw].join('.')).digest('hex')}`;
+  `sha256=${createHmac('sha256', key).update([request.timestamp, request.requestId, request.method, request.path, request.raw].join('.')).digest('hex')}`;
 
-// A helpdesk that checks what the contract's §2.3 checks, and records the rest.
+// A helpdesk that checks what the contract's §2.3 checks, refuses a reused
+// request id as the contract says, marks its answers, and records the rest.
 function fakeHelpdesk() {
   const seen = new Map();
   return createServer((request, response) => {
@@ -45,13 +46,13 @@ function fakeHelpdesk() {
       };
       received.push(entry);
       const answer = (status, body) => {
-        response.writeHead(status, { 'Content-Type': 'application/json' });
+        response.writeHead(status, { 'Content-Type': 'application/json', 'X-Inclamo-Provisioning': '1' });
         response.end(JSON.stringify(body));
       };
       const digest = `${entry.method}.${entry.path}.${raw}`;
       const fresh = Math.abs(Date.now() / 1000 - Number(entry.timestamp)) <= WINDOW;
       if (entry.signature !== expected(secret, entry) || !fresh) return answer(401, { error: 'unauthorized' });
-      if (seen.has(entry.requestId) && seen.get(entry.requestId) !== digest) return answer(401, { error: 'unauthorized' });
+      if (seen.has(entry.requestId) && seen.get(entry.requestId) !== digest) return answer(409, { error: 'request_id_reused' });
       seen.set(entry.requestId, digest);
       if (entry.method === 'PUT') return answer(201, { contract: 1, account_id: 7, outcome: 'created', password_setup_url: link });
       if (entry.method === 'GET') return answer(404, { error: 'no_account' });
@@ -93,11 +94,12 @@ const control = async (name, body, method = 'POST') => {
 
 test('reproduces both worked examples of the contract', () => {
   const example = 'test-secret-not-for-production-0123456789abcdef';
+  const requestId = '6f1c2d0e-8a55-4c0a-9d5e-2b7f3c1a9e44';
   const path = '/inclamo/provisioning/stores/example-store.myshopify.com';
   const body =
     '{"contract":1,"shop":{"domain":"example-store.myshopify.com","name":"Example Store","locale":"en","timezone":"America/New_York"},"admin":{"email":"alex@example.com","name":"Alex Example","email_verified":true}}';
-  assert.equal(sign(example, { timestamp: 1794000000, method: 'PUT', path, body }), 'sha256=022264e7add0f4964389e0bbf7e1703ee0bdd90525e48f21efd9c2e071a551a0');
-  assert.equal(sign(example, { timestamp: 1794000000, method: 'get', path }), 'sha256=87226ebd191b47f07a987e51faa1f2def88e835ea484a1f5092d5a19c94ff2a6');
+  assert.equal(sign(example, { timestamp: 1794000000, requestId, method: 'PUT', path, body }), 'sha256=305fc0be96cd96282165e88118f12f54bd26c9ae69d5b43c6c292a01efb139a0');
+  assert.equal(sign(example, { timestamp: 1794000000, requestId, method: 'get', path }), 'sha256=b8c0445090549f105fbef920861ba8765304feb72969051bc5b898b30ba6a875');
 });
 
 test('signs the three calls over their method, path and exact body', async () => {
@@ -122,22 +124,28 @@ test('signs the three calls over their method, path and exact body', async () =>
   assert.equal(new Set(received.map(entry => entry.requestId)).size, 3);
   assert.match(received[0].requestId, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   assert.equal(created.body.request_id, received[0].requestId);
+  // Each signed over its own request id too.
+  assert.deepEqual(received.map(entry => entry.signature === expected(secret, entry)), [true, true, true]);
 });
 
-test('hands the answer to the test whole, the password link included', async () => {
+test('hands the answer to the test whole, the password link and the provisioning header included', async () => {
   const created = await control('provision', { domain: store });
   assert.deepEqual(created.body.body, { contract: 1, account_id: 7, outcome: 'created', password_setup_url: link });
+  assert.equal(created.body.provisioning, '1');
 });
 
-test('leaves out a field given as null and sends a replaced body as it is', async () => {
+test('leaves out a field given as null, adds the address for key requests, and sends a replaced body as it is', async () => {
   await control('provision', { domain: store, admin: { email_verified: null }, shop: { locale: null } });
   await control('provision', { domain: store, body: { contract: 2 } });
+  await control('provision', { domain: store, store_access_url: 'https://app.example.test/store-access' });
   const first = JSON.parse(received[0].raw);
   assert.equal('email_verified' in first.admin, false);
   assert.equal('locale' in first.shop, false);
+  assert.equal('store_access_url' in first, false);
   assert.equal(received[1].raw, '{"contract":2}');
-  // Both were signed over what was sent.
-  assert.deepEqual(received.map(entry => entry.signature === expected(secret, entry)), [true, true]);
+  assert.equal(JSON.parse(received[2].raw).store_access_url, 'https://app.example.test/store-access');
+  // All were signed over what was sent.
+  assert.deepEqual(received.map(entry => entry.signature === expected(secret, entry)), [true, true, true]);
 });
 
 test('the wrong-signature switch signs with a secret the helpdesk does not have', async () => {
@@ -164,15 +172,16 @@ test('the request-id switch repeats an id, signed again each time', async () => 
   assert.deepEqual(received.map(entry => entry.requestId), Array(3).fill(first.body.request_id));
   assert.equal(received[1].raw, received[0].raw);
   assert.equal(again.body.status, 201);
-  // The same id for another store is the helpdesk's to refuse.
-  assert.equal(elsewhere.body.status, 401);
+  // The same id for another store is the helpdesk's to refuse, as reused.
+  assert.deepEqual([elsewhere.body.status, elsewhere.body.body], [409, { error: 'request_id_reused' }]);
   assert.deepEqual(received.map(entry => entry.signature === expected(secret, entry)), [true, true, true]);
 });
 
-test('sends to another helpdesk when told, and reports an answer that is not JSON', async () => {
+test('sends to another helpdesk when told, and reports an answer that is not JSON and has no provisioning header', async () => {
   const answer = await control('status', { domain: store, helpdesk_url: otherUrl });
   assert.equal(answer.body.status, 404);
   assert.equal(answer.body.body, null);
+  assert.equal(answer.body.provisioning, null);
   assert.equal(received.length, 0);
 });
 

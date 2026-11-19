@@ -11,7 +11,9 @@
 //
 // Three scenarios are not here, each named with its reason in the checker:
 // the link's time passing, the request limits (the stack runs without
-// Rack::Attack) and the record of attempts (no address shows it).
+// Rack::Attack) and the record of attempts (no address shows it). The stand-in
+// hands each answer's provisioning header to the test, so the mark that tells
+// this installation's answers from an unknown address is checked here too.
 import { test, expect } from '@playwright/test';
 import { storeApp, unprovisionedUrl, signInWith, setPassword, personApi } from '../lib/app.mjs';
 
@@ -45,7 +47,8 @@ test.describe("The app's request creates an account for a store", () => {
     const answer = await storeApp.provision(store('maple'), { shop: { name, locale: 'en', timezone: 'America/New_York' }, admin });
 
     expect(answer.status).toBe(201);
-    expect(answer.body).toMatchObject({ contract: 1, helpdesk_url: helpdesk, state: 'active', outcome: 'created' });
+    expect(answer.body).toMatchObject({ contract: 1, helpdesk_url: helpdesk, state: 'active', outcome: 'created', admin_is_member: true });
+    expect(answer.provisioning).toBe('1');
     expect(Number.isInteger(answer.body.account_id)).toBe(true);
     expect(Number.isNaN(Date.parse(answer.body.created_at))).toBe(false);
 
@@ -97,7 +100,8 @@ test.describe('A store has one account', () => {
     const answer = await storeApp.provision(store('maple'), { shop: { name: 'Another name' }, admin: person('alex') });
 
     expect(answer.status).toBe(200);
-    expect(answer.body).toMatchObject({ account_id: made.maple.accountId, outcome: 'existed', state: 'active', created_at: made.maple.createdAt });
+    expect(answer.body).toMatchObject({ account_id: made.maple.accountId, outcome: 'existed', state: 'active', created_at: made.maple.createdAt, admin_is_member: true });
+    // Alex has signed in, so no new link either.
     expect(answer.body.password_setup_url).toBeUndefined();
     // One account for the store, under the name it had.
     expect(await made.maple.alex.accounts()).toEqual([expect.objectContaining({ id: made.maple.accountId, name: made.maple.name })]);
@@ -113,8 +117,11 @@ test.describe('A store has one account', () => {
     expect(answers.map(answer => answer.status).sort()).toEqual([200, 201]);
     expect(answers.map(answer => answer.body.outcome).sort()).toEqual(['created', 'existed']);
     expect(answers[0].body.account_id).toBe(answers[1].body.account_id);
-    const link = answers.find(answer => answer.body.outcome === 'created').body.password_setup_url;
-    expect(await setPassword(link, password('twin'))).toBe(200);
+    // The same person, who has not signed in yet: the later answer's link
+    // replaced the first one.
+    const link = outcome => answers.find(answer => answer.body.outcome === outcome).body.password_setup_url;
+    expect(await setPassword(link('created'), password('twin'))).toBe(422);
+    expect(await setPassword(link('existed'), password('twin'))).toBe(200);
     const twin = await personApi(admin.email, password('twin'));
     expect((await twin.accounts()).map(account => account.id)).toEqual([answers[0].body.account_id]);
   });
@@ -123,7 +130,7 @@ test.describe('A store has one account', () => {
     const answer = await storeApp.provision(store('maple'), { admin: person('sam') });
 
     expect(answer.status).toBe(200);
-    expect(answer.body).toMatchObject({ account_id: made.maple.accountId, outcome: 'existed' });
+    expect(answer.body).toMatchObject({ account_id: made.maple.accountId, outcome: 'existed', admin_is_member: false });
     expect(answer.body.password_setup_url).toBeUndefined();
     expect(await made.maple.alex.members(made.maple.accountId)).toEqual([{ email: person('alex').email, role: 'administrator' }]);
   });
@@ -164,6 +171,19 @@ test.describe('The first administrator is the person the app names', () => {
     );
     expect(await nina.opens(made.nina.accountId)).toBe(200);
     expect(await nina.opens(answer.body.account_id)).toBe(200);
+  });
+
+  test('The app gives no name', async () => {
+    for (const [index, name] of [null, ''].entries()) {
+      const admin = { email: person(`nameless-${index}`).email, name };
+      const answer = await storeApp.provision(store(`nameless-${index}`), { shop: { name: `Nameless ${index} ${run}` }, admin });
+      expect([answer.status, answer.body.outcome]).toEqual([201, 'created']);
+
+      expect(await setPassword(answer.body.password_setup_url, password(`nameless-${index}`))).toBe(200);
+      const nameless = await personApi(admin.email, password(`nameless-${index}`));
+      expect(await nameless.profile()).toMatchObject({ email: admin.email, name: admin.email });
+      expect(await nameless.accounts()).toEqual([expect.objectContaining({ id: answer.body.account_id, role: 'administrator' })]);
+    }
   });
 });
 
@@ -206,12 +226,35 @@ test.describe('A new administrator can set a password of their own', () => {
     expect('password_setup_url' in answer.body).toBe(false);
     expect((await signInWith(admin.email, password('paula'))).status).toBe(200);
   });
+
+  test('The first answer was lost', async () => {
+    const admin = person('lucas');
+    const first = await storeApp.provision(store('lucas'), { shop: { name: `Lucas ${run}` }, admin });
+    expect(first.status).toBe(201);
+
+    // The app never saw that answer and asks again under a new request id.
+    const again = await storeApp.provision(store('lucas'), { shop: { name: `Lucas ${run}` }, admin });
+    expect(again.status).toBe(200);
+    expect(again.body).toMatchObject({ account_id: first.body.account_id, outcome: 'existed', admin_is_member: true });
+    expect(again.body.password_setup_url).toBeTruthy();
+    expect(again.body.password_setup_url).not.toBe(first.body.password_setup_url);
+
+    expect(await setPassword(first.body.password_setup_url, password('lucas'))).toBe(422);
+    expect(await setPassword(again.body.password_setup_url, password('lucas'))).toBe(200);
+    const lucas = await personApi(admin.email, password('lucas'));
+    expect(await lucas.accounts()).toEqual([expect.objectContaining({ id: first.body.account_id, role: 'administrator' })]);
+
+    // Once they have signed in, nobody gets a link for them any more.
+    const later = await storeApp.provision(store('lucas'), { admin });
+    expect([later.status, later.body.outcome, later.body.admin_is_member]).toEqual([200, 'existed', true]);
+    expect(later.body.password_setup_url).toBeUndefined();
+  });
 });
 
 test.describe('Only the app can ask', () => {
   test('A request without a valid signature', async () => {
     const answer = await storeApp.provision(store('forged'), { admin: person('forger'), wrong_signature: true });
-    expect([answer.status, answer.body]).toEqual([401, UNAUTHORIZED]);
+    expect([answer.status, answer.body, answer.provisioning]).toEqual([401, UNAUTHORIZED, '1']);
 
     for (const call of ['status', 'removal']) {
       const refused = await storeApp[call](store('maple'), { wrong_signature: true });
@@ -219,7 +262,7 @@ test.describe('Only the app can ask', () => {
     }
     // Requests with no signature at all, as anybody could send them.
     const bare = await fetch(`${helpdesk}/inclamo/provisioning/stores/${store('forged')}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    expect(bare.status).toBe(401);
+    expect([bare.status, bare.headers.get('x-inclamo-provisioning')]).toEqual([401, '1']);
 
     expect((await storeApp.status(store('forged'))).body).toEqual(NO_ACCOUNT);
     expect((await storeApp.status(store('maple'))).body.state).toBe('active');
@@ -250,7 +293,8 @@ test.describe('Only the app can ask', () => {
   test('A key reused for another store', async () => {
     const answer = await storeApp.provision(store('reused'), { shop: { name: `Twice ${run}` }, admin: person('twice'), request_id: made.twice.requestId });
 
-    expect([answer.status, answer.body]).toEqual([401, UNAUTHORIZED]);
+    // Refused as a reused key, which the app can tell from a wrong secret.
+    expect([answer.status, answer.body, answer.provisioning]).toEqual([409, { error: 'request_id_reused' }, '1']);
     expect((await storeApp.status(store('reused'))).body).toEqual(NO_ACCOUNT);
   });
 });
@@ -347,7 +391,8 @@ test.describe('The app can ask what a store has', () => {
   test('A store without an account', async () => {
     const answer = await storeApp.status(store('never'));
 
-    expect([answer.status, answer.body]).toEqual([404, NO_ACCOUNT]);
+    // Marked as this installation's answer, so it is not "no provisioning here".
+    expect([answer.status, answer.body, answer.provisioning]).toEqual([404, NO_ACCOUNT, '1']);
   });
 });
 
@@ -365,7 +410,11 @@ test.describe('Provisioning exists only where the operator enabled it', () => {
         await storeApp.removal(store('maple'), switches),
       ];
       expect(answers.map(answer => answer.status)).toEqual([404, 404, 404]);
-      for (const answer of answers) expect(answer.body?.error).not.toBe('no_account');
+      for (const answer of answers) {
+        expect(answer.body?.error).not.toBe('no_account');
+        // No provisioning mark: a 404 without it means "no provisioning here".
+        expect(answer.provisioning).toBeNull();
+      }
     }
 
     // Nothing was created or changed: both helpdesks share one database.

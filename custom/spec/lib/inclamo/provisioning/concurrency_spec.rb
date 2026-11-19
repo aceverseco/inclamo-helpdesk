@@ -14,7 +14,7 @@ RSpec.describe Inclamo::Provisioning::Provision do
 
   def payload(email)
     instance_double(Inclamo::Provisioning::Payload, shop_domain: domain, shop_name: 'Concurrent Store', locale: 'en', timezone: nil,
-                                                    admin_email: email, admin_name: 'Concurrent Person')
+                                                    admin_email: email, admin_name: 'Concurrent Person', store_access_url: nil)
   end
 
   after do
@@ -68,12 +68,25 @@ RSpec.describe Inclamo::Provisioning::Provision do
     expect(User.where(email: emails).count).to eq(1)
   end
 
-  it 'ends with one account when the same person asks twice at once' do
+  it 'ends with one account when the same person asks twice at once, and the later link is the one that works' do
+    allow(AccountBuilder).to receive(:new).and_wrap_original do |original, **arguments|
+      sleep 0.5
+      original.call(**arguments)
+    end
+
     results = run_together([payload(emails.first), payload(emails.first)])
 
     expect(Inclamo::ProvisionedAccount.where(shop_domain: domain).count).to eq(1)
     expect(results.map { |result| result.account.id }.uniq.size).to eq(1)
     expect(User.where(email: emails.first).count).to eq(1)
     expect(AccountUser.where(account_id: results.first.account.id).count).to eq(1)
+    expect(results.map(&:admin_is_member)).to eq([true, true])
+
+    # The person never signed in, so the answer about the existing account
+    # carries a new link, which replaced the first one.
+    created, existed = %w[created existed].map { |outcome| results.find { |result| result.outcome == outcome } }
+    token = ->(result) { Rack::Utils.parse_query(URI(result.password_setup_url).query).fetch('reset_password_token') }
+    expect(User.with_reset_password_token(token.call(existed))).to eq(User.find_by(email: emails.first))
+    expect(User.with_reset_password_token(token.call(created))).to be_nil
   end
 end

@@ -11,7 +11,7 @@ RSpec.describe ReplyMailbox do
   let(:provision) do
     payload = instance_double(Inclamo::Provisioning::Payload, shop_domain: 'example-store.myshopify.com', shop_name: 'Example Store',
                                                              locale: nil, timezone: nil, admin_email: 'alex@example.test',
-                                                             admin_name: 'Alex Example')
+                                                             admin_name: 'Alex Example', store_access_url: nil)
     Inclamo::Provisioning::Provision.new(payload)
   end
   let(:account) { provision.call.account }

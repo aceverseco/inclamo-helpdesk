@@ -2,9 +2,12 @@
 
 # The three calls of the store app (docs/app-provisioning.md). They sit outside
 # any account and any user session: the only thing that opens them is the
-# signature made with the secret the operator shares with the app.
+# signature made with the secret the operator shares with the app. Every answer
+# carries the provisioning header (InclamoProvisioningHeader).
 class Inclamo::Provisioning::StoresController < ActionController::API
   PENDING_WAIT = 5.0
+  # Seconds the app waits before it sends again a request still being answered.
+  RETRY_PENDING = 1
   UNAUTHORIZED = { error: 'unauthorized' }.freeze
 
   before_action :authorize
@@ -14,7 +17,7 @@ class Inclamo::Provisioning::StoresController < ActionController::API
   def update
     result = Inclamo::Provisioning::Provision.new(Inclamo::Provisioning::Payload.new(request.raw_post, @verdict.shop_domain)).call
     record(result.outcome)
-    body = account_body(result.row, result.account).merge(outcome: result.outcome)
+    body = account_body(result.row, result.account).merge(outcome: result.outcome, admin_is_member: result.admin_is_member)
     body[:password_setup_url] = result.password_setup_url if result.password_setup_url
     render json: body, status: result.outcome == 'created' ? :created : :ok
   rescue Inclamo::Provisioning::Payload::Invalid => e
@@ -45,12 +48,14 @@ class Inclamo::Provisioning::StoresController < ActionController::API
   end
 
   # A request id is answered once: its repetition gets the stored answer, and
-  # nothing is done a second time.
+  # nothing is done a second time. The id used for another request is refused
+  # as reused; it was signed, so saying so tells nothing to anybody else. The
+  # stored answer goes to the cache only, never to a log or the record.
   def answer_once
     store = Inclamo::Provisioning::RequestStore
     held = store.reserve(@verdict.request_id, @verdict.digest)
     held = wait_for_answer if held == :pending
-    return refuse if held == :conflict
+    return reused if held == :conflict
     return replay(held) unless held == :reserved
 
     begin
@@ -77,12 +82,17 @@ class Inclamo::Provisioning::StoresController < ActionController::API
 
   def replay(answer)
     if answer == :pending
-      response.headers['Retry-After'] = '1'
-      return render json: { error: 'in_progress' }, status: :service_unavailable
+      response.headers['Retry-After'] = RETRY_PENDING.to_s
+      return render json: { error: 'in_progress' }, status: :conflict
     end
 
     record(answer.outcome) if answer.outcome
     render json: answer.body, status: answer.status
+  end
+
+  def reused
+    record('refused')
+    render json: { error: 'request_id_reused' }, status: :conflict
   end
 
   def refuse

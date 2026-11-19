@@ -16,8 +16,9 @@ module Inclamo
       end
 
       MAX_TEXT = 255
+      MAX_URL = 2048
 
-      attr_reader :shop_domain, :shop_name, :locale, :timezone, :admin_email, :admin_name
+      attr_reader :shop_domain, :shop_name, :locale, :timezone, :admin_email, :admin_name, :store_access_url
 
       # `address_domain` is the {shop_domain} of the request's address.
       def initialize(raw_body, address_domain)
@@ -29,9 +30,11 @@ module Inclamo
         @shop_domain = read_domain(shop['domain'], address_domain)
         @shop_name = text(shop['name']) || invalid!('shop_name_missing', 'shop.name is absent or empty')
         @admin_email = read_email(admin['email'])
-        @admin_name = text(admin['name']) || invalid!('admin_name_missing', 'admin.name is absent or empty')
+        # Shopify may give no name: the email stands in for it.
+        @admin_name = text(admin['name']) || @admin_email
         invalid!('admin_email_unverified', 'admin.email_verified must be true') unless admin['email_verified'] == true
-        @locale = text(shop['locale'])
+        @store_access_url = read_url(body['store_access_url'])
+        @locale = read_locale(shop['locale'])
         @timezone = text(shop['timezone'])
       end
 
@@ -58,6 +61,28 @@ module Inclamo
         return email if email.length <= MAX_TEXT && Devise.email_regexp.match?(email)
 
         invalid!('admin_email_missing', 'admin.email is absent or does not read as an email')
+      end
+
+      # A Chatwoot locale code (`pt_BR`) or a BCP 47 tag (`pt-BR`), as
+      # Chatwoot's code; nil for a value Chatwoot does not have.
+      def read_locale(value)
+        return unless value.is_a?(String)
+
+        wanted = value.strip.tr('-', '_').downcase
+        Account.locales.keys.find { |code| code.downcase == wanted }
+      end
+
+      # The app's address for this store's key requests: absent (or null) is
+      # not given; anything else must be an absolute HTTPS address.
+      def read_url(value)
+        return if value.nil?
+
+        uri = URI.parse(value.strip) if value.is_a?(String) && value.length <= MAX_URL
+        return value.strip if uri.is_a?(URI::HTTPS) && uri.host.present?
+
+        invalid!('store_access_url_invalid', 'store_access_url is not an absolute HTTPS address')
+      rescue URI::InvalidURIError
+        invalid!('store_access_url_invalid', 'store_access_url is not an absolute HTTPS address')
       end
 
       def text(value)

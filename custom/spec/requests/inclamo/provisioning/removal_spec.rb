@@ -124,12 +124,14 @@ RSpec.describe 'App provisioning: removal, suspension and restoration', type: :r
       conversations = fill(12)
       remove_app
 
+      administrator.update_columns(sign_in_count: 1)
+
       expect { provision }.to not_change(Account, :count).and not_change(User, :count)
 
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body).to eq(
         'contract' => 1, 'account_id' => account.id, 'helpdesk_url' => ProvisioningRequests::HELPDESK_URL,
-        'state' => 'active', 'outcome' => 'restored', 'created_at' => account.created_at.utc.iso8601
+        'state' => 'active', 'outcome' => 'restored', 'created_at' => account.created_at.utc.iso8601, 'admin_is_member' => true
       )
       expect(account.reload).to be_active
       expect(provisioned).to be_active
@@ -163,24 +165,41 @@ RSpec.describe 'App provisioning: removal, suspension and restoration', type: :r
       expect(open_account(administrator)).to have_http_status(:ok)
     end
 
-    it 'gives the password link to a person it created, and none to one it knew' do
+    def set_password(url, password)
+      token = Rack::Utils.parse_query(URI(url).query).fetch('reset_password_token')
+      put '/auth/password', params: { reset_password_token: token, password: password, password_confirmation: password }, as: :json
+      response
+    end
+
+    it 'gives the password link to a person it created, and none to one who has signed in' do
       remove_app
       provision(admin: { email: 'sam@example.test', name: 'Sam Example' })
-      url = response.parsed_body.fetch('password_setup_url')
-      token = Rack::Utils.parse_query(URI(url).query).fetch('reset_password_token')
-      put '/auth/password', params: { reset_password_token: token, password: 'OwnPassword1!', password_confirmation: 'OwnPassword1!' }, as: :json
-      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include('outcome' => 'restored', 'admin_is_member' => true)
+      expect(set_password(response.parsed_body.fetch('password_setup_url'), 'OwnPassword1!')).to have_http_status(:ok)
       expect(User.from_email('sam@example.test').valid_password?('OwnPassword1!')).to be(true)
 
       remove_app
-      provision
-      expect(response.parsed_body['outcome']).to eq('restored')
+      provision(admin: { email: 'sam@example.test', name: 'Sam Example' })
+      expect(response.parsed_body).to include('outcome' => 'restored', 'admin_is_member' => true)
       expect(response.parsed_body).not_to have_key('password_setup_url')
+    end
+
+    it 'gives a new link to a user of the account who never signed in, and the earlier one stops working' do
+      first = response.parsed_body.fetch('password_setup_url')
+      remove_app
+
+      provision
+
+      expect(response.parsed_body).to include('outcome' => 'restored', 'admin_is_member' => true)
+      fresh = response.parsed_body.fetch('password_setup_url')
+      expect(set_password(first, 'OwnPassword1!')).to have_http_status(:unprocessable_entity)
+      expect(set_password(fresh, 'OwnPassword1!')).to have_http_status(:ok)
     end
 
     it 'makes an earlier agent who installs again an administrator, with their other account as it was' do
       elsewhere = create(:account)
       agent = create(:user, email: 'sam@example.test', password: 'KnownPassword1!', account: elsewhere, role: :agent)
+      agent.update_columns(sign_in_count: 3)
       create(:account_user, account: account, user: agent, role: :agent)
       remove_app
 

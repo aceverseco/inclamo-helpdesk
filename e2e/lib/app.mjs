@@ -13,8 +13,10 @@ async function control(name, body) {
   return answer;
 }
 
-// Each answers { status, body, retry_after, request_id } as the helpdesk gave
-// it. Switches: wrong_signature, stale, request_id, helpdesk_url.
+// Each answers { status, body, retry_after, provisioning, request_id } as the
+// helpdesk gave it; `provisioning` is the X-Inclamo-Provisioning header, null
+// when the answer has none. Switches: wrong_signature, stale, request_id,
+// helpdesk_url. `provision` also takes `store_access_url`.
 export const storeApp = {
   provision: (domain, options = {}) => control('provision', { domain, ...options }),
   status: (domain, switches = {}) => control('status', { domain, ...switches }),

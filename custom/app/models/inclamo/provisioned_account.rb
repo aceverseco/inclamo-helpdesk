@@ -4,6 +4,11 @@
 # Inclamo::Provisioning). The unique indexes on the domain and on the account
 # are what keeps one account per store; the model adds no uniqueness check of
 # its own, so a concurrent insert fails in the database and nowhere earlier.
+#
+# `store_access_url` is the store app's address for this store's key requests
+# (docs/app-store-access.md), as the app's latest request that gave one named
+# it; empty when none did, and then the installation's configured address
+# applies.
 class Inclamo::ProvisionedAccount < ApplicationRecord
   STATES = %w[active suspended].freeze
 

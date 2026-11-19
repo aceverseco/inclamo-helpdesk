@@ -12,11 +12,31 @@ module Inclamo
     CONTRACT = 1
     SHOP_DOMAIN = /\A[a-z0-9][a-z0-9-]*\.myshopify\.com\z/
     SECRET_BYTES = 32
+    PATH_PREFIX = '/inclamo/provisioning/'
+    # Every answer of an address under PATH_PREFIX carries it, so the app tells
+    # this installation's answers from those of one without provisioning, or
+    # of something in front of it (InclamoProvisioningHeader).
+    HEADER = 'x-inclamo-provisioning'
 
-    # Requests accepted in an hour (operator settings, with these defaults).
+    # The store app's addresses under one store, by the part of the path after
+    # /inclamo/provisioning/stores/{shop_domain}, with the methods each answers
+    # and the hourly count a signed request of that method joins (Limits):
+    #   :put  the `PUT`s: one count per store, which the `PUT` of every
+    #         address here shares, and one for the installation;
+    #   :get  the installation's count of status calls, of every address;
+    #   nil   not limited.
+    # A new address is one line here, next to its routes.
+    ADDRESSES = {
+      '' => { 'PUT' => :put, 'GET' => :get },
+      '/removal' => { 'POST' => nil }
+    }.freeze
+
+    # Requests accepted in an hour (operator settings, with these defaults):
+    # `PUT`s for the installation, `PUT`s for one store, status calls for the
+    # installation.
     LIMITS = {
-      put: ['INCLAMO_APP_PROVISIONING_PUT_LIMIT', 30],
-      store: ['INCLAMO_APP_PROVISIONING_STORE_LIMIT', 5],
+      put: ['INCLAMO_APP_PROVISIONING_PUT_LIMIT', 120],
+      store: ['INCLAMO_APP_PROVISIONING_STORE_LIMIT', 15],
       get: ['INCLAMO_APP_PROVISIONING_GET_LIMIT', 300]
     }.freeze
 

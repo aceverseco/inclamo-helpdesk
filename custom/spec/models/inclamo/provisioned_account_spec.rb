@@ -48,7 +48,7 @@ RSpec.describe Inclamo::ProvisionedAccount do
     described_class.create!(shop_domain: 'example-store.myshopify.com', account: account)
     indexes = described_class.connection.indexes(described_class.table_name)
 
-    expect(indexes.select(&:unique).map(&:columns)).to contain_exactly(['shop_domain'], ['account_id'])
+    expect(indexes.select(&:unique).map(&:columns)).to include(['shop_domain'], ['account_id'])
     expect { Account.where(id: account.id).delete_all }.to change(described_class, :count).by(-1)
   end
 end

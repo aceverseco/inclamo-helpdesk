@@ -4,9 +4,13 @@ module Inclamo
   module Provisioning
     # "The store has an account": creates the store's account with the named
     # person as administrator, finds the one it has, or restores a suspended
-    # one. Safe to repeat and safe to run twice at once.
+    # one. Safe to repeat and safe to run twice at once. The app's address for
+    # the store's key requests, when the request gives one, is kept on the
+    # store's row in each case.
     class Provision
-      Result = Struct.new(:row, :account, :outcome, :password_setup_url, keyword_init: true)
+      # `admin_is_member`: whether the named person is a user of the account
+      # once the request is done.
+      Result = Struct.new(:row, :account, :outcome, :admin_is_member, :password_setup_url, keyword_init: true)
 
       ATTEMPTS = 3
 
@@ -34,28 +38,49 @@ module Inclamo
       # the unique index until this transaction ends, then finds the account.
       def create
         ActiveRecord::Base.transaction(requires_new: true) do
-          row = ProvisionedAccount.create!(shop_domain: @payload.shop_domain, state: 'active')
+          row = ProvisionedAccount.create!(shop_domain: @payload.shop_domain, state: 'active', store_access_url: @payload.store_access_url)
           user, created = administrator
           account = build_account(user)
           row.update!(account: account)
-          Result.new(row: row, account: account, outcome: 'created', password_setup_url: (password_link(user) if created))
+          Result.new(row: row, account: account, outcome: 'created', admin_is_member: true,
+                     password_setup_url: (password_link(user) if created))
         end
       end
 
       def existing(row)
         row.with_lock do
-          account = row.account
-          next Result.new(row: row, account: account, outcome: 'existed') if row.active?
-
-          # The people of the earlier install may be gone, so the person named
-          # now becomes an administrator next to whoever was there.
-          account.update!(status: :active)
-          row.update!(state: 'active')
-          user, created = administrator
-          membership = AccountUser.find_or_initialize_by(account_id: account.id, user_id: user.id)
-          membership.update!(role: :administrator)
-          Result.new(row: row, account: account, outcome: 'restored', password_setup_url: (password_link(user) if created))
+          row.update!(store_access_url: @payload.store_access_url) if @payload.store_access_url
+          row.active? ? existed(row, row.account) : restore(row, row.account)
         end
+      end
+
+      # Nothing is created and nobody is added. A user of the account who has
+      # never signed in gets a new link, since the answer that carried the
+      # first one may have been lost; the new one replaces it.
+      def existed(row, account)
+        user = User.from_email(@payload.admin_email)
+        member = user.present? && AccountUser.exists?(account_id: account.id, user_id: user.id)
+        Result.new(row: row, account: account, outcome: 'existed', admin_is_member: member,
+                   password_setup_url: (password_link(user) if member && never_signed_in?(user)))
+      end
+
+      # The people of the earlier install may be gone, so the person named now
+      # becomes an administrator next to whoever was there.
+      def restore(row, account)
+        account.update!(status: :active)
+        row.update!(state: 'active')
+        user, created = administrator
+        membership = AccountUser.find_or_initialize_by(account_id: account.id, user_id: user.id)
+        membership.update!(role: :administrator)
+        Result.new(row: row, account: account, outcome: 'restored', admin_is_member: true,
+                   password_setup_url: (password_link(user) if created || never_signed_in?(user)))
+      end
+
+      # No session was ever given to them: the login page counts its sign-ins
+      # (Devise's sign_in_count), and every session, the password page's
+      # included, is a token of the user.
+      def never_signed_in?(user)
+        user.sign_in_count.to_i.zero? && user.tokens.blank?
       end
 
       # The user with that email, or a new confirmed one. A new user gets a

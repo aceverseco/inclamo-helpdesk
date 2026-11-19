@@ -29,12 +29,12 @@ On a valid request from the store app naming a Shopify store and a person, the h
 
 ### Requirement: A store has one account
 
-The helpdesk SHALL keep at most one account per Shopify store, recognised by the store's permanent `myshopify.com` domain whatever its letter case. A request for a store that already has an account SHALL answer with that account, SHALL say it already existed, and SHALL NOT create an account or change its name. Two requests for the same store arriving together SHALL end with one account.
+The helpdesk SHALL keep at most one account per Shopify store, recognised by the store's permanent `myshopify.com` domain whatever its letter case. A request for a store that already has an account SHALL answer with that account, SHALL say it already existed, and SHALL NOT create an account or change its name. Every answer to the request SHALL say whether the person it names is a user of the account. Two requests for the same store arriving together SHALL end with one account.
 
 #### Scenario: The request is repeated
 
-- **WHEN** the app sends a second valid request for a store that already has an account
-- **THEN** the answer gives the same account identifier and says the account already existed, and the installation has one account for that store
+- **WHEN** the app sends a second valid request for a store that already has an account, naming its administrator
+- **THEN** the answer gives the same account identifier, says the account already existed and that the person is a user of it, and the installation has one account for that store
 
 #### Scenario: Two requests at the same moment
 
@@ -44,11 +44,11 @@ The helpdesk SHALL keep at most one account per Shopify store, recognised by the
 #### Scenario: Another person asks for a store that has an account
 
 - **WHEN** the app sends a valid request for a store that already has an account, naming a staff member who is not a user of that account
-- **THEN** the answer gives the existing account, and that staff member is not made a user of it
+- **THEN** the answer gives the existing account and says that the staff member is not a user of it, and that staff member is not made a user of it
 
 ### Requirement: The first administrator is the person the app names
 
-The administrator SHALL be created with the name and the email the app gives, as a confirmed user whom no password signs in until they set one. When the installation already has a user with that email, that user SHALL be made administrator of the new account and SHALL keep their password, their other accounts and their roles in them. The helpdesk SHALL NOT send a confirmation or an invitation letter for an account created this way.
+The administrator SHALL be created with the name and the email the app gives, as a confirmed user whom no password signs in until they set one; when the app gives no name, the email SHALL serve as the name. When the installation already has a user with that email, that user SHALL be made administrator of the new account and SHALL keep their password, their other accounts and their roles in them. The helpdesk SHALL NOT send a confirmation or an invitation letter for an account created this way.
 
 #### Scenario: A person new to the installation
 
@@ -60,9 +60,14 @@ The administrator SHALL be created with the name and the email the app gives, as
 - **WHEN** an account is created for a staff member whose email belongs to a user of another account
 - **THEN** that user is administrator of the new account, is still a member of the other account with the same role, and signs in with the same password as before
 
+#### Scenario: The app gives no name
+
+- **WHEN** an account is created for a staff member new to the installation and the app gives no name, or an empty one
+- **THEN** that person is created with their email as their name and is administrator of the new account
+
 ### Requirement: A new administrator can set a password of their own
 
-When a request creates a user, the answer SHALL carry a one-time link on which that person sets a password for the helpdesk, so they can sign in on the login page as well as from the Shopify admin. The link SHALL work once and only for a limited time, and SHALL set a password for that user only. No link SHALL be given for a user the installation already had, in an answer about an account that already existed, or in a repeated answer after the link's time has passed. The link SHALL NOT be written to any record or log.
+When a request creates a user, the answer SHALL carry a one-time link on which that person sets a password for the helpdesk, so they can sign in on the login page as well as from the Shopify admin. The link SHALL work once and only for a limited time, and SHALL set a password for that user only. Because the answer that carried a link may be lost, a request that finds or restores the account SHALL carry a new link when the person it names is a user of the account who has never signed in, and the earlier link SHALL then stop working. No link SHALL be given for a person who has signed in, for a person who is not a user of the account, for a user the installation already had when the account is created, or in a repeated answer after the link's time has passed. A link SHALL NOT be written to any record or log, the stored answers included.
 
 #### Scenario: The new administrator sets a password
 
@@ -79,6 +84,11 @@ When a request creates a user, the answer SHALL carry a one-time link on which t
 - **WHEN** an account is created for a staff member whose email belongs to an existing user
 - **THEN** the answer carries no password link and that user's password is unchanged
 
+#### Scenario: The first answer was lost
+
+- **WHEN** the app asks again, under a new key, for a store whose account was created for a person who has not signed in yet
+- **THEN** the answer says the account existed and carries a new link, the first link no longer sets a password, the new one does, and once that person has signed in no answer carries a link for them
+
 #### Scenario: The link's time has passed
 
 - **WHEN** the link from the answer is opened after its time has passed
@@ -86,7 +96,7 @@ When a request creates a user, the answer SHALL carry a one-time link on which t
 
 ### Requirement: Only the app can ask
 
-Every provisioning request SHALL be signed with the secret the hosted helpdesk shares with the app, over the request's time and its exact body, and SHALL carry a key that is used once. The helpdesk SHALL refuse a request whose signature does not match, whose time is more than five minutes from its own, or whose key it has already seen with a different body, and SHALL create or change nothing for a refused request. A refusal SHALL NOT say which of the checks failed. The secret SHALL never appear in an answer or in a log.
+Every provisioning request SHALL be signed with the secret the hosted helpdesk shares with the app, over the request's time, its key, its method and address and its exact body, and SHALL carry a key that is used once. The helpdesk SHALL refuse as not authorised a request whose signature does not match or whose time is more than five minutes from its own, without saying which of the checks failed. A correctly signed request whose key it has already seen with a different request SHALL be refused as a reused key. The helpdesk SHALL create or change nothing for a refused request. A repetition that arrives while the first request is still being answered SHALL get the first answer if it is ready within a few seconds, and otherwise SHALL be told to try again later. The secret SHALL never appear in an answer or in a log.
 
 #### Scenario: A request without a valid signature
 
@@ -106,11 +116,11 @@ Every provisioning request SHALL be signed with the secret the hosted helpdesk s
 #### Scenario: A key reused for another store
 
 - **WHEN** a correctly signed request reuses an earlier request's key with a different store
-- **THEN** it is refused and no account exists for the second store
+- **THEN** it is refused as a reused key, not as unauthorised, and no account exists for the second store
 
 ### Requirement: Requests are limited
 
-The helpdesk SHALL limit how many provisioning requests it accepts in a period, for the installation as a whole and for one store, and SHALL answer a request over the limit by saying when to try again, without creating anything.
+The helpdesk SHALL limit how many provisioning requests it accepts in a period, for the installation as a whole and for one store, and SHALL answer a request over the limit by saying when to try again, without creating anything. A repetition answered from the first request's answer SHALL NOT count against a limit, and the removal notice SHALL NOT be limited.
 
 #### Scenario: Too many requests
 
@@ -162,16 +172,16 @@ The app SHALL be able to ask, with a signed request, whether a store has an acco
 #### Scenario: A store without an account
 
 - **WHEN** the app asks about a store that never had an account
-- **THEN** the answer says there is none
+- **THEN** the answer says there is none, and is marked as the answer of this installation's provisioning
 
 ### Requirement: Provisioning exists only where the operator enabled it
 
-An installation without the shared secret SHALL answer every provisioning address as an address that does not exist, and SHALL offer no other way to create an account without an operator. Public sign-up SHALL stay as the installation set it.
+An installation without the shared secret SHALL answer every provisioning address as an address that does not exist, and SHALL offer no other way to create an account without an operator. Public sign-up SHALL stay as the installation set it. Where provisioning is enabled, every answer of a provisioning address SHALL carry a mark that says it comes from this installation's provisioning, so that the app tells "no account" from "no provisioning here".
 
 #### Scenario: A self-hosted installation
 
 - **WHEN** a request arrives at a provisioning address of an installation that has no shared secret
-- **THEN** it is answered as not found, whatever its signature, and nothing is created
+- **THEN** it is answered as not found without the provisioning mark, whatever its signature, and nothing is created
 
 ### Requirement: Every provisioning attempt is recorded without personal data
 

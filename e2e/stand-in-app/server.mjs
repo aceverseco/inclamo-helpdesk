@@ -4,12 +4,14 @@
 // the store app.
 //
 // A test drives it through a control API; each call answers what the helpdesk
-// answered, as { status, body, retry_after, request_id }:
+// answered, as { status, body, retry_after, provisioning, request_id }, where
+// `provisioning` is the answer's X-Inclamo-Provisioning header (null without):
 //
-//   POST   /__e2e/provision   { domain, shop?, admin?, body?, ...switches }
+//   POST   /__e2e/provision   { domain, shop?, admin?, store_access_url?, body?, ...switches }
 //                             PUT stores/{domain}: the store has an account.
 //                             `shop` and `admin` are laid over a valid body;
 //                             a field given as null is left out of it.
+//                             `store_access_url` is added to it.
 //                             `body` replaces the whole body.
 //   POST   /__e2e/status      { domain, ...switches }   GET stores/{domain}
 //   POST   /__e2e/removal     { domain, ...switches }   POST stores/{domain}/removal
@@ -33,20 +35,21 @@ import { fileURLToPath } from 'node:url';
 export const STALE_SECONDS = 600;
 const OTHER_SECRET = 'another-secret-the-helpdesk-was-never-given-0123456789';
 
-// sha256=<hex HMAC-SHA256(secret, "<timestamp>.<METHOD>.<path>.<raw body>")>
-export function sign(secret, { timestamp, method, path, body = '' }) {
-  return `sha256=${createHmac('sha256', secret).update(`${timestamp}.${String(method).toUpperCase()}.${path}.${body}`).digest('hex')}`;
+// sha256=<hex HMAC-SHA256(secret, "<timestamp>.<request id>.<METHOD>.<path>.<raw body>")>
+export function sign(secret, { timestamp, requestId, method, path, body = '' }) {
+  return `sha256=${createHmac('sha256', secret).update(`${timestamp}.${requestId}.${String(method).toUpperCase()}.${path}.${body}`).digest('hex')}`;
 }
 
 export const storePath = (domain, suffix = '') => `/inclamo/provisioning/stores/${domain}${suffix}`;
 
 // A body the helpdesk accepts, with `shop` and `admin` laid over it.
-export function provisionBody(domain, { shop = {}, admin = {} } = {}) {
+export function provisionBody(domain, { shop = {}, admin = {}, store_access_url } = {}) {
   const without = fields => Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== null));
   return {
     contract: 1,
     shop: without({ domain, name: 'Stand-in Store', locale: 'en', timezone: 'Etc/UTC', ...shop }),
     admin: without({ email: 'staff@example.test', name: 'Stand-in Staff', email_verified: true, ...admin }),
+    ...(store_access_url === undefined ? {} : { store_access_url }),
   };
 }
 
@@ -60,7 +63,7 @@ export function createStandInApp({ helpdeskUrl, secret, fetchImpl = fetch, quiet
     const base = String(switches.helpdesk_url || helpdeskUrl || '').replace(/\/$/, '');
     const requestId = switches.request_id || randomUUID();
     const timestamp = Math.floor(now() / 1000) - (switches.stale ? STALE_SECONDS : 0);
-    const signature = sign(switches.wrong_signature ? OTHER_SECRET : secret, { timestamp, method, path, body: raw });
+    const signature = sign(switches.wrong_signature ? OTHER_SECRET : secret, { timestamp, requestId, method, path, body: raw });
     const response = await fetchImpl(`${base}${path}`, {
       method,
       headers: {
@@ -85,12 +88,18 @@ export function createStandInApp({ helpdeskUrl, secret, fetchImpl = fetch, quiet
     });
     if (state.log.length > 2000) state.log.shift();
     say(`${method} ${path} answered ${response.status}`);
-    return { status: response.status, body, retry_after: response.headers.get('retry-after'), request_id: requestId };
+    return {
+      status: response.status,
+      body,
+      retry_after: response.headers.get('retry-after'),
+      provisioning: response.headers.get('x-inclamo-provisioning'),
+      request_id: requestId,
+    };
   }
 
   const calls = {
-    provision: ({ domain, shop, admin, body, ...switches }) =>
-      call('PUT', storePath(domain), JSON.stringify(body === undefined ? provisionBody(domain, { shop, admin }) : body), switches),
+    provision: ({ domain, shop, admin, store_access_url, body, ...switches }) =>
+      call('PUT', storePath(domain), JSON.stringify(body === undefined ? provisionBody(domain, { shop, admin, store_access_url }) : body), switches),
     status: ({ domain, ...switches }) => call('GET', storePath(domain), '', switches),
     removal: ({ domain, ...switches }) => call('POST', storePath(domain, '/removal'), '', switches),
   };

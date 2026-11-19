@@ -5,8 +5,9 @@ module Inclamo
     # Request ids seen in the last ten minutes, each with a digest of what was
     # asked and the answer that was given. The same id with the same request is
     # answered from here without acting again; the same id with another request
-    # is refused. This is the only place a password link is kept, and it goes
-    # with the rest after ten minutes.
+    # is refused. This cache is the only place a stored answer (and so a
+    # password link) is kept: nothing here is written to a log or to the record
+    # of attempts, and it goes after ten minutes.
     module RequestStore
       KEEP = 600
       # How long an id stays taken while its first request is still being
@@ -24,9 +25,9 @@ module Inclamo
         Digest::SHA256.hexdigest("#{method.to_s.upcase}.#{path}.#{body}")
       end
 
-      def conflict?(id, digest)
-        entry = read(id)
-        entry.present? && entry['digest'] != digest
+      # Whether the id is taken: answered, or being answered.
+      def seen?(id)
+        Redis::Alfred.exists?(key(id))
       end
 
       # :reserved when the id is new and now taken by this request, :conflict

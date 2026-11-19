@@ -53,10 +53,19 @@ RSpec.describe 'App provisioning: the request body', type: :request do
     end
   end
 
-  it 'refuses a missing name' do
-    [{ name: nil }, { name: ' ' }].each do |admin|
-      provision(admin: admin)
-      expect_refused('admin_name_missing')
+  it 'accepts a missing name: the email stands in for it' do
+    [{ name: nil }, { name: ' ' }, { name: 7 }].each_with_index do |admin, index|
+      provision("store-#{index}.myshopify.com", admin: admin.merge(email: "person-#{index}@example.test"))
+      expect(response).to have_http_status(:created)
+      expect(User.from_email("person-#{index}@example.test").name).to eq("person-#{index}@example.test")
+    end
+  end
+
+  it 'refuses an address for key requests that is not an absolute HTTPS address' do
+    ['', 'http://app.example.test/store-access', '/store-access', 'app.example.test', 'https://', 'https://exa mple.test', 7, {},
+     "https://app.example.test/#{'a' * 2048}"].each do |url|
+      provision(store_access_url: url)
+      expect_refused('store_access_url_invalid')
     end
   end
 

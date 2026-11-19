@@ -21,13 +21,15 @@ module ProvisioningRequests
   end
 
   # Sends one signed call. `body` is a Hash (sent as JSON), a String (sent as
-  # is) or nil. `signed_as` signs for another method and path than the one sent.
+  # is) or nil. `signed_as` signs for another method and path than the one
+  # sent, `signed_id` for another request id.
   def provisioning_call(method, domain = STORE, body: nil, suffix: '', secret: SECRET, timestamp: Time.now.to_i,
-                        request_id: SecureRandom.uuid, signed_as: nil, headers: {})
+                        request_id: SecureRandom.uuid, signed_as: nil, signed_id: nil, headers: {})
     path = provisioning_path(domain, suffix)
     raw = body.is_a?(Hash) ? JSON.generate(body) : body.to_s
     signed_method, signed_path = signed_as || [method.to_s.upcase, path]
-    signature = Inclamo::Provisioning::Signature.sign(secret, timestamp: timestamp, method: signed_method, path: signed_path, body: raw)
+    signature = Inclamo::Provisioning::Signature.sign(secret, timestamp: timestamp, request_id: signed_id || request_id,
+                                                              method: signed_method, path: signed_path, body: raw)
     public_send(method, path, params: raw, headers: {
       'CONTENT_TYPE' => 'application/json', 'X-Inclamo-Timestamp' => timestamp.to_s,
       'X-Inclamo-Request-Id' => request_id, 'X-Inclamo-Signature' => signature
@@ -35,8 +37,12 @@ module ProvisioningRequests
     response
   end
 
+  # The account's `PUT`. `shop` and `admin` are laid over a valid body and
+  # `store_access_url` is added to it; `body` replaces it.
   def provision(domain = STORE, **options)
-    body = options.delete(:body) || provisioning_body(domain, shop: options.delete(:shop) || {}, admin: options.delete(:admin) || {})
+    body = options.delete(:body) ||
+           provisioning_body(domain, shop: options.delete(:shop) || {}, admin: options.delete(:admin) || {},
+                                     **options.extract!(:store_access_url))
     provisioning_call(:put, domain, body: body, **options)
   end
 

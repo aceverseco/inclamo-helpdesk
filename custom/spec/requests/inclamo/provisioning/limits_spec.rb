@@ -33,12 +33,13 @@ RSpec.describe 'App provisioning: limits', type: :request do
     expect(response.parsed_body).to eq('error' => 'rate_limited')
     expect(response.headers['Retry-After']).to match(/\A\d+\z/)
     expect(response.headers['Retry-After'].to_i).to be_between(1, 3600)
+    expect(response.headers['X-Inclamo-Provisioning']).to eq('1')
   end
 
   it 'has the defaults of the contract, which the operator may change' do
     with_modified_env INCLAMO_APP_PROVISIONING_PUT_LIMIT: nil, INCLAMO_APP_PROVISIONING_STORE_LIMIT: 'many',
                       INCLAMO_APP_PROVISIONING_GET_LIMIT: '0' do
-      expect(%i[put store get].map { |name| Inclamo::Provisioning.limit(name) }).to eq([30, 5, 300])
+      expect(%i[put store get].map { |name| Inclamo::Provisioning.limit(name) }).to eq([120, 15, 300])
     end
     expect(%i[put store get].map { |name| Inclamo::Provisioning.limit(name) }).to eq([3, 2, 2])
     expect(Rack::Attack.throttles.keys).to include('inclamo/provisioning/put', 'inclamo/provisioning/put/store', 'inclamo/provisioning/get')
@@ -117,7 +118,7 @@ RSpec.describe 'App provisioning: limits', type: :request do
     provision(headers: outside, request_id: request_id)
     expect(response).to have_http_status(:created)
     provision(headers: outside, request_id: request_id, shop: { name: 'Another Body' })
-    expect(response).to have_http_status(:unauthorized)
+    expect(response.parsed_body).to eq('error' => 'request_id_reused')
 
     provision(headers: outside)
     expect(response).to have_http_status(:ok)
@@ -127,6 +128,83 @@ RSpec.describe 'App provisioning: limits', type: :request do
     end
     provision(store(1), headers: outside)
     expect(response).to have_http_status(:created)
+  end
+
+  it 'does not count a request answered from its stored answer, or one still being answered' do
+    request_id = SecureRandom.uuid
+    body = provisioning_body
+    provision(body: body, request_id: request_id, headers: outside)
+    expect(response).to have_http_status(:created)
+    5.times do
+      provision(body: body, request_id: request_id, headers: outside)
+      expect(response).to have_http_status(:created)
+    end
+
+    status_id = SecureRandom.uuid
+    ask_status(request_id: status_id, headers: outside)
+    3.times do
+      ask_status(request_id: status_id, headers: outside)
+      expect(response).to have_http_status(:ok)
+    end
+
+    pending_id = SecureRandom.uuid
+    pending_body = JSON.generate(provisioning_body(store(1)))
+    Inclamo::Provisioning::RequestStore.reserve(
+      pending_id, Inclamo::Provisioning::RequestStore.digest(method: 'PUT', path: provisioning_path(store(1)), body: pending_body)
+    )
+    stub_const('Inclamo::Provisioning::StoresController::PENDING_WAIT', 0.1)
+    3.times do
+      provision(store(1), body: pending_body, request_id: pending_id, headers: outside)
+      expect(response.parsed_body).to eq('error' => 'in_progress')
+    end
+
+    provision(headers: outside)
+    expect(response).to have_http_status(:ok)
+    provision(headers: outside)
+    expect_limited
+  end
+
+  it 'counts a request refused for its body' do
+    2.times do
+      provision(admin: { email_verified: false }, headers: outside)
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+
+    provision(headers: outside)
+    expect_limited
+    expect(provisioned).to be_nil
+  end
+
+  it 'never limits the removal notice' do
+    with_modified_env INCLAMO_APP_PROVISIONING_PUT_LIMIT: '1', INCLAMO_APP_PROVISIONING_STORE_LIMIT: '1' do
+      provision(headers: outside)
+      provision(store(1), headers: outside)
+      expect_limited
+      ask_status(headers: outside)
+      ask_status(headers: outside)
+      ask_status(headers: outside)
+      expect_limited
+
+      5.times do
+        remove_app(headers: outside)
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body['state']).to eq('suspended')
+      end
+      remove_app(store(1), headers: outside)
+      expect(response.parsed_body).to eq('contract' => 1, 'state' => 'none')
+    end
+  end
+
+  it 'counts every `PUT` of a store on one count, which each address listed for it joins' do
+    puts = Inclamo::Provisioning::ADDRESSES.select { |_address, methods| methods['PUT'] == :put }.keys
+    gets = Inclamo::Provisioning::ADDRESSES.select { |_address, methods| methods['GET'] == :get }.keys
+
+    expect(puts).to include('')
+    expect(gets).to include('')
+    expect(Inclamo::Provisioning::ADDRESSES.fetch('/removal')).to eq('POST' => nil)
+    expect(Rack::Attack.throttles.keys.grep(%r{\Ainclamo/provisioning/})).to contain_exactly(
+      'inclamo/provisioning/put', 'inclamo/provisioning/put/store', 'inclamo/provisioning/get'
+    )
   end
 
   it 'counts nothing on an installation without the secret' do

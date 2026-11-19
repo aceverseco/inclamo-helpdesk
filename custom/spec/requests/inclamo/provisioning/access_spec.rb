@@ -24,6 +24,7 @@ RSpec.describe 'App provisioning: who is asking', type: :request do
         call.call
         expect(response).to have_http_status(:not_found)
         expect(response.body).not_to include('unauthorized')
+        expect(response.headers['X-Inclamo-Provisioning']).to be_nil
       end
       nothing_created
       expect(Inclamo::ProvisioningEvent.count).to eq(0)
@@ -64,14 +65,25 @@ RSpec.describe 'App provisioning: who is asking', type: :request do
 
     it 'reproduces the worked examples of the contract' do
       secret = 'test-secret-not-for-production-0123456789abcdef'
+      request_id = '6f1c2d0e-8a55-4c0a-9d5e-2b7f3c1a9e44'
       path = '/inclamo/provisioning/stores/example-store.myshopify.com'
       body = '{"contract":1,"shop":{"domain":"example-store.myshopify.com","name":"Example Store","locale":"en",' \
              '"timezone":"America/New_York"},"admin":{"email":"alex@example.com","name":"Alex Example","email_verified":true}}'
 
-      expect(Inclamo::Provisioning::Signature.sign(secret, timestamp: 1_794_000_000, method: 'PUT', path: path, body: body))
-        .to eq('sha256=022264e7add0f4964389e0bbf7e1703ee0bdd90525e48f21efd9c2e071a551a0')
-      expect(Inclamo::Provisioning::Signature.sign(secret, timestamp: 1_794_000_000, method: 'GET', path: path, body: ''))
-        .to eq('sha256=87226ebd191b47f07a987e51faa1f2def88e835ea484a1f5092d5a19c94ff2a6')
+      expect(Inclamo::Provisioning::Signature.sign(secret, timestamp: 1_794_000_000, request_id: request_id, method: 'PUT', path: path,
+                                                           body: body))
+        .to eq('sha256=305fc0be96cd96282165e88118f12f54bd26c9ae69d5b43c6c292a01efb139a0')
+      expect(Inclamo::Provisioning::Signature.sign(secret, timestamp: 1_794_000_000, request_id: request_id, method: 'GET', path: path,
+                                                           body: ''))
+        .to eq('sha256=b8c0445090549f105fbef920861ba8765304feb72969051bc5b898b30ba6a875')
+    end
+
+    it 'signs the request id: a captured request sent again under another id is refused' do
+      request_id = SecureRandom.uuid
+      provision(request_id: SecureRandom.uuid, signed_id: request_id)
+
+      expect_unauthorized
+      nothing_created
     end
 
     it 'accepts a valid request' do
@@ -117,11 +129,12 @@ RSpec.describe 'App provisioning: who is asking', type: :request do
 
     it 'refuses a changed body under an unchanged signature' do
       body = JSON.generate(provisioning_body)
-      signature = Inclamo::Provisioning::Signature.sign(ProvisioningRequests::SECRET, timestamp: Time.now.to_i, method: 'PUT',
-                                                                                     path: provisioning_path, body: body)
+      request_id = SecureRandom.uuid
+      signature = Inclamo::Provisioning::Signature.sign(ProvisioningRequests::SECRET, timestamp: Time.now.to_i, request_id: request_id,
+                                                                                     method: 'PUT', path: provisioning_path, body: body)
       put provisioning_path, params: body.sub('Alex Example', 'Mallory Example'), headers: {
         'CONTENT_TYPE' => 'application/json', 'X-Inclamo-Timestamp' => Time.now.to_i.to_s,
-        'X-Inclamo-Request-Id' => SecureRandom.uuid, 'X-Inclamo-Signature' => signature
+        'X-Inclamo-Request-Id' => request_id, 'X-Inclamo-Signature' => signature
       }
 
       expect_unauthorized
@@ -217,28 +230,45 @@ RSpec.describe 'App provisioning: who is asking', type: :request do
         expect(Redis::Alfred.ttl(key)).to be_between(590, 600)
       end
 
-      it 'refuses the same id with another body' do
+      def expect_reused
+        expect(response).to have_http_status(:conflict)
+        expect(response.parsed_body).to eq('error' => 'request_id_reused')
+      end
+
+      it 'refuses the same id with another body as reused, not as unauthorised' do
         provision(request_id: request_id)
         account = provisioned.account
 
         provision(request_id: request_id, shop: { name: 'Renamed Store' })
 
-        expect_unauthorized
+        expect_reused
         expect(account.reload.name).to eq('Example Store')
+        expect(Inclamo::ProvisioningEvent.order(:id).last).to have_attributes(outcome: 'refused', request_id: request_id)
       end
 
-      it 'refuses a key reused for another store' do
+      it 'refuses a key reused for another store or another call' do
         provision(request_id: request_id)
 
         provision('second-store.myshopify.com', request_id: request_id)
-        expect_unauthorized
+        expect_reused
         expect(provisioned('second-store.myshopify.com')).to be_nil
 
         remove_app('second-store.myshopify.com', request_id: request_id)
-        expect_unauthorized
+        expect_reused
         ask_status('second-store.myshopify.com', request_id: request_id)
-        expect_unauthorized
+        expect_reused
+        remove_app(request_id: request_id)
+        expect_reused
         expect(Inclamo::ProvisionedAccount.count).to eq(1)
+        expect(provisioned).to be_active
+      end
+
+      it 'checks the signature first: a reused id under a wrong signature is unauthorised' do
+        provision(request_id: request_id)
+
+        provision(request_id: request_id, shop: { name: 'Renamed Store' }, secret: 'another-secret-0123456789abcdef-0123456789abcdef')
+
+        expect_unauthorized
       end
 
       it 'frees an id whose request failed, so the retry acts' do
@@ -260,10 +290,82 @@ RSpec.describe 'App provisioning: who is asking', type: :request do
 
         provision(body: body, request_id: request_id)
 
-        expect(response).to have_http_status(:service_unavailable)
+        expect(response).to have_http_status(:conflict)
+        expect(response.parsed_body).to eq('error' => 'in_progress')
         expect(response.headers['Retry-After']).to eq('1')
         nothing_created
       end
+
+      it 'answers a repetition with the first answer when it comes within the wait' do
+        body = JSON.generate(provisioning_body)
+        digest = Inclamo::Provisioning::RequestStore.digest(method: 'PUT', path: provisioning_path, body: body)
+        Inclamo::Provisioning::RequestStore.reserve(request_id, digest)
+        first = { 'contract' => 1, 'outcome' => 'existed' }
+        Thread.new do
+          sleep 0.3
+          Inclamo::Provisioning::RequestStore.keep(request_id, digest, status: 200, body: first.to_json, outcome: 'existed')
+        end
+
+        provision(body: body, request_id: request_id)
+
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body).to eq(first)
+        nothing_created
+      end
+    end
+  end
+
+  describe 'the provisioning header' do
+    include_context 'with app provisioning'
+
+    def expect_marked(status)
+      expect(response).to have_http_status(status)
+      expect(response.headers['X-Inclamo-Provisioning']).to eq('1')
+    end
+
+    it 'marks every answer of every provisioning address' do
+      provision
+      expect_marked(:created)
+      provision
+      expect_marked(:ok)
+      ask_status
+      expect_marked(:ok)
+      ask_status('unknown-store.myshopify.com')
+      expect_marked(:not_found)
+      expect(response.parsed_body).to eq('error' => 'no_account')
+      provision(admin: { email_verified: false })
+      expect_marked(:unprocessable_entity)
+      provision(secret: 'another-secret-0123456789abcdef-0123456789abcdef')
+      expect_marked(:unauthorized)
+      remove_app
+      expect_marked(:ok)
+      request_id = SecureRandom.uuid
+      ask_status(request_id: request_id)
+      remove_app(request_id: request_id)
+      expect_marked(:conflict)
+    end
+
+    it 'marks an answer still being given, an address that does not exist and an error' do
+      request_id = SecureRandom.uuid
+      body = JSON.generate(provisioning_body)
+      Inclamo::Provisioning::RequestStore.reserve(request_id,
+                                                  Inclamo::Provisioning::RequestStore.digest(method: 'PUT', path: provisioning_path, body: body))
+      stub_const('Inclamo::Provisioning::StoresController::PENDING_WAIT', 0.2)
+      provision(body: body, request_id: request_id)
+      expect_marked(:conflict)
+
+      provisioning_call(:post, suffix: '/elsewhere')
+      expect_marked(:not_found)
+
+      allow(AccountBuilder).to receive(:new).and_raise(ActiveRecord::ConnectionTimeoutError)
+      provision('failing-store.myshopify.com')
+      expect_marked(:internal_server_error)
+    end
+
+    it 'marks nothing outside the provisioning addresses' do
+      get '/inclamo/health'
+
+      expect(response.headers['X-Inclamo-Provisioning']).to be_nil
     end
   end
 end

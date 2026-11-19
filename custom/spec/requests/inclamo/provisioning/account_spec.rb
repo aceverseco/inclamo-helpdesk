@@ -25,7 +25,7 @@ RSpec.describe 'App provisioning: the store has an account', type: :request do
       account = provisioned.account
       expect(response.parsed_body.except('password_setup_url')).to eq(
         'contract' => 1, 'account_id' => account.id, 'helpdesk_url' => ProvisioningRequests::HELPDESK_URL,
-        'state' => 'active', 'outcome' => 'created', 'created_at' => account.created_at.utc.iso8601
+        'state' => 'active', 'outcome' => 'created', 'created_at' => account.created_at.utc.iso8601, 'admin_is_member' => true
       )
       expect(account).to have_attributes(name: 'Example Store', locale: 'fr', status: 'active')
       expect(account.custom_attributes['timezone']).to eq('America/New_York')
@@ -56,6 +56,31 @@ RSpec.describe 'App provisioning: the store has an account', type: :request do
       expect(provisioned('bare-store.myshopify.com').account.locale).to eq('en')
     end
 
+    it 'takes the language as Chatwoot writes it or as a BCP 47 tag, and ignores one Chatwoot does not have' do
+      { 'pt_BR' => 'pt_BR', 'pt-BR' => 'pt_BR', 'PT-br' => 'pt_BR', ' de ' => 'de', 'en-US' => 'en', 'pt-PT' => 'en', '' => 'en',
+        7 => 'en' }.each_with_index do |(sent, kept), index|
+        domain = "locale-#{index}.myshopify.com"
+        provision(domain, shop: { locale: sent }, admin: { email: "locale-#{index}@example.test" })
+        expect(response).to have_http_status(:created)
+        expect(provisioned(domain).account.locale).to eq(kept), "#{sent.inspect} became #{provisioned(domain).account.locale}"
+      end
+    end
+
+    it 'names a person the app gives no name after their email' do
+      provision(admin: { name: nil })
+      expect(User.from_email('alex@example.test').name).to eq('alex@example.test')
+
+      provision('second-store.myshopify.com', admin: { email: 'Sam@Example.Test', name: '  ' })
+      expect(response).to have_http_status(:created)
+      expect(User.from_email('sam@example.test').name).to eq('sam@example.test')
+
+      body = provisioning_body('third-store.myshopify.com', admin: { email: 'kim@example.test' })
+      body[:admin].delete(:name)
+      provision('third-store.myshopify.com', body: body)
+      expect(response).to have_http_status(:created)
+      expect(User.from_email('kim@example.test').name).to eq('kim@example.test')
+    end
+
     it 'makes the named person a confirmed administrator whom no password signs in, and sends no letter' do
       expect { provision }
         .to not_have_enqueued_job(ActionMailer::MailDeliveryJob).and not_change { ActionMailer::Base.deliveries.size }
@@ -82,7 +107,7 @@ RSpec.describe 'App provisioning: the store has an account', type: :request do
       expect(alex.encrypted_password).to be_present
       expect(alex.encrypted_password).not_to eq(sam.encrypted_password)
       expect(response.parsed_body.keys).to contain_exactly('contract', 'account_id', 'helpdesk_url', 'state', 'outcome', 'created_at',
-                                                           'password_setup_url')
+                                                           'admin_is_member', 'password_setup_url')
     end
   end
 
@@ -109,7 +134,9 @@ RSpec.describe 'App provisioning: the store has an account', type: :request do
       provision
 
       expect(response.parsed_body).not_to have_key('password_setup_url')
-      expect(response.parsed_body.keys).to contain_exactly('contract', 'account_id', 'helpdesk_url', 'state', 'outcome', 'created_at')
+      expect(response.parsed_body.keys).to contain_exactly('contract', 'account_id', 'helpdesk_url', 'state', 'outcome', 'created_at',
+                                                           'admin_is_member')
+      expect(response.parsed_body['admin_is_member']).to be(true)
       expect(known.reload.valid_password?('KnownPassword1!')).to be(true)
     end
   end
@@ -179,7 +206,7 @@ RSpec.describe 'App provisioning: the store has an account', type: :request do
       end
     end
 
-    it 'is repeated only from the stored answer, and is gone with it' do
+    it 'is repeated from the stored answer; once that is gone, a new link replaces it' do
       request_id = SecureRandom.uuid
       body = provisioning_body
       url = provision(body: body, request_id: request_id).parsed_body.fetch('password_setup_url')
@@ -189,41 +216,101 @@ RSpec.describe 'App provisioning: the store has an account', type: :request do
       Redis::Alfred.delete(Inclamo::Provisioning::RequestStore.key(request_id))
       provision(body: body, request_id: request_id)
       expect(response).to have_http_status(:ok)
-      expect(response.parsed_body['outcome']).to eq('existed')
-      expect(response.parsed_body).not_to have_key('password_setup_url')
-      expect(set_password(url, password)).to have_http_status(:ok)
+      expect(response.parsed_body).to include('outcome' => 'existed', 'admin_is_member' => true)
+      fresh = response.parsed_body.fetch('password_setup_url')
+      expect(fresh).not_to eq(url)
+      expect(set_password(url, password)).to have_http_status(:unprocessable_entity)
+      expect(set_password(fresh, password)).to have_http_status(:ok)
     end
 
-    it 'is not given on an account that existed, to anybody' do
-      provision
-      provision
-      expect(response.parsed_body).not_to have_key('password_setup_url')
+    describe 'when the first answer was lost' do
+      before { @first = provision.parsed_body.fetch('password_setup_url') }
 
-      provision(admin: { email: 'sam@example.test', name: 'Sam Example' })
-      expect(response.parsed_body['outcome']).to eq('existed')
-      expect(response.parsed_body).not_to have_key('password_setup_url')
+      it 'gives the administrator who never signed in a new link, and the first one stops working' do
+        provision
+
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body).to include('outcome' => 'existed', 'admin_is_member' => true)
+        fresh = response.parsed_body.fetch('password_setup_url')
+        expect(fresh).to start_with("#{ProvisioningRequests::HELPDESK_URL}/app/auth/password/edit?reset_password_token=")
+        expect(set_password(@first, password)).to have_http_status(:unprocessable_entity)
+        expect(set_password(fresh, password)).to have_http_status(:ok)
+        expect(sign_in('alex@example.test', password)).to have_http_status(:ok)
+      end
+
+      it 'gives a user of the account who never signed in a link, whatever their role' do
+        agent = create(:user, email: 'sam@example.test', account: provisioned.account, role: :agent)
+
+        provision(admin: { email: 'sam@example.test', name: 'Sam Example' })
+
+        expect(response.parsed_body).to include('outcome' => 'existed', 'admin_is_member' => true)
+        set_password(response.parsed_body.fetch('password_setup_url'), password)
+        expect(agent.reload.valid_password?(password)).to be(true)
+        expect(agent.account_users.pluck(:role)).to eq(['agent'])
+      end
+
+      it 'gives none to a person who signed in on the login page' do
+        set_password(@first, password)
+        sign_in('alex@example.test', password)
+
+        provision
+
+        expect(response.parsed_body).to include('outcome' => 'existed', 'admin_is_member' => true)
+        expect(response.parsed_body).not_to have_key('password_setup_url')
+        expect(User.from_email('alex@example.test').valid_password?(password)).to be(true)
+      end
+
+      it 'gives none to a person who has a session from the password page' do
+        set_password(@first, password)
+        expect(User.from_email('alex@example.test').sign_in_count).to eq(0)
+
+        provision
+
+        expect(response.parsed_body).not_to have_key('password_setup_url')
+      end
+
+      it 'gives none to a person who is not a user of the account' do
+        provision(admin: { email: 'sam@example.test', name: 'Sam Example' })
+        expect(response.parsed_body).to include('outcome' => 'existed', 'admin_is_member' => false)
+        expect(response.parsed_body).not_to have_key('password_setup_url')
+
+        create(:user, email: 'kim@example.test', account: create(:account))
+        provision(admin: { email: 'kim@example.test', name: 'Kim Example' })
+        expect(response.parsed_body).to include('outcome' => 'existed', 'admin_is_member' => false)
+        expect(response.parsed_body).not_to have_key('password_setup_url')
+        expect(set_password(@first, password)).to have_http_status(:ok)
+      end
     end
 
-    it 'is kept out of the attempts record and of the request log' do
+    it 'is kept out of the attempts record and of the request log, given, repeated and given again' do
       log = StringIO.new
       capture = ActiveSupport::Logger.new(log, level: :debug)
       loggers = [Rails, ActionController::Base, ActionController::API, ActiveRecord::Base]
       originals = loggers.map(&:logger)
+      request_id = SecureRandom.uuid
+      body = provisioning_body
+      links = []
       begin
         loggers.each { |owner| owner.logger = capture }
-        provision
+        links << provision(body: body, request_id: request_id).parsed_body.fetch('password_setup_url')
+        links << provision(body: body, request_id: request_id).parsed_body.fetch('password_setup_url')
+        links << provision.parsed_body.fetch('password_setup_url')
       ensure
         loggers.zip(originals).each { |owner, original| owner.logger = original }
       end
 
-      url = response.parsed_body.fetch('password_setup_url')
-      token = Rack::Utils.parse_query(URI(url).query).fetch('reset_password_token')
+      expect(links.uniq.size).to eq(2)
+      expect(Inclamo::ProvisioningEvent.where(request_id: request_id).pluck(:outcome)).to eq(%w[created created])
       expect(log.string).to include(provisioning_path)
-      expect(log.string).not_to include(token)
+      links.map { |link| Rack::Utils.parse_query(URI(link).query).fetch('reset_password_token') }.each do |token|
+        expect(log.string).not_to include(token)
+        expect(Inclamo::ProvisioningEvent.all.flat_map { |event| event.attributes.values }.join(' ')).not_to include(token)
+      end
       expect(log.string).not_to include('password/edit')
-      expect(Inclamo::ProvisioningEvent.all.flat_map { |event| event.attributes.values }.join(' ')).not_to include(token)
       expect(Inclamo::ProvisioningEvent.column_names).to contain_exactly('id', 'shop_domain', 'outcome', 'request_id', 'created_at')
 
+      url = links.last
+      token = Rack::Utils.parse_query(URI(url).query).fetch('reset_password_token')
       filter = ActiveSupport::ParameterFilter.new(Rails.application.config.filter_parameters)
       filtered = filter.filter('reset_password_token' => token, 'password_setup_url' => url,
                                'admin' => { 'email' => 'alex@example.test', 'name' => 'Alex Example' })
@@ -233,7 +320,11 @@ RSpec.describe 'App provisioning: the store has an account', type: :request do
   end
 
   describe 'a store that has an active account' do
-    before { provision }
+    # Its administrator has signed in since, so no answer below gives a link.
+    before do
+      provision
+      User.from_email('alex@example.test').update_columns(sign_in_count: 1)
+    end
 
     it 'answers with that account as existing and creates nothing' do
       account = provisioned.account
@@ -244,7 +335,7 @@ RSpec.describe 'App provisioning: the store has an account', type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body).to eq(
         'contract' => 1, 'account_id' => account.id, 'helpdesk_url' => ProvisioningRequests::HELPDESK_URL,
-        'state' => 'active', 'outcome' => 'existed', 'created_at' => account.created_at.utc.iso8601
+        'state' => 'active', 'outcome' => 'existed', 'created_at' => account.created_at.utc.iso8601, 'admin_is_member' => true
       )
       expect(Inclamo::ProvisionedAccount.where(shop_domain: ProvisioningRequests::STORE).count).to eq(1)
     end
@@ -269,7 +360,7 @@ RSpec.describe 'App provisioning: the store has an account', type: :request do
         provision(admin: { email: 'known@example.test', name: 'Known Person' })
       end.to not_change(User, :count).and not_change(AccountUser, :count)
 
-      expect(response.parsed_body).to include('outcome' => 'existed', 'account_id' => account.id)
+      expect(response.parsed_body).to include('outcome' => 'existed', 'account_id' => account.id, 'admin_is_member' => false)
       expect(User.from_email('sam@example.test')).to be_nil
       expect(account.users.pluck(:email)).to eq(['alex@example.test'])
       expect(known.reload.accounts).not_to include(account)
@@ -289,6 +380,50 @@ RSpec.describe 'App provisioning: the store has an account', type: :request do
       expect(response.parsed_body['account_id']).not_to eq(provisioned.account_id)
       expect(response.parsed_body).not_to have_key('password_setup_url')
       expect(User.from_email('alex@example.test').accounts.count).to eq(2)
+    end
+  end
+
+  describe "the app's address for the store's key requests" do
+    let(:address) { 'https://app.example.test/inclamo/store-access' }
+
+    it 'is kept with the store when the request gives one, and is optional' do
+      provision(store_access_url: address)
+      expect(response).to have_http_status(:created)
+      expect(provisioned.store_access_url).to eq(address)
+      expect(response.parsed_body).not_to have_key('store_access_url')
+
+      provision('second-store.myshopify.com')
+      expect(provisioned('second-store.myshopify.com').store_access_url).to be_nil
+      provision('third-store.myshopify.com', store_access_url: nil)
+      expect(response).to have_http_status(:created)
+      expect(provisioned('third-store.myshopify.com').store_access_url).to be_nil
+    end
+
+    it 'is replaced by every later request that gives one, and kept by one that does not' do
+      provision(store_access_url: address)
+
+      provision(store_access_url: 'https://app.example.test/v2/store-access')
+      expect(response.parsed_body['outcome']).to eq('existed')
+      expect(provisioned.store_access_url).to eq('https://app.example.test/v2/store-access')
+
+      provision
+      expect(provisioned.store_access_url).to eq('https://app.example.test/v2/store-access')
+
+      remove_app
+      provision(store_access_url: 'https://other-app.example.test/store-access')
+      expect(response.parsed_body['outcome']).to eq('restored')
+      expect(provisioned.store_access_url).to eq('https://other-app.example.test/store-access')
+    end
+
+    it 'is not changed by a request answered from its stored answer' do
+      request_id = SecureRandom.uuid
+      body = provisioning_body(store_access_url: address)
+      provision(body: body, request_id: request_id)
+      provisioned.update!(store_access_url: 'https://app.example.test/changed')
+
+      provision(body: body, request_id: request_id)
+
+      expect(provisioned.store_access_url).to eq('https://app.example.test/changed')
     end
   end
 end

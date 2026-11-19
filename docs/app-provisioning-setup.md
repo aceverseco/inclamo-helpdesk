@@ -25,9 +25,9 @@ process starts: restart it after changing one.
 | --- | --- | --- |
 | `INCLAMO_APP_PROVISIONING_SECRET` | unset | The secret shared with the store app. Setting it turns provisioning on |
 | `INCLAMO_APP_PROVISIONING_SECRET_PREVIOUS` | unset | The secret before a rotation, accepted next to the current one |
-| `INCLAMO_APP_PROVISIONING_PUT_LIMIT` | `30` | "The store has an account" requests accepted in an hour, for the installation |
-| `INCLAMO_APP_PROVISIONING_STORE_LIMIT` | `5` | The same requests accepted in an hour for one store |
-| `INCLAMO_APP_PROVISIONING_GET_LIMIT` | `300` | Status requests accepted in an hour, for the installation |
+| `INCLAMO_APP_PROVISIONING_PUT_LIMIT` | `120` | `PUT` requests accepted in an hour, for the installation |
+| `INCLAMO_APP_PROVISIONING_STORE_LIMIT` | `15` | `PUT` requests accepted in an hour for one store, every address's `PUT` counted together |
+| `INCLAMO_APP_PROVISIONING_GET_LIMIT` | `300` | Status requests (`GET`) accepted in an hour, for the installation, every address's counted together |
 | `FRONTEND_URL` | Chatwoot's own | The address people open. The answers give it to the app as `helpdesk_url`, and the password link starts with it |
 
 ## The secret
@@ -45,12 +45,16 @@ process starts: restart it after changing one.
 To see that it is on without the app, send an unsigned request:
 
 ```sh
-curl -s -o /dev/null -w '%{http_code}\n' https://helpdesk.example.com/inclamo/provisioning/stores/example-store.myshopify.com
+curl -s -o /dev/null -D - https://helpdesk.example.com/inclamo/provisioning/stores/example-store.myshopify.com | grep -i -E '^(HTTP|x-inclamo-provisioning)'
 ```
 
-`401` means provisioning is on and refused a request that is not the app's;
-`404` means it is off (the secret is unset or too short, or the process was
-not restarted).
+`401` with `x-inclamo-provisioning: 1` means provisioning is on and refused a
+request that is not the app's; `404` without that header means it is off (the
+secret is unset or too short, or the process was not restarted). Every answer
+of an address under `/inclamo/provisioning/` carries the header while
+provisioning is on, whatever its status, so the app tells "this store has no
+account" from "this installation has no provisioning". A proxy in front of the
+helpdesk must pass it through.
 
 Whoever holds the secret can create accounts on the installation and name the
 administrator of each new one. Treat a leak as a reason to rotate at once.
@@ -81,9 +85,17 @@ a limit is answered `429` with `Retry-After` (seconds until the period ends),
 creates nothing, and is recorded as `limited`. A value that is not a positive
 whole number falls back to the default.
 
+- Every `PUT` of the store app counts against the installation's limit and
+  against the store's own, whichever address it goes to: the store's limit is
+  one count for all of them.
+- Every status call (`GET`) counts against the installation's status limit,
+  whichever address it goes to.
 - Only requests that carry a valid signature are counted, so traffic that is
   not the app's cannot use up the app's allowance. That traffic meets
   Chatwoot's own limit per address (`RACK_ATTACK_LIMIT`) like any other.
+- A retry of a request that is answered from its stored answer, or told that
+  the first is still being answered, is not counted: it is the same request.
+  A request refused for its body (`422`) is counted.
 - The removal notice is not limited.
 - The limits are Rack::Attack rules and follow Chatwoot's settings for it:
   with `ENABLE_RACK_ATTACK=false` there are no limits at all, and requests
@@ -96,9 +108,8 @@ whole number falls back to the default.
 
 The defaults are a first estimate for an installation with few installs a day.
 Raise the installation's limit before a launch that brings many stores in one
-hour. The limit for one store rarely needs changing: a store asks once. A
-retry of the same request is answered from the stored answer and creates
-nothing, but it is counted like any other signed request.
+hour. The limit for one store rarely needs changing: a store asks a few times
+when it installs the app and again when it reinstalls it.
 
 ## An account made by hand
 
@@ -126,8 +137,11 @@ before provisioning is turned on.
 
 ## What is kept
 
-- `inclamo_provisioned_accounts`: one row per store, with its account and
-  whether the app is installed (`active`) or was removed (`suspended`).
+- `inclamo_provisioned_accounts`: one row per store, with its account,
+  whether the app is installed (`active`) or was removed (`suspended`), and
+  the app's address for the store's key requests when the app's latest request
+  that gave one named it (`store_access_url`; every later request that gives
+  one replaces it).
   Suspension itself is Chatwoot's account status, as the super admin console
   shows it; nothing of a suspended account is deleted.
 - `inclamo_provisioning_events`: one row per request and removal notice, with
@@ -137,7 +151,8 @@ before provisioning is turned on.
   days are removed once a day by `Inclamo::ProvisioningEventsCleanupJob`, on
   the `scheduled_jobs` queue of the normal Sidekiq schedule.
 - Request ids and their answers for ten minutes, in Redis. This is the only
-  place a password link is held, and only for those ten minutes.
+  place a password link is held, and only for those ten minutes: a stored
+  answer is never written to a log or to the record above.
 
 The request log shows the three addresses with the store's domain in the path.
 The person's email and name and the password link are filtered out of it.

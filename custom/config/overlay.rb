@@ -38,6 +38,10 @@ body_limit = overlay_lib.join('inclamo_support_body_limit.rb')
 loader.ignore(body_limit.to_s)
 require body_limit
 Rails.application.config.middleware.insert_before(0, InclamoSupportBodyLimit)
+provisioning_header = overlay_lib.join('inclamo_provisioning_header.rb')
+loader.ignore(provisioning_header.to_s)
+require provisioning_header
+Rails.application.config.middleware.insert_before(0, InclamoProvisioningHeader)
 
 # Views: the overlay's templates are found before Chatwoot's, so a template of
 # the same path stands in for theirs (each one is recorded in CHATWOOT_FILES).
