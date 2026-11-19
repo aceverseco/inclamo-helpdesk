@@ -205,8 +205,9 @@ RSpec.describe Inclamo::ErasureCheckJob, type: :request do
   end
 
   describe 'reminders' do
+    # The reminders' text, after the line that mentions the administrators.
     def reminders(request)
-      notes(request).map(&:content).grep(/\AReminder/)
+      notes(request).map(&:content).filter_map { |text| text.split("\n\n", 2).last if text.match?(/^Reminder/) }
     end
 
     it 'reminds a waiting erasure 7 days and 1 day before its date, each once' do
@@ -267,22 +268,106 @@ RSpec.describe Inclamo::ErasureCheckJob, type: :request do
       expect(request.reload.state).to eq('waiting')
     end
 
-    it 'notifies nobody: a private note of a ticket reaches no administrator as a notification' do
-      other_admin = create(:user, account: account, role: :administrator)
-      request = perform_enqueued_jobs { erasure }
+  end
+
+  # A private note of Chatwoot notifies only the people it mentions, and the
+  # tickets' inbox has no members: the first note and every reminder mention
+  # the account's administrators, so each is notified.
+  describe 'who is told' do
+    let!(:other_admin) do
+      create(:user, account: account, role: :administrator, name: 'Kim (Support) [EU]', display_name: 'Kim (Support) [EU]',
+                    email: 'kim.support@example.test')
+    end
+    let!(:agent) { create(:user, account: account, role: :agent) }
+
+    before do
+      create(:inbox_member, user: agent, inbox: shopper.conversations.first.inbox)
+      # A new contact's avatar is looked for at Gravatar by a background job.
+      stub_request(:get, /gravatar\.com/).to_return(status: 404)
+    end
+
+    # Who Chatwoot told of the note. It keeps one notification for a person
+    # and a conversation, the latest (Notification::RemoveDuplicateNotificationJob):
+    # a person told of a reminder has the reminder as their notification's message.
+    def told_of(note)
+      Notification.where(notification_type: 'conversation_mention', primary_actor: note.conversation, secondary_actor: note).pluck(:user_id)
+    end
+
+    def mentioned_ids(text)
+      text.scan(%r{\(mention://user/(\d+)/[^)]+\)}).flatten.map(&:to_i)
+    end
+
+    def data_request_ticket
+      ticket_of(perform_enqueued_jobs do
+        ask_data_request
+        shopper_request('shopper_data_request')
+      end)
+    end
+
+    it 'the first note of an erasure ticket and of a data-request ticket tells every administrator and no agent' do
+      erasure_ticket = ticket_of(perform_enqueued_jobs { erasure })
+      asked_ticket = data_request_ticket
+
+      [erasure_ticket, asked_ticket].each do |ticket|
+        first = ticket.messages.reorder(:id).first
+        expect(mentioned_ids(first.content)).to contain_exactly(admin.id, other_admin.id)
+        expect(first.content).to include("[@#{admin.available_name}](mention://user/#{admin.id}/#{ERB::Util.url_encode(admin.available_name)})")
+        expect(first.content).to include("[@Kim Support EU](mention://user/#{other_admin.id}/Kim%20Support%20EU)")
+        expect(first.content).not_to include('pat@example.com')
+        expect(first.content).not_to include('5556251199')
+        expect(told_of(first)).to contain_exactly(admin.id, other_admin.id)
+      end
+      expect(Notification.where(user: agent)).to be_empty
+      expect(Mention.where(conversation: erasure_ticket).pluck(:user_id)).to contain_exactly(admin.id, other_admin.id)
+    end
+
+    it 'every reminder tells the administrators the account has at that moment, and no agent' do
+      erasure_ticket = ticket_of(perform_enqueued_jobs { erasure })
+      held = perform_enqueued_jobs do
+        shopper_contact(account, email: 'kim@example.com', phone: '+15550000002')
+        erasure(shopper: { email: 'kim@example.com' }).tap { |one| Inclamo::Erasure::ShopperActions.hold!(one, admin, 'open payment dispute') }
+      end
+      asked_ticket = data_request_ticket
 
       travel_to(now + 7.days + 1.minute)
       perform_enqueued_jobs { run_erasures }
 
-      expect(reminders(request).size).to eq(1)
-      expect(Notification.where(user: [admin, other_admin])).to be_empty
-      # Chatwoot's notifications ran: a note that mentions an administrator
-      # does reach that one.
-      perform_enqueued_jobs do
-        Inclamo::Erasure::Ticket.note!(ticket_of(request), "[@#{other_admin.name}](mention://user/#{other_admin.id}/#{other_admin.name}) see this",
-                                       author: admin)
+      [erasure_ticket, asked_ticket].each do |ticket|
+        reminder = ticket.messages.reorder(:id).last
+        expect(reminder.content).to include("\n\nReminder:")
+        expect(mentioned_ids(reminder.content)).to contain_exactly(admin.id, other_admin.id)
+        expect(told_of(reminder)).to contain_exactly(admin.id, other_admin.id)
       end
-      expect(Notification.where(user: other_admin).pluck(:notification_type)).to eq(['conversation_mention'])
+
+      # The administrators change before the held ticket's reminder.
+      AccountUser.find_by(account: account, user: other_admin).update!(role: :agent)
+      newcomer = create(:user, account: account, role: :administrator)
+      travel_to(now + 30.days + 1.hour)
+      perform_enqueued_jobs { run_erasures }
+
+      held_ticket = ticket_of(held)
+      reminder = held_ticket.messages.reorder(:id).last
+      expect(reminder.content).to include("\n\nReminder: the deletion of this shopper")
+      expect(mentioned_ids(reminder.content)).to contain_exactly(admin.id, newcomer.id)
+      expect(told_of(reminder)).to contain_exactly(admin.id, newcomer.id)
+      expect(reminder.content).not_to include('kim@example.com')
+      expect(Notification.where(user: agent)).to be_empty
+    end
+
+    it 'tells nobody with the notes of the actions: a hold, its lifting, a deletion' do
+      request = perform_enqueued_jobs { erasure }
+      ticket = ticket_of(request)
+      before = Notification.count
+
+      perform_enqueued_jobs do
+        Inclamo::Erasure::ShopperActions.hold!(request, admin, 'open payment dispute')
+        Inclamo::Erasure::ShopperActions.lift!(request, admin)
+        Inclamo::Erasure::ShopperActions.delete!(request, admin)
+      end
+
+      expect(Notification.count).to eq(before)
+      expect(told_of(ticket.messages.reorder(:id).first)).to contain_exactly(admin.id, other_admin.id)
+      expect(ticket.messages.reorder(:id).drop(1).map(&:content).join).not_to include('mention://')
     end
   end
 

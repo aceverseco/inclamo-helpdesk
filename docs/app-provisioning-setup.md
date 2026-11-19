@@ -376,9 +376,15 @@ answers the app with its state; the request itself deletes nothing.
   that the helpdesk did it, and the ticket is resolved.
 - The daily run writes reminders into tickets as private notes: for a waiting
   erasure 7 days and 1 day before its date, for a held one every 30 days, for
-  a waiting data request on days 7, 14, 21 and 27. A note notifies nobody (a
-  private note of Chatwoot notifies only the people it mentions), and the
-  helpdesk sends no mail: an administrator sees the reminders in the ticket.
+  a waiting data request on days 7, 14, 21 and 27.
+- A private note of Chatwoot notifies only the people it mentions, and the
+  inbox has no members, so a ticket's first note and every reminder mention
+  every administrator the account has at that moment, never an agent. Each
+  administrator gets Chatwoot's notification of a mention in the dashboard,
+  and finds the ticket among their mentions; a mail is sent only where the
+  installation sends mail and the administrator chose mail for mentions in
+  their notification settings. The notes of a hold, its lifting and the end
+  of a ticket mention nobody.
 
 The app also asks how many of a store's requests wait, are held, or are
 overdue (unmet 30 days after they were received), without any shopper's data.

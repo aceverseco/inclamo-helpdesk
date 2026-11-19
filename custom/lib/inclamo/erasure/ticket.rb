@@ -15,6 +15,11 @@ module Inclamo
     # ATTRIBUTE names it). Its notes hold no email and no phone: those are
     # shown by the ticket's card from the request, so clearing the request
     # cleans the ticket (ShopperFinish).
+    #
+    # The first note and every reminder (Reminders) mention the account's
+    # administrators of that moment (`addressed`), so each gets Chatwoot's
+    # notification of a mention: a note of an inbox without members tells
+    # nobody otherwise.
     module Ticket
       LABELS = { 'shopper_erasure' => 'inclamo_erasure_request', 'shopper_data_request' => 'inclamo_data_request' }.freeze
       LABEL_COLOR = '#8E4EC6'
@@ -71,7 +76,7 @@ module Inclamo
         )
         conversation.label_list = [LABELS.fetch(request.kind)]
         conversation.save!
-        note!(conversation, first_note(request, account, contacts, conversations))
+        note!(conversation, addressed(account, first_note(request, account, contacts, conversations)))
         request.update!(conversation_id: conversation.id)
         conversation
       end
@@ -83,6 +88,24 @@ module Inclamo
         else
           Words.t(account, 'notes.data_request_made', **counts)
         end
+      end
+
+      # The note's text after a line that mentions every administrator the
+      # account has now, never an agent. Chatwoot's mention service notifies
+      # each of them (in the dashboard, and by mail where they chose that and
+      # the installation sends mail) and lists the ticket among their
+      # mentions. The line names the administrators only.
+      def addressed(account, text)
+        line = account.administrators.reorder('users.id').map { |user| mention(user) }.join(' ')
+        line.empty? ? text : "#{line}\n\n#{text}"
+      end
+
+      # A person as Chatwoot's own editor mentions one:
+      # [@Name](mention://user/<id>/<the name, URL-encoded>). Brackets and
+      # parentheses would end the markup early, so the name shown leaves them out.
+      def mention(user)
+        name = user.available_name.to_s.gsub(/[\[\]()]/, '').squish.presence || "##{user.id}"
+        "[@#{name}](mention://user/#{user.id}/#{ERB::Util.url_encode(name)})"
       end
 
       # A private note of the ticket; `author` is the administrator who acted,

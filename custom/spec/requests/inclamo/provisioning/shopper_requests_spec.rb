@@ -59,7 +59,7 @@ RSpec.describe 'App store erasure: requests about one shopper', type: :request d
       ask_shopper_erasure
 
       expect(data_requests_inbox(account).name).to eq('Запити щодо даних')
-      expect(ticket_texts(shopper_request).first).to start_with('Shopify від імені власника магазину')
+      expect(ticket_texts(shopper_request).first).to include("\n\nShopify від імені власника магазину")
     end
 
     it 'shows the ticket to an administrator and not to an agent, even an agent of the shopper\'s inbox' do

@@ -349,12 +349,13 @@ const goneWithin = async (shop, contactId, conversationIds) =>
     found => found.every(exists => !exists),
     { timeout: DELETED_WITHIN, every: 3_000 }
   );
-// None of the administrator's notifications is about a ticket: a ticket's
-// notes, made by the helpdesk or a colleague, notify nobody.
-async function noTicketNotifications(shop) {
-  const inbox = await dataRequestsInbox(shop);
-  const notifications = (await shop.api.get(`/api/v1/accounts/${shop.accountId}/notifications`)).body?.data?.payload || [];
-  expect(notifications.filter(notification => notification.primary_actor?.inbox_id === inbox.id)).toEqual([]);
+// A person's notifications about one ticket, read or not (opening the
+// ticket marks them read): a ticket's first note and its reminders mention
+// the account's administrators, and Chatwoot tells each of them. Chatwoot
+// keeps one notification for a person and a conversation, the latest.
+async function ticketNotifications(api, accountId, ticket) {
+  const notifications = (await api.get(`/api/v1/accounts/${accountId}/notifications?includes[]=read&includes[]=snoozed`)).body?.data?.payload || [];
+  return notifications.filter(notification => notification.primary_actor_type === 'Conversation' && notification.primary_actor?.id === ticket.id);
 }
 async function pastShopperDate(deleteAfter) {
   const wait = Date.parse(deleteAfter) - Date.now() + SHOPPER_PAST_THE_DATE;
@@ -401,6 +402,9 @@ test.describe('A request to erase one shopper becomes a ticket', () => {
     expect(note.content).toContain('1 contact and 2 conversations');
     expect(note.content).toContain(answer.body.delete_after.slice(0, 10));
     expect(note.content).not.toContain(pat.email);
+    expect(note.content).not.toContain(pat.phone);
+    // It mentions the account's administrator, so that Chatwoot tells them.
+    expect(note.content).toContain(`[@${maple.admin.name}](mention://user/`);
     expect((await card(maple, ticket)).body).toMatchObject({
       kind: 'shopper_erasure', state: 'waiting', email: pat.email, phone: pat.phone, delete_after: answer.body.delete_after,
       contacts: [{ id: pat.contactId, conversations: 2 }],
@@ -465,7 +469,9 @@ test.describe("Data-request tickets and erasure tickets are the administrators'"
     const added = await maple.account.post('/agents', { email: kaiStore.admin.email, name: kaiStore.admin.name, role: 'agent' });
     expect(added.status, JSON.stringify(added.body)).toBe(200);
     expect((await maple.account.post('/inbox_members', { inbox_id: maple.chatInbox.id, user_ids: [added.body.id] })).status).toBe(200);
-    const kai = (await personApi(kaiStore.admin.email, password('kai'))).within(maple.accountId);
+    const kaiApi = await personApi(kaiStore.admin.email, password('kai'));
+    const kai = kaiApi.within(maple.accountId);
+    made.kai = kaiApi;
 
     const listed = (await kai.get('/conversations?status=all&assignee_type=all')).body.data.payload.map(conversation => conversation.id);
 
@@ -478,6 +484,7 @@ test.describe("Data-request tickets and erasure tickets are the administrators'"
     const refused = await kai.post(`/inclamo/shopper_requests/${requestIdOf(maple.ticket)}/delete`, {});
     expect([refused.status, refused.body?.error]).toEqual([403, 'forbidden']);
     expect(await contactExists(maple, maple.pat.contactId)).toBe(true);
+    expect(await ticketNotifications(kaiApi, maple.accountId, maple.ticket)).toEqual([]);
   });
 
   test('An administrator opens the ticket', async ({ page }) => {
@@ -501,7 +508,13 @@ test.describe("Data-request tickets and erasure tickets are the administrators'"
     await expect(section.getByTestId('inclamo-shopper-request-lift')).toHaveCount(0);
     // Kept in the run's output for review; not published by CI.
     await page.screenshot({ path: `${process.env.E2E_OUTPUT || './output'}/shopper-request-card.png` });
-    await noTicketNotifications(maple);
+    // The ticket's first note mentions the account's administrators, so
+    // Chatwoot told the administrator; the agent of the team was not told.
+    const told = await eventually(() => ticketNotifications(maple.api, maple.accountId, ticket), list => list.length > 0);
+    expect(told.map(one => one.notification_type)).toEqual(['conversation_mention']);
+    expect(JSON.stringify(told)).not.toContain(ann.email);
+    expect(JSON.stringify(told)).not.toContain(ann.phone);
+    expect(await ticketNotifications(made.kai, maple.accountId, ticket)).toEqual([]);
   });
 });
 
@@ -598,7 +611,9 @@ test.describe('An administrator can hold the deletion with a reason', () => {
       { contract: 1, erasures: { waiting: 0, held: 2, overdue: 0 }, data_requests: { waiting: 0, overdue: 0 }, account_state: 'active' },
     ]);
     made.hal = { ...hal, ticket };
-    await noTicketNotifications(maple);
+    // The administrator was told of this ticket once, by its first note; the
+    // note of the hold mentions nobody.
+    expect((await ticketNotifications(maple.api, maple.accountId, ticket)).map(one => one.notification_type)).toEqual(['conversation_mention']);
   });
 
   test('A hold without a reason', async () => {

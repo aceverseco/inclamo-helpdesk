@@ -4,10 +4,11 @@ module Inclamo
   module Erasure
     # Reminders in a ticket about one shopper, written by the daily run as a
     # private note with fixed text; a resolved ticket is opened again by its
-    # reminder. The helpdesk sends no mail: a reminder is a note only, and like
-    # every private note of Chatwoot it notifies nobody (Chatwoot notifies
-    # about public messages and mentions only), so an administrator sees it
-    # in the ticket, which only administrators can open.
+    # reminder. A private note of Chatwoot notifies only the people it
+    # mentions, so each reminder mentions the account's administrators of that
+    # moment (Ticket.addressed): each gets Chatwoot's notification of a
+    # mention, and an administrator added or removed since the ticket was made
+    # is counted as the account has them now.
     #
     # When a reminder is due:
     # - a waiting erasure: 7 days and 1 day before its automatic deletion,
@@ -53,7 +54,7 @@ module Inclamo
 
             conversation = Ticket.conversation_of(request)
             if conversation
-              Ticket.note!(conversation, text(request, conversation.account))
+              Ticket.note!(conversation, Ticket.addressed(conversation.account, text(request, conversation.account)))
               Ticket.reopen!(conversation)
             end
             request.update!(reminded_at: now)
