@@ -2,7 +2,8 @@
 // says, its switches must send exactly what the helpdesk has to refuse, its
 // storefront page must load the widget as docs/app-storefront-chat.md §4 says,
 // its agent calls must carry a fresh pairing token as
-// docs/app-agent-connection.md §3.1 says, and it must check the helpdesk's key
+// docs/app-agent-connection.md §3.1 says, its erasure calls must send the
+// bodies of docs/app-store-erasure.md, and it must check the helpdesk's key
 // requests and answer them as docs/app-store-access.md says, or the end-to-end
 // tests prove nothing.
 //   node --test e2e/stand-in-app/server.test.mjs
@@ -70,6 +71,12 @@ function fakeHelpdesk() {
         if (entry.method === 'GET') return answer(200, { contract: 1, state: 'never_connected' });
         return answer(200, { contract: 1, state: 'disconnected', ai_service_told: true });
       }
+      if (entry.path.endsWith('/shoppers/requests')) {
+        return answer(200, { contract: 1, erasures: { waiting: 1, held: 0, overdue: 0 }, data_requests: { waiting: 0, overdue: 0 }, account_state: 'active' });
+      }
+      if (entry.path.endsWith('/shoppers/erasure')) return answer(200, { contract: 1, state: 'waiting', contacts: 1, conversations: 2, delete_after: '2026-12-02T10:00:00Z' });
+      if (entry.path.endsWith('/shoppers/data-request')) return answer(200, { contract: 1, state: 'none', contacts: 0, conversations: 0 });
+      if (entry.path.endsWith('/erasure')) return answer(200, { contract: 1, state: 'scheduled', erase_after: '2026-11-26T10:00:00Z' });
       if (entry.path.endsWith('/storefront-chat')) {
         const inbox = { contract: 1, inbox_id: 7, website_token: chat.token, widget_base_url: widgetBase, state: 'active' };
         if (entry.method === 'PUT') return answer(201, { ...inbox, outcome: 'created' });
@@ -510,4 +517,51 @@ test('refuses a key request with another secret, a stale time or a repeated requ
   const again = await askKey(keyStore, { requestId });
   assert.deepEqual([wrong, stale, first, again].map(asked => asked.status), [401, 401, 200, 401]);
   assert.deepEqual(wrong.body, { error: 'unauthorized' });
+});
+
+test('signs the four erasure calls over their method, whole path and exact body', async () => {
+  const shopper = { email: 'pat@example.com', phone: '+15556251199' };
+  const whole = await control('erasure', { domain: store });
+  const erase = await control('shopper-erasure', { domain: store, shopper, order_ids: ['299938', '280263'] });
+  const copy = await control('data-request', { domain: store, shopper: { email: 'pat@example.com' } });
+  const counts = await control('shopper-requests', { domain: store });
+
+  assert.deepEqual([whole, erase, copy, counts].map(answer => answer.body.status), [200, 200, 200, 200]);
+  assert.deepEqual(whole.body.body, { contract: 1, state: 'scheduled', erase_after: '2026-11-26T10:00:00Z' });
+  assert.deepEqual(received.map(entry => [entry.method, entry.path]), [
+    ['POST', `/inclamo/provisioning/stores/${store}/erasure`],
+    ['POST', `/inclamo/provisioning/stores/${store}/shoppers/erasure`],
+    ['POST', `/inclamo/provisioning/stores/${store}/shoppers/data-request`],
+    ['GET', `/inclamo/provisioning/stores/${store}/shoppers/requests`],
+  ]);
+  assert.equal(received[0].raw, '{"contract":1}');
+  assert.deepEqual(JSON.parse(received[1].raw), { contract: 1, shopper, order_ids: ['299938', '280263'] });
+  assert.deepEqual(JSON.parse(received[2].raw), { contract: 1, shopper: { email: 'pat@example.com' } });
+  assert.equal(received[3].raw, '');
+  assert.deepEqual(received.map(entry => entry.signature === expected(secret, entry)), [true, true, true, true]);
+  assert.equal(new Set(received.map(entry => entry.requestId)).size, 4);
+});
+
+test('sends a replaced erasure body as it is, and the switches work on the erasure calls too', async () => {
+  await control('erasure', { domain: store, body: { contract: 2 } });
+  await control('shopper-erasure', { domain: store, body: { contract: 1, shopper: {} } });
+  assert.equal(received[0].raw, '{"contract":2}');
+  assert.equal(received[1].raw, '{"contract":1,"shopper":{}}');
+
+  const wrong = await control('erasure', { domain: store, wrong_signature: true });
+  const stale = await control('shopper-requests', { domain: store, stale: true });
+  assert.deepEqual([wrong.body.status, stale.body.status], [401, 401]);
+  const first = await control('erasure', { domain: store });
+  const reused = await control('erasure', { domain: store, request_id: first.body.request_id, body: { contract: 1, again: true } });
+  assert.deepEqual([reused.body.status, reused.body.body], [409, { error: 'request_id_reused' }]);
+  const elsewhere = await control('erasure', { domain: store, helpdesk_url: otherUrl });
+  assert.deepEqual([elsewhere.body.status, elsewhere.body.provisioning], [404, null]);
+});
+
+test('its log holds no shopper\'s email or phone', async () => {
+  await control('shopper-erasure', { domain: store, shopper: { email: 'pat@example.com', phone: '+15556251199' } });
+  await control('data-request', { domain: store, shopper: { email: 'pat@example.com', phone: '+15556251199' } });
+  const log = JSON.stringify((await fetch(`${appUrl}/__e2e/log`).then(response => response.json())).log);
+  assert.equal(log.includes('pat@example.com'), false);
+  assert.equal(log.includes('5556251199'), false);
 });

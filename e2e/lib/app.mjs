@@ -1,8 +1,9 @@
 // The store app's side of the end-to-end tests: the stand-in app of
 // e2e/stand-in-app/server.mjs, which signs the provisioning calls of
 // docs/app-provisioning.md, the storefront chat's calls of
-// docs/app-storefront-chat.md and the agent's calls of
-// docs/app-agent-connection.md and serves the storefront page with the chat,
+// docs/app-storefront-chat.md, the agent's calls of
+// docs/app-agent-connection.md and the erasure calls of
+// docs/app-store-erasure.md and serves the storefront page with the chat,
 // and answers the helpdesk's key requests of docs/app-store-access.md; and a
 // person of a provisioned account, who has no place among the users
 // e2e/setup.rb prepares.
@@ -35,6 +36,13 @@ export const storeApp = {
   agent: (domain, options = {}) => control('agent', { domain, ...options }),
   agentStatus: (domain, switches = {}) => control('agent-status', { domain, ...switches }),
   agentDisconnect: (domain, switches = {}) => control('agent-disconnect', { domain, ...switches }),
+  // Shopify's compliance requests (docs/app-store-erasure.md). `erasure`
+  // takes body and switches; the two calls about one shopper take shopper
+  // ({ email, phone }), order_ids, body and switches.
+  erasure: (domain, options = {}) => control('erasure', { domain, ...options }),
+  shopperErasure: (domain, options = {}) => control('shopper-erasure', { domain, ...options }),
+  dataRequest: (domain, options = {}) => control('data-request', { domain, ...options }),
+  shopperRequests: (domain, switches = {}) => control('shopper-requests', { domain, ...switches }),
 };
 
 // How the stand-in app answers the helpdesk's key requests for a store from

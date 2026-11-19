@@ -17,7 +17,7 @@ module Inclamo
 
       def call
         row = Provisioning.store_domain(@shop_domain) && ProvisionedAccount.for_store(@shop_domain)
-        return 'none' unless row
+        return 'none' unless row&.account
 
         AgentConnection.suspending(row.account) do
           row.with_lock do

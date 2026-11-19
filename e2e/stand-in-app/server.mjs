@@ -1,6 +1,6 @@
 // A stand-in for the store app, for the end-to-end tests. It plays the app's
-// side of docs/app-provisioning.md, docs/app-storefront-chat.md and
-// docs/app-agent-connection.md: it signs
+// side of docs/app-provisioning.md, docs/app-storefront-chat.md,
+// docs/app-agent-connection.md and docs/app-store-erasure.md: it signs
 // the calls with the secret it shares with the helpdesk and sends them, and it
 // serves a storefront page that shows the chat widget as the app's theme embed
 // would, so every scenario runs without the store app. It also answers the
@@ -34,6 +34,17 @@
 //                             replaces it. Waits 15 s for the answer.
 //   POST   /__e2e/agent-status      { domain, ...switches }   GET stores/{domain}/agent
 //   POST   /__e2e/agent-disconnect  { domain, ...switches }   DELETE stores/{domain}/agent
+//   POST   /__e2e/erasure     { domain, body?, ...switches }
+//                             POST stores/{domain}/erasure: Shopify asked to
+//                             erase the store. `body` replaces { contract: 1 }.
+//   POST   /__e2e/shopper-erasure  { domain, shopper?, order_ids?, body?, ...switches }
+//                             POST stores/{domain}/shoppers/erasure: Shopify
+//                             asked to erase one shopper, named by `shopper`
+//                             ({ email, phone }) and `order_ids`; `body` replaces it.
+//   POST   /__e2e/data-request     { domain, shopper?, order_ids?, body?, ...switches }
+//                             POST stores/{domain}/shoppers/data-request, the same body.
+//   POST   /__e2e/shopper-requests { domain, ...switches }
+//                             GET stores/{domain}/shoppers/requests
 //   GET    /__e2e/log         what was sent since the last DELETE /__e2e/log
 //   DELETE /__e2e/log
 //
@@ -86,10 +97,10 @@
 //
 // It never logs or answers the secret or a signature, and its log holds no
 // body: a password link passes through to the test that asked and is kept
-// nowhere, and so does a pairing token, which the helpdesk is sent once. The
-// two widget values it keeps are public ones. A store key the test gives it is
-// kept in memory to hand to the helpdesk, and is in no log or control answer.
-// No dependencies: node >= 20.
+// nowhere, and so does a pairing token, which the helpdesk is sent once, and a
+// shopper's email and phone. The two widget values it keeps are public ones. A
+// store key the test gives it is kept in memory to hand to the helpdesk, and
+// is in no log or control answer. No dependencies: node >= 20.
 import { createServer } from 'node:http';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -165,6 +176,14 @@ const inline = value => JSON.stringify(String(value)).replace(/</g, '\\u003c');
 // field is left out.
 export const chatBody = storefrontUrl => ({ contract: 1, ...(storefrontUrl === undefined ? {} : { storefront_url: storefrontUrl }) });
 
+// The body of a request about one shopper (docs/app-store-erasure.md §4.1):
+// the shopper's email and phone as Shopify gave them, and the order ids.
+export const shopperBody = ({ shopper = {}, order_ids: orderIds } = {}) => ({
+  contract: 1,
+  shopper,
+  ...(orderIds === undefined ? {} : { order_ids: orderIds }),
+});
+
 // The body of "the store's account is connected to the agent": the pairing
 // token's two fields, and `extra` laid over them (fields the contract does not
 // have, such as inboxes, which the helpdesk must ignore).
@@ -235,6 +254,12 @@ export function createStandInApp({ helpdeskUrl, secret, agentUrl, fetchImpl = fe
     },
     'agent-status': ({ domain, ...switches }) => call('GET', storePath(domain, '/agent'), '', switches),
     'agent-disconnect': ({ domain, ...switches }) => call('DELETE', storePath(domain, '/agent'), '', switches),
+    erasure: ({ domain, body, ...switches }) => call('POST', storePath(domain, '/erasure'), JSON.stringify(body === undefined ? { contract: 1 } : body), switches),
+    'shopper-erasure': ({ domain, shopper, order_ids: orderIds, body, ...switches }) =>
+      call('POST', storePath(domain, '/shoppers/erasure'), JSON.stringify(body === undefined ? shopperBody({ shopper, order_ids: orderIds }) : body), switches),
+    'data-request': ({ domain, shopper, order_ids: orderIds, body, ...switches }) =>
+      call('POST', storePath(domain, '/shoppers/data-request'), JSON.stringify(body === undefined ? shopperBody({ shopper, order_ids: orderIds }) : body), switches),
+    'shopper-requests': ({ domain, ...switches }) => call('GET', storePath(domain, '/shoppers/requests'), '', switches),
   };
 
   // A one-time pairing token for the store, made immediately before the

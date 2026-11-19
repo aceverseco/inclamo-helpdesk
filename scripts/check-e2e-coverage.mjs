@@ -54,6 +54,28 @@ const FILES = {
   'app-storefront-chat': ['app-storefront-chat.spec.mjs'],
   'app-agent-auto-connection': ['app-agent-auto-connection.spec.mjs'],
   'app-store-access': ['app-store-access.spec.mjs'],
+  'app-store-erasure': ['app-store-erasure.spec.mjs'],
+};
+
+// app-store-erasure: the store's erasure is built; the requests about one
+// shopper are not yet, and the helpdesk answers those calls as unknown
+// addresses. Their end-to-end tests come with them.
+const SHOPPER_REQUESTS_NOT_BUILT =
+  'not yet built in this source revision: the requests about one shopper (the tickets, their deletion and holds, the data requests and the counts) come in a later change with their end-to-end tests, and until then the helpdesk answers those calls as unknown addresses';
+const shopperScenarios = {
+  'A request to erase one shopper becomes a ticket': [
+    'A shopper with two conversations', 'The request is repeated', "The same email in another store's account",
+    'A shopper the helpdesk does not know', 'Neither email nor phone',
+  ],
+  "Data-request tickets and erasure tickets are the administrators'": ['An agent of the team', 'An administrator opens the ticket'],
+  "An administrator deletes the shopper's data from the ticket": ['Delete from the ticket', 'The shopper wrote again after the ticket was made'],
+  'Without a decision the helpdesk deletes after the waiting time': ['Nobody touched the ticket', 'A reminder before the date', 'A suspended account'],
+  'An administrator can hold the deletion with a reason': ['A hold with a reason', 'A hold without a reason', 'The hold is lifted after the date'],
+  'A finished ticket holds no shopper data': ['Reading a done ticket'],
+  "A request for one shopper's data becomes a ticket": ['A known shopper', 'An unknown shopper', 'The team has answered'],
+  'The app learns the state of requests without shopper data': ['Asking about a held request', "Counting a store's requests"],
+  'Requests are recorded, and readable shopper data is kept only while a ticket is open': ['Reading the record of a done request'],
+  'Erasures hold after a restore from backup': ['A restore brings an erased shopper back'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each
@@ -123,6 +145,13 @@ const ELSEWHERE = {
     'a property of the dictionary, not of a screen; covered by scripts/check-ui-strings.mjs, which refuses the words locale/uk.rules.json rules out',
   'shopify-connection › The credentials are a secret › Installation without encryption keys':
     'needs an installation without encryption keys; covered by the request spec and the component test',
+  'app-store-erasure › Erasures hold after a restore from backup › A restore brings an erased store back':
+    'needs the database of the installation the tests drive to be restored from a backup; covered by custom/spec/lib/inclamo/erasure/reapply_spec.rb, which brings back the state a backup taken before the erasure holds and runs the re-apply routine and its task with the journal',
+  ...Object.fromEntries(
+    Object.entries(shopperScenarios).flatMap(([requirement, names]) =>
+      names.map(name => [`app-store-erasure › ${requirement} › ${name}`, SHOPPER_REQUESTS_NOT_BUILT])
+    )
+  ),
 };
 
 const scenarios = [];

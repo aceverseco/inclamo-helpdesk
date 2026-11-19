@@ -24,22 +24,27 @@ module Inclamo
     #   :put  the `PUT`s: one count per store, which the `PUT` of every
     #         address here shares, and one for the installation;
     #   :get  the installation's count of status calls, of every address;
+    #   :erasure  the erasure requests (docs/app-store-erasure.md): one count
+    #         per store and one for the installation;
     #   nil   not limited.
     # A new address is one line here, next to its routes.
     ADDRESSES = {
       '' => { 'PUT' => :put, 'GET' => :get },
       '/storefront-chat' => { 'PUT' => :put, 'GET' => :get },
       '/agent' => { 'PUT' => :put, 'GET' => :get, 'DELETE' => nil },
-      '/removal' => { 'POST' => nil }
+      '/removal' => { 'POST' => nil },
+      '/erasure' => { 'POST' => :erasure }
     }.freeze
 
     # Requests accepted in an hour (operator settings, with these defaults):
     # `PUT`s for the installation, `PUT`s for one store, status calls for the
-    # installation.
+    # installation, erasure requests for the installation and for one store.
     LIMITS = {
       put: ['INCLAMO_APP_PROVISIONING_PUT_LIMIT', 120],
       store: ['INCLAMO_APP_PROVISIONING_STORE_LIMIT', 15],
-      get: ['INCLAMO_APP_PROVISIONING_GET_LIMIT', 300]
+      get: ['INCLAMO_APP_PROVISIONING_GET_LIMIT', 300],
+      erasure: ['INCLAMO_APP_PROVISIONING_ERASURE_LIMIT', 60],
+      erasure_store: ['INCLAMO_APP_PROVISIONING_ERASURE_STORE_LIMIT', 20]
     }.freeze
 
     class LinkRefused < StandardError; end

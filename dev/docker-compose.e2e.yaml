@@ -30,6 +30,12 @@ x-e2e: &e2e
     # Where the helpdesk asks the store app for store keys (docs/app-store-access.md):
     # the stand-in app, under a path prefix of its own.
     - INCLAMO_APP_URL=http://stand-in-app:8091/helpdesk
+    # A store's erasure comes due half a minute after the app's request, not
+    # a week, and due erasures are looked for every few seconds, not once a
+    # day (honoured only with INCLAMO_E2E=1). The journal stays in the container.
+    - INCLAMO_ERASURE_WAIT_SECONDS=30
+    - INCLAMO_ERASURE_CHECK_SECONDS=5
+    - INCLAMO_ERASURE_JOURNAL_PATH=/tmp/inclamo-erasure-journal.jsonl
 
 services:
   rails:

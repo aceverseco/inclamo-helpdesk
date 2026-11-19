@@ -142,6 +142,9 @@ if defined?(Sidekiq::Cron::Job)
     # Records of provisioning attempts older than 90 days are removed once a day.
     Sidekiq::Cron::Job.create(name: 'inclamo_provisioning_events_cleanup_job', cron: '40 3 * * *',
                               class: 'Inclamo::ProvisioningEventsCleanupJob', queue: 'scheduled_jobs')
+    # Stores' erasures that have come due are carried out once a day (Inclamo::ErasureCheckJob).
+    Sidekiq::Cron::Job.create(name: 'inclamo_erasure_check_job', cron: Inclamo::Erasure.check_cron,
+                              class: 'Inclamo::ErasureCheckJob', queue: 'scheduled_jobs')
   end
 end
 

@@ -18,6 +18,7 @@ class Inclamo::Provisioning::StoresController < ActionController::API
   # PUT: the store has an account. Create it, find it or restore it.
   def update
     result = Inclamo::Provisioning::Provision.new(Inclamo::Provisioning::Payload.new(request.raw_post, @verdict.shop_domain)).call
+    record('erasure_cancelled') if result.erasure_cancelled
     record(result.outcome)
     Inclamo::Shopify::AppConnection.after_provisioning(result)
     body = account_body(result.row, result.account).merge(outcome: result.outcome, admin_is_member: result.admin_is_member)

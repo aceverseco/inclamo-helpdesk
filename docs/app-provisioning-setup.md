@@ -29,11 +29,18 @@ credentials (contract in `docs/app-store-access.md`, behavior contract
 [app-store-access](behavior/app-store-access/spec.md)). That needs the app's
 address; see [Store keys from the app](#store-keys-from-the-app).
 
+The same channel carries Shopify's request to erase a store, which the app
+passes on after the store uninstalled it (`.../stores/{shop_domain}/erasure`;
+contract in `docs/app-store-erasure.md`, behavior contract
+[app-store-erasure](behavior/app-store-erasure/spec.md)). Its settings, the
+daily run and the journal are described under
+[Erasing a store on Shopify's request](#erasing-a-store-on-shopifys-request).
+
 ## Settings
 
-All are environment variables of the helpdesk's web process, and the secret
-and the two store key settings of its worker process too (in the development
-stack, `dev/.env`; see `dev/env.example`). They are read when the process
+All are environment variables of the helpdesk's web process, and the secret,
+the two store key settings and the erasure journal's place of its worker
+process too (in the development stack, `dev/.env`; see `dev/env.example`). They are read when the process
 starts: restart it after changing one.
 
 | Setting | Default | Meaning |
@@ -43,6 +50,10 @@ starts: restart it after changing one.
 | `INCLAMO_APP_PROVISIONING_PUT_LIMIT` | `120` | `PUT` requests accepted in an hour, for the installation |
 | `INCLAMO_APP_PROVISIONING_STORE_LIMIT` | `15` | `PUT` requests accepted in an hour for one store, every address's `PUT` counted together |
 | `INCLAMO_APP_PROVISIONING_GET_LIMIT` | `300` | Status requests (`GET`) accepted in an hour, for the installation, every address's counted together |
+| `INCLAMO_APP_PROVISIONING_ERASURE_LIMIT` | `60` | Erasure requests accepted in an hour, for the installation |
+| `INCLAMO_APP_PROVISIONING_ERASURE_STORE_LIMIT` | `20` | Erasure requests accepted in an hour for one store |
+| `INCLAMO_ERASURE_WAIT_DAYS` | `7` | Days between the app's first request to erase a store and the destruction of its account, a whole number from 0 to 21; any other value falls back to 7. Read by the web process (the date the app is answered) |
+| `INCLAMO_ERASURE_JOURNAL_PATH` | unset | The file completed erasures are journaled to, outside the database. Read by the background workers. See [The journal](#the-journal) |
 | `FRONTEND_URL` | Chatwoot's own | The address people open. The answers give it to the app as `helpdesk_url` and, for the storefront chat, as `widget_base_url`; the password link starts with it |
 | `INCLAMO_APP_URL` | unset | The store app's address for store keys, HTTPS, with any path prefix the app chose (`https://app.example.com/helpdesk`). Used for a store whose provisioning request named no address of its own. Needed by the web and the worker processes |
 | `INCLAMO_APP_KEY_PAUSE` | `30` | Seconds a store's connection waits before it asks the app for a key again while the app gives none. A longer `Retry-After` of the app is kept |
@@ -178,6 +189,10 @@ whole number falls back to the default.
   the first is still being answered, is not counted: it is the same request.
   A request refused for its body (`422`) is counted.
 - The removal notice is not limited.
+- The erasure requests have counts of their own, for the installation and
+  for one store, apart from the `PUT`s. They follow the same rules: only
+  signed requests count, a repetition from the stored answer does not, a
+  request refused for its body does.
 - The limits are Rack::Attack rules and follow Chatwoot's settings for it:
   with `ENABLE_RACK_ATTACK=false` there are no limits at all, and requests
   from an address on the allow-list (`127.0.0.1`, `::1` and those of
@@ -192,6 +207,95 @@ Raise the installation's limit before a launch that brings many stores in one
 hour. The limit for one store rarely needs changing: a store asks a few times
 for its account and its storefront chat when it installs the app, and again
 when it reinstalls it.
+
+## Erasing a store on Shopify's request
+
+Shopify asks the app, 48 hours after a store uninstalled it, to erase the
+store's data. The app passes the request on, and the helpdesk:
+
+1. schedules the erasure of the store's suspended account for the end of the
+   waiting time (`INCLAMO_ERASURE_WAIT_DAYS`, 7 days by default), counted from
+   the app's first request, and answers the app with that date. Nothing is
+   destroyed yet. A store whose account is active (it installed the app again
+   first) is refused, and nothing is scheduled;
+2. withdraws the erasure when the store installs the app again before the
+   date: its account is restored with everything it held;
+3. once a day (the daily run at 04:10 in the workers' time zone) starts the
+   erasure of every store whose date has passed and whose account is still
+   suspended. An account the operator made active again by hand is not
+   erased, and its erasure is withdrawn;
+4. destroys the account with everything in it: conversations, messages and
+   their files, contacts, inboxes, labels and settings, the store connection
+   with its key, the AI agent's connection (the AI service is told), and every
+   user who belonged to this account only. A user who also belongs to another
+   account keeps it. The installation's super admins are never deleted;
+5. counts the erasure as complete only when no table of the database names
+   the account or its deleted users any longer. The store's row then keeps
+   the store's domain, `erased` and the time; a later install gets a new,
+   empty account.
+
+Chatwoot leaves part of an account's deletion to the background workers, so
+the destruction takes a little while after the daily run. While it lasts the
+store is `erasing`. If a row still names the account after about a day of
+attempts, the erasure stays `erasing` and the workers' log has a line that
+begins with `[inclamo erasure] ALERT` and names the tables; the daily run
+logs it again, and tries again, every day until it is resolved. A search of
+the workers' log for that text is the operator's check.
+
+Nothing undoes an erasure. Stored files go from the storage service with
+their messages and contacts: on local storage (`ACTIVE_STORAGE_SERVICE=local`)
+the files are deleted from the volume. On object storage the files are deleted
+from the bucket; a versioned bucket keeps earlier versions until its own
+lifecycle rules remove them.
+
+### The journal
+
+A backup of the database taken before an erasure does not hold its
+completion, so restoring that backup brings the erased account back. Each
+completed erasure is therefore also written, as one line of JSON, to a file
+outside the database: `INCLAMO_ERASURE_JOURNAL_PATH`. A line names the store's
+domain, the account's id and the times, and no person.
+
+- Set it on the background workers to a file on a volume that is not part of
+  the database and is not restored with it, and copy the file off the machine
+  together with the backups. The workers create the file (mode `600`) and
+  append to it.
+- Without it, erasures still complete, and every completion logs a warning
+  that it cannot be applied again after a restore.
+- A path that cannot be written keeps the erasure `erasing`, with the alert
+  above, until it can.
+
+### After a restore
+
+Right after the database is restored from a backup, before the store app
+reaches the helpdesk again, run:
+
+```sh
+bundle exec rails 'inclamo:erasure:reapply[/path/to/the/journal]'
+```
+
+Without an argument it reads `INCLAMO_ERASURE_JOURNAL_PATH`. For every line
+of the journal whose account the restored database holds again, it erases
+that account again, as the daily run does, and prints one line for each:
+`Store example-store.myshopify.com, account 42 (erased 2026-11-27T04:10:12Z): erased again`.
+An account created after the erasure is never taken, whatever its id. It
+waits up to ten minutes (`WAIT=<seconds>` to change it) for the background
+workers to finish each one, so start them first; an erasure they have not
+finished by then is reported as still being erased and is finished by them.
+Running it twice is harmless: the second run prints `Nothing to erase again.`
+
+Backups are not rewritten. An erased account stays in the backups taken
+before its erasure until they expire, so the installation's backup retention
+decides how long erased data outlives the erasure there.
+
+### The record
+
+`inclamo_erasure_requests` holds one row per store erasure: the store's
+domain, the account's id at the time, the state (`scheduled`, `erasing`,
+`erased`, or `cancelled` when the store installed the app again in time), when
+it was received and when it was completed, and the ids of the users deleted
+with the account. A completed row is removed 90 days after completion by the
+daily run.
 
 ## An account made by hand
 
@@ -231,8 +335,13 @@ before provisioning is turned on.
   the time, the store's domain, the request id and the outcome (`created`,
   `existed`, `restored`, `suspended`, `none`, `refused`, `limited`, and for
   the storefront chat's request `chat_created`, `chat_existed`,
-  `chat_refused`). The helpdesk's own requests for a store key are recorded
-  here too, with the account: `key_granted`, `key_refused:<the app's code>`
+  `chat_refused`; for the erasure request `erasure_scheduled`, `erasing`,
+  `erased`, `none` or `refused`; `erasure_cancelled` when a scheduled erasure
+  is withdrawn, with the request id of the `PUT` that restored the account, or
+  without one when the daily run finds the account made active by hand; and
+  `erased`, without a request id, when an erasure is completed). The
+  helpdesk's own requests for a store key are recorded here too, with the
+  account: `key_granted`, `key_refused:<the app's code>`
   (`store_not_installed`, `account_mismatch`, `store_unavailable`,
   `unauthorized`, `rate_limited`, ...), `key_no_answer`, and
   `key_invalid:<why>` for a key that was not taken (`other_store`,
@@ -260,3 +369,6 @@ ordinary accounts, and their rows stay for the day it is turned on again.
 Without the secret, or without any address of the app, the store connections
 made through the app can no longer be renewed: each keeps working until its key
 ends, then shows the store's data as unavailable.
+
+Erasures Shopify asked for and the helpdesk already scheduled are still
+carried out on their dates by the daily run.
