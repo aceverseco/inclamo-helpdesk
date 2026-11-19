@@ -1,14 +1,16 @@
 // Tests of the stand-in app itself: it must sign as docs/app-provisioning.md
 // says, its switches must send exactly what the helpdesk has to refuse, its
 // storefront page must load the widget as docs/app-storefront-chat.md §4 says,
-// and its agent calls must carry a fresh pairing token as
-// docs/app-agent-connection.md §3.1 says, or the end-to-end tests prove nothing.
+// its agent calls must carry a fresh pairing token as
+// docs/app-agent-connection.md §3.1 says, and it must check the helpdesk's key
+// requests and answer them as docs/app-store-access.md says, or the end-to-end
+// tests prove nothing.
 //   node --test e2e/stand-in-app/server.test.mjs
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { createHmac } from 'node:crypto';
-import { createStandInApp, sign, storefrontPage, STALE_SECONDS } from './server.mjs';
+import { createStandInApp, sign, storefrontPage, STALE_SECONDS, KEY_REFUSALS } from './server.mjs';
 
 const secret = 'secret-of-the-stand-in-app-test-0123456789abcdef';
 const link = 'https://helpdesk.example.test/app/auth/password/edit?reset_password_token=one-time-token';
@@ -392,4 +394,120 @@ test('the switches work on the agent calls too, and its log holds no pairing tok
   assert.deepEqual([refused.body.status, stale.body.status], [401, 401]);
   assert.deepEqual(log.map(entry => [entry.method, entry.status]), [['PUT', 401], ['DELETE', 401]]);
   assert.equal(JSON.stringify(log).includes('pairing-token'), false);
+});
+
+// The helpdesk's side of docs/app-store-access.md §2: a signed request for a
+// key, with the contract's ten scopes unless others are given.
+const TEN = ['read_customers', 'read_orders', 'read_products', 'write_orders', 'write_draft_orders', 'write_customers', 'write_order_edits', 'write_discounts', 'read_locations', 'read_merchant_managed_fulfillment_orders'];
+const askKey = async (domain, { prefix = '/helpdesk', accountId = 42, scopes = TEN, key = secret, requestId = crypto.randomUUID(), timestamp = Math.floor(Date.now() / 1000), base = appUrl } = {}) => {
+  const path = `${prefix}/stores/${domain}/store-key`;
+  const raw = JSON.stringify({ contract: 1, account_id: accountId, scopes });
+  const response = await fetch(`${base}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Inclamo-Timestamp': String(timestamp), 'X-Inclamo-Request-Id': requestId, 'X-Inclamo-Signature': sign(key, { timestamp, requestId, method: 'POST', path, body: raw }) },
+    body: raw,
+  });
+  const text = await response.text();
+  let body = null;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = text;
+  }
+  return { status: response.status, body, retryAfter: response.headers.get('retry-after'), cache: response.headers.get('cache-control') };
+};
+const keyStore = 'key-store.myshopify.com';
+const keyToken = ['shpat', 'stand', 'in', 'key', '0123456789'].join('_');
+
+test('reproduces the worked example of the store key contract', () => {
+  const raw = JSON.stringify({ contract: 1, account_id: 42, scopes: TEN });
+  const signature = sign('test-secret-not-for-production-0123456789abcdef', {
+    timestamp: 1794000000, requestId: '4e7c2a90-6d1b-4f38-a5c2-9b1e8d3f6a07', method: 'POST', path: '/helpdesk/stores/example-store.myshopify.com/store-key', body: raw,
+  });
+  assert.equal(signature, 'sha256=b72c74f4156702aae0f7fa409326c14f19840cea15544d3d757b27fcae70d0b3');
+});
+
+test('grants the key the test set, with the asked scopes, its life and no-store, and logs no key', async () => {
+  await control('store-keys', null, 'DELETE');
+  assert.equal((await control('store-key', { domain: keyStore, access_token: keyToken })).status, 204);
+  const before = Date.now();
+  const granted = await askKey(keyStore);
+  const narrow = await control('store-key', { domain: keyStore, access_token: keyToken, scopes: ['read_customers', 'read_orders', 'write_orders'], expires_in: 150 });
+  const short = await askKey(keyStore, { prefix: '' });
+
+  assert.equal(narrow.status, 204);
+  assert.equal(granted.status, 200);
+  assert.equal(granted.cache, 'no-store');
+  assert.deepEqual({ ...granted.body, expires_at: undefined }, { contract: 1, shop_domain: keyStore, access_token: keyToken, expires_at: undefined, scopes: TEN });
+  const life = (Date.parse(granted.body.expires_at) - before) / 1000;
+  assert.ok(life > 3590 && life <= 3601, `a key of an hour, not ${life} s`);
+  assert.deepEqual(short.body.scopes, ['read_customers', 'read_orders', 'write_orders']);
+  const shortLife = (Date.parse(short.body.expires_at) - Date.now()) / 1000;
+  assert.ok(shortLife > 140 && shortLife <= 150, `a key of 150 s, not ${shortLife} s`);
+  const { requests } = (await control('store-keys', null, 'GET')).body;
+  assert.deepEqual(requests.map(entry => [entry.domain, entry.path, entry.account_id, entry.signed, entry.status]), [
+    [keyStore, `/helpdesk/stores/${keyStore}/store-key`, 42, true, 200],
+    [keyStore, `/stores/${keyStore}/store-key`, 42, true, 200],
+  ]);
+  assert.deepEqual(requests[0].scopes, TEN);
+  assert.equal(JSON.stringify(requests).includes(keyToken), false);
+  assert.equal(JSON.stringify(app.state.log).includes(keyToken), false);
+});
+
+test('answers a key for another store and a request in another account name as the test set', async () => {
+  await control('store-key', { domain: keyStore, access_token: keyToken, shop_domain: 'another-store.myshopify.com' });
+  assert.equal((await askKey(keyStore)).body.shop_domain, 'another-store.myshopify.com');
+  await control('store-key', { domain: keyStore, access_token: keyToken, account_id: 42 });
+  assert.equal((await askKey(keyStore, { accountId: 42 })).status, 200);
+  assert.deepEqual(await askKey(keyStore, { accountId: 43 }).then(answer => [answer.status, answer.body.error]), [403, 'account_mismatch']);
+});
+
+test('answers every refusal of the contract, with Retry-After where the test gave one', async () => {
+  const seen = {};
+  for (const answer of Object.keys(KEY_REFUSALS)) {
+    await control('store-key', { domain: keyStore, answer, retry_after: 45 });
+    const asked = await askKey(keyStore);
+    seen[answer] = [asked.status, asked.body.error, asked.retryAfter];
+  }
+  assert.deepEqual(seen, {
+    store_not_installed: [404, 'store_not_installed', null],
+    account_mismatch: [403, 'account_mismatch', null],
+    store_unavailable: [503, 'store_unavailable', '45'],
+    unauthorized: [401, 'unauthorized', null],
+    unprocessable: [422, 'contract_unsupported', null],
+    rate_limited: [429, 'rate_limited', '45'],
+    server_error: [500, 'internal_error', null],
+  });
+  await control('store-key', { domain: keyStore, answer: 'unreadable' });
+  assert.deepEqual(await askKey(keyStore).then(asked => [asked.status, typeof asked.body]), [200, 'string']);
+  // A store the test set nothing for does not have the app.
+  assert.deepEqual(await askKey('never-set.myshopify.com').then(asked => [asked.status, asked.body.error]), [404, 'store_not_installed']);
+  assert.equal((await control('store-key', { domain: keyStore })).status, 400);
+  assert.equal((await control('store-key', { domain: keyStore, answer: 'maybe' })).status, 400);
+});
+
+test('stays silent past the helpdesk time limit when told to', async () => {
+  const quietApp = createStandInApp({ helpdeskUrl, secret, quiet: true, silentMs: 300 });
+  const quietUrl = await listen(quietApp.server);
+  try {
+    await fetch(`${quietUrl}/__e2e/store-key`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain: keyStore, answer: 'silent' }) });
+    const started = Date.now();
+    const asked = await askKey(keyStore, { base: quietUrl });
+    assert.ok(Date.now() - started >= 280, 'answered only after the silence');
+    assert.equal(asked.status, 504);
+    assert.equal(quietApp.state.keyLog[0].status, 'silent');
+  } finally {
+    quietApp.server.close();
+  }
+});
+
+test('refuses a key request with another secret, a stale time or a repeated request id', async () => {
+  await control('store-key', { domain: keyStore, access_token: keyToken });
+  const requestId = crypto.randomUUID();
+  const wrong = await askKey(keyStore, { key: 'another-secret-0123456789abcdef-0123456789' });
+  const stale = await askKey(keyStore, { timestamp: Math.floor(Date.now() / 1000) - STALE_SECONDS });
+  const first = await askKey(keyStore, { requestId });
+  const again = await askKey(keyStore, { requestId });
+  assert.deepEqual([wrong, stale, first, again].map(asked => asked.status), [401, 401, 200, 401]);
+  assert.deepEqual(wrong.body, { error: 'unauthorized' });
 });

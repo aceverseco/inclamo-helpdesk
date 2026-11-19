@@ -3,7 +3,8 @@
 // docs/app-provisioning.md, the storefront chat's calls of
 // docs/app-storefront-chat.md and the agent's calls of
 // docs/app-agent-connection.md and serves the storefront page with the chat,
-// and a person of a provisioned account, who has no place among the users
+// and answers the helpdesk's key requests of docs/app-store-access.md; and a
+// person of a provisioned account, who has no place among the users
 // e2e/setup.rb prepares.
 const appUrl = () => process.env.E2E_APP_URL || 'http://stand-in-app:8091';
 const helpdeskUrl = () => process.env.HELPDESK_URL || 'http://localhost:3000';
@@ -34,6 +35,23 @@ export const storeApp = {
   agent: (domain, options = {}) => control('agent', { domain, ...options }),
   agentStatus: (domain, switches = {}) => control('agent-status', { domain, ...switches }),
   agentDisconnect: (domain, switches = {}) => control('agent-disconnect', { domain, ...switches }),
+};
+
+// How the stand-in app answers the helpdesk's key requests for a store from
+// now on (docs/app-store-access.md; the settings are those of
+// e2e/stand-in-app/server.mjs: answer, access_token, scopes, expires_in,
+// shop_domain, account_id, retry_after), and what it was asked.
+export const storeKeys = {
+  set: async (domain, setting) => {
+    const response = await fetch(`${appUrl()}/__e2e/store-key`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain, ...setting }) });
+    if (response.status !== 204) throw new Error(`the stand-in app refused a key setting: HTTP ${response.status}`);
+  },
+  // [{ at, domain, path, account_id, scopes, signed, status }]
+  requests: async domain => {
+    const { requests } = await (await fetch(`${appUrl()}/__e2e/store-keys`)).json();
+    return domain ? requests.filter(entry => entry.domain === domain) : requests;
+  },
+  clear: () => fetch(`${appUrl()}/__e2e/store-keys`, { method: 'DELETE' }),
 };
 
 // The store's storefront page of the stand-in app: it loads the widget with

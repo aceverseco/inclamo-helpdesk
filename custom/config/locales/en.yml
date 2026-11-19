@@ -20,6 +20,17 @@ en:
         orders_refused: Shopify refuses this app the store's orders. In the Dev Dashboard open the app's Distribution, choose custom distribution, then try again.
         shop_unavailable: This store cannot be reached. Check the domain.
         store_unreachable: Shopify did not answer. Try again in a moment.
+        # A store connected through the Inclamo app (capability app-store-access).
+        managed_by_app: This store is connected through the Inclamo app. Its connection cannot be replaced or removed here.
+        not_through_app: This account cannot be connected through the Inclamo app on this installation.
+        app_unavailable: The Inclamo app did not answer. Try again in a moment.
+        other_store: The Inclamo app answered for another store.
+        app_removed: The Inclamo app is not installed on this store. Install it again in Shopify, then check again.
+        account_mismatch: The Inclamo app does not know this account for the store. Contact support.
+        missing_read_scope: The Inclamo app's key cannot read the store's orders and customers. Check again.
+        missing_app_scopes: "The Inclamo app does not have this permission at your store: %{missing_scopes}."
+        key_refused: The store refused the Inclamo app's key. Check again in a moment.
+        orders_refused_app: Shopify refuses the Inclamo app the store's orders. Contact support.
     # The words for an order's payment and fulfilment status, in the panel and
     # in the reply variables. Keys are Shopify's display statuses.
     order_statuses:

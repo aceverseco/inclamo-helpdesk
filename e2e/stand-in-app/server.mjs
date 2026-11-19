@@ -3,7 +3,8 @@
 // docs/app-agent-connection.md: it signs
 // the calls with the secret it shares with the helpdesk and sends them, and it
 // serves a storefront page that shows the chat widget as the app's theme embed
-// would, so every scenario runs without the store app.
+// would, so every scenario runs without the store app. It also answers the
+// helpdesk's signed requests for a store key (docs/app-store-access.md).
 //
 // A test drives it through a control API; each call answers what the helpdesk
 // answered, as { status, body, retry_after, provisioning, request_id }, where
@@ -43,6 +44,34 @@
 // and one for an installation that has no provisioning:
 //   helpdesk_url: "<url>"   sends to this helpdesk instead of the stack's own
 //
+// The store's keys (docs/app-store-access.md), asked for by the helpdesk:
+//
+//   POST   <any prefix>/stores/{domain}/store-key
+//                             The signature (§2), its time and a request id
+//                             not seen before are checked with the shared
+//                             secret, and a request that fails is answered
+//                             401 {"error":"unauthorized"}. Otherwise answered
+//                             as the test set it for the store; a store the
+//                             test set nothing for does not have the app
+//                             (404 store_not_installed).
+//   POST   /__e2e/store-key   { domain, answer?, access_token?, scopes?, expires_in?,
+//                               shop_domain?, account_id?, retry_after? }
+//                             How the app answers the store's key requests
+//                             from now on. `answer`: grant (the default),
+//                             store_not_installed, account_mismatch,
+//                             store_unavailable, unauthorized, unprocessable,
+//                             rate_limited, server_error, unreadable, or
+//                             silent (no answer for 15 s). A grant hands out
+//                             `access_token` with `scopes` (default: those
+//                             asked for), ending in `expires_in` seconds
+//                             (default 3600) and naming `shop_domain` (default
+//                             the store itself). With `account_id`, a request
+//                             in another account's name is answered
+//                             account_mismatch. `retry_after` goes with 503 and 429.
+//   GET    /__e2e/store-keys  the key requests received since the last DELETE,
+//                             each { at, domain, path, account_id, scopes, signed, status }
+//   DELETE /__e2e/store-keys
+//
 // The storefront page, for a browser:
 //
 //   GET    /storefront/{domain}   a page of the store's site. It loads the
@@ -58,12 +87,28 @@
 // It never logs or answers the secret or a signature, and its log holds no
 // body: a password link passes through to the test that asked and is kept
 // nowhere, and so does a pairing token, which the helpdesk is sent once. The
-// two widget values it keeps are public ones. No dependencies: node >= 20.
+// two widget values it keeps are public ones. A store key the test gives it is
+// kept in memory to hand to the helpdesk, and is in no log or control answer.
+// No dependencies: node >= 20.
 import { createServer } from 'node:http';
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 export const STALE_SECONDS = 600;
+const WINDOW_SECONDS = 300;
+// How long a silent app keeps the helpdesk waiting: past its 10 seconds.
+export const SILENT_MS = 15_000;
+const KEY_PATH = /^(.*)\/stores\/([^/]+)\/store-key$/;
+// The refusals of docs/app-store-access.md §3.4, as the app sends them.
+export const KEY_REFUSALS = {
+  store_not_installed: [404, { error: 'store_not_installed', message: 'The store does not have the app.' }],
+  account_mismatch: [403, { error: 'account_mismatch', message: 'The account is not the one provisioned for this store.' }],
+  store_unavailable: [503, { error: 'store_unavailable', message: 'No key can be made now.' }],
+  unauthorized: [401, { error: 'unauthorized' }],
+  unprocessable: [422, { error: 'contract_unsupported', message: 'The request did not read.' }],
+  rate_limited: [429, { error: 'rate_limited' }],
+  server_error: [500, { error: 'internal_error' }],
+};
 const OTHER_SECRET = 'another-secret-the-helpdesk-was-never-given-0123456789';
 
 // sha256=<hex HMAC-SHA256(secret, "<timestamp>.<request id>.<METHOD>.<path>.<raw body>")>
@@ -125,10 +170,11 @@ export const chatBody = storefrontUrl => ({ contract: 1, ...(storefrontUrl === u
 // have, such as inboxes, which the helpdesk must ignore).
 export const agentBody = ({ service_url: serviceUrl, token }, extra = {}) => ({ contract: 1, service_url: serviceUrl, token, ...extra });
 
-export function createStandInApp({ helpdeskUrl, secret, agentUrl, fetchImpl = fetch, quiet = false, now = () => Date.now() } = {}) {
+export function createStandInApp({ helpdeskUrl, secret, agentUrl, fetchImpl = fetch, quiet = false, now = () => Date.now(), silentMs = SILENT_MS } = {}) {
   // `chats` is what the app would keep where its theme extension reads it:
-  // per store, the two widget values of the helpdesk's last answer.
-  const state = { log: [], chats: new Map() };
+  // per store, the two widget values of the helpdesk's last answer. `keys` is
+  // how the app answers each store's key requests; `keyLog` what it was asked.
+  const state = { log: [], chats: new Map(), keys: new Map(), keyLog: [], seenKeyRequests: new Set() };
   const say = (...args) => quiet || console.log('stand-in app:', ...args);
 
   // Signs one call and sends it. The body is signed as the bytes that are sent.
@@ -221,11 +267,78 @@ export function createStandInApp({ helpdeskUrl, secret, agentUrl, fetchImpl = fe
     return response.end(storefrontPage(domain, state.chats.get(domain)));
   }
 
+  // The helpdesk asks for a key to a store (docs/app-store-access.md §2–§3).
+  function storeKey(request, path, raw, response) {
+    const [, , rawDomain] = path.match(KEY_PATH);
+    const domain = decodeURIComponent(rawDomain).toLowerCase();
+    const timestamp = String(request.headers['x-inclamo-timestamp'] || '');
+    const requestId = String(request.headers['x-inclamo-request-id'] || '');
+    const given = Buffer.from(String(request.headers['x-inclamo-signature'] || ''));
+    const wanted = Buffer.from(secret ? sign(secret, { timestamp, requestId, method: request.method, path, body: raw }) : '');
+    const fresh = /^\d{1,12}$/.test(timestamp) && Math.abs(now() / 1000 - Number(timestamp)) <= WINDOW_SECONDS;
+    const signed = Boolean(secret) && given.length === wanted.length && timingSafeEqual(given, wanted) && fresh && !state.seenKeyRequests.has(requestId);
+    if (signed) state.seenKeyRequests.add(requestId);
+    const asked = parse(raw) || {};
+    const entry = { at: new Date(now()).toISOString(), domain, path, account_id: asked.account_id ?? null, scopes: Array.isArray(asked.scopes) ? asked.scopes : null, signed, status: null };
+    state.keyLog.push(entry);
+    if (state.keyLog.length > 2000) state.keyLog.shift();
+    const answer = (status, body, headers = {}) => {
+      entry.status = status;
+      say(`key for ${domain} answered ${status}`);
+      response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers });
+      response.end(typeof body === 'string' ? body : JSON.stringify(body));
+    };
+    if (request.method !== 'POST') return answer(405, { error: 'method_not_allowed' });
+    if (!signed) return answer(...KEY_REFUSALS.unauthorized);
+
+    const setting = state.keys.get(domain) || { answer: 'store_not_installed' };
+    const kind = setting.answer || 'grant';
+    if (kind === 'silent') {
+      // Logged as silent: the late answer, after the helpdesk gave up, is not what it got.
+      entry.status = 'silent';
+      return setTimeout(() => {
+        response.writeHead(504, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify({ error: 'gateway_timeout' }));
+      }, silentMs);
+    }
+    if (kind === 'unreadable') return answer(200, '<html>not a key</html>');
+    if (kind === 'grant' && setting.account_id !== undefined && asked.account_id !== setting.account_id) return answer(...KEY_REFUSALS.account_mismatch);
+    if (kind !== 'grant') {
+      const [status, body] = KEY_REFUSALS[kind] || KEY_REFUSALS.server_error;
+      return answer(status, body, setting.retry_after && [429, 503].includes(status) ? { 'Retry-After': String(setting.retry_after) } : {});
+    }
+    const scopes = setting.scopes || (Array.isArray(asked.scopes) ? asked.scopes : []);
+    return answer(200, {
+      contract: 1,
+      shop_domain: setting.shop_domain || domain,
+      access_token: setting.access_token,
+      expires_at: new Date(now() + (setting.expires_in ?? 3600) * 1000).toISOString(),
+      scopes,
+    });
+  }
+
+  // How the app answers a store's key requests from now on (see the top).
+  function setKey(raw, response) {
+    const { domain, ...setting } = parse(raw) || {};
+    if (!domain) return send(response, 400, { error: 'domain_missing' });
+    const kind = setting.answer || 'grant';
+    if (kind === 'grant' && !setting.access_token) return send(response, 400, { error: 'access_token_missing' });
+    if (kind !== 'grant' && kind !== 'silent' && kind !== 'unreadable' && !KEY_REFUSALS[kind]) return send(response, 400, { error: 'answer_unknown' });
+    state.keys.set(String(domain).toLowerCase(), setting);
+    return send(response, 204);
+  }
+
   async function control(request, path, raw, response) {
     const name = path.slice('/__e2e/'.length);
     if (name === 'log' && request.method === 'GET') return send(response, 200, { log: state.log });
     if (name === 'log' && request.method === 'DELETE') {
       state.log = [];
+      return send(response, 204);
+    }
+    if (name === 'store-key' && request.method === 'POST') return setKey(raw, response);
+    if (name === 'store-keys' && request.method === 'GET') return send(response, 200, { requests: state.keyLog });
+    if (name === 'store-keys' && request.method === 'DELETE') {
+      state.keyLog = [];
       return send(response, 204);
     }
     if (request.method === 'POST' && calls[name]) {
@@ -245,6 +358,7 @@ export function createStandInApp({ helpdeskUrl, secret, agentUrl, fetchImpl = fe
       Promise.resolve()
         .then(() => {
           if (path.startsWith('/__e2e/')) return control(request, path, raw, response);
+          if (KEY_PATH.test(path)) return storeKey(request, path, raw, response);
           if (path.startsWith('/storefront/')) return storefront(request, path, response);
           return send(response, 404, { error: 'not_found' });
         })

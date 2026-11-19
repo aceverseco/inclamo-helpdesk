@@ -111,6 +111,10 @@ module Inclamo
       end
 
       def cached(suffix)
+        # Through the store app, an earlier answer is served only while the
+        # store can be reached: once the key has ended and the app gives no
+        # other, this raises instead (Error::StoreDataUnavailable).
+        @store.access_token if @record.app_key?
         generation = ::Redis::Alfred.get(self.class.generation_key(@record.account_id)).to_i
         key = "inclamo:shopify:#{@record.account_id}:#{generation}:#{Digest::SHA256.hexdigest(suffix)}"
         hit = ::Redis::Alfred.get(key)

@@ -1,0 +1,9 @@
+# What a key from the store app is verified with: the shop it opens. The
+# scopes are the ones the app granted, so the app's installation is not read.
+query shop_identity {
+  shop {
+    name
+    myshopifyDomain
+    currencyCode
+  }
+}

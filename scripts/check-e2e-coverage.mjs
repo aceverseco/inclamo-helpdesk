@@ -53,6 +53,7 @@ const FILES = {
   'app-provisioned-account': ['app-provisioned-account.spec.mjs'],
   'app-storefront-chat': ['app-storefront-chat.spec.mjs'],
   'app-agent-auto-connection': ['app-agent-auto-connection.spec.mjs'],
+  'app-store-access': ['app-store-access.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each
@@ -64,6 +65,10 @@ const ELSEWHERE = {
     'the limits are Rack::Attack rules and the test installation runs with ENABLE_RACK_ATTACK=false, as every other file needs; covered by custom/spec/requests/inclamo/provisioning/limits_spec.rb',
   'app-provisioned-account › Every provisioning attempt is recorded without personal data › A refused request is recorded':
     'the record is a table no address or page shows; covered by custom/spec/requests/inclamo/provisioning/events_spec.rb',
+  "app-store-access › The key is a secret › An installation without the app's address":
+    "needs an installation with the shared secret and no address of the store app, and the test installation has both for the other scenarios; covered by custom/spec/requests/inclamo/provisioning/store_access_spec.rb (no request for a key without the app's address, or without an HTTPS one)",
+  'app-store-access › Requests for a key are recorded without the key › A refusal is recorded':
+    'the record is a table no address or page shows; covered by custom/spec/lib/inclamo/shopify/app_key_spec.rb ("records each outcome with the time, the account and the store, without a key or a signature")',
   'app-agent-auto-connection › Every attempt is recorded without secrets › A refused connection is recorded':
     'the record is a table no address or page shows; covered by custom/spec/requests/inclamo/provisioning/agent_events_spec.rb',
   'team-queues › Ready queues exist for every account › A new account has the ready queues':

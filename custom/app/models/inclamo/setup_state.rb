@@ -6,6 +6,7 @@ class Inclamo::SetupState < ApplicationRecord
 
   def overview
     connection = Inclamo::ShopifyConnection.find_by(account_id: account_id)
+    app_row = Inclamo::Shopify::AppConnection.row_of(account_id)
     ai = Inclamo::AiConnection.active_for(account_id)
     members = account.account_users.order(:id).map { |member| [member.id, member.user_id, member.role, Inclamo::ActionPermissions.for(member)] }
     policies = Inclamo::ActionPermissions::ACTIONS.map { |action| Inclamo::AiPolicy.for(account, action).as_json }
@@ -19,6 +20,8 @@ class Inclamo::SetupState < ApplicationRecord
       completed_at: completed_at, store: connection && { domain: connection.shop_domain, state: connection.status, checked_at: connection.last_checked_at },
       channels: channels.map { |id, name| { id: id, name: name } }, members_count: members.size,
       ai_connected: ai.present?, ai_state: ai&.state,
+      # The store app provisioned the account: its store connects through the app.
+      managed_by_app: app_row.present?, through_app: Inclamo::Shopify::AppConnection.available?(app_row),
       order_actions: actions.map { |action| { action: action.action, order_number: action.order_number, completed_at: action.completed_at,
                                             conversation_id: action.conversation&.display_id } }
     }

@@ -4,8 +4,10 @@ module Inclamo
   module Shopify
     # Everything the "Orders" section of a conversation shows, in one answer.
     # The state says what the section is: not_connected, broken, unavailable
-    # (the store did not answer), refused (the store does not give the app its
-    # orders or customers), limited, no_identifier, none, ambiguous or matched.
+    # (the store did not answer; with the reason store_data_unavailable when
+    # the store app gave no key and the last one has ended), refused (the
+    # store does not give the app its orders or customers), limited,
+    # no_identifier, none, ambiguous or matched.
     class Panel
       def initialize(account:, conversation:, account_user:)
         @account = account
@@ -55,14 +57,25 @@ module Inclamo
       end
 
       def connection
-        return { connected: false, encryption_configured: Chatwoot.encryption_configured? } unless @record
+        return { connected: false, encryption_configured: Chatwoot.encryption_configured? }.merge(through_app) unless @record
 
         {
           connected: true, status: @record.status, shop_name: @record.shop_name, shop_domain: @record.shop_domain,
           shop_currency: @record.shop_currency, customer_data: @record.customer_data_mode, actions: @record.actions_report,
           # Whether the catalogue can be searched, for "Insert product" (any agent).
-          products_readable: ProductSearch.new(@record).missing_scopes.empty?
-        }
+          products_readable: ProductSearch.new(@record).missing_scopes.empty?,
+          auth_kind: @record.auth_kind, broken_reason: @record.broken_reason, scopes: @record.scopes,
+          last_checked_at: @record.last_checked_at, renewed_at: @record.renewed_at
+        }.merge(through_app)
+      end
+
+      # Whether the store app provisioned the account, so its connection is the
+      # app's, and whether it can be made through the app now.
+      def through_app
+        @through_app ||= begin
+          row = AppConnection.row_of(@account.id)
+          { managed_by_app: row.present?, through_app: AppConnection.available?(row) }
+        end
       end
 
       # With the values of the reply variables, for the dashboard's editor.

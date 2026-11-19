@@ -1,10 +1,16 @@
 # frozen_string_literal: true
 
 # The one Shopify store an account is connected to, and the credentials of the
-# merchant's own custom app. Talk to the store through
+# merchant's own custom app; or, for an account the store app provisioned
+# (`app_key`), only the short-lived key the app last handed out
+# (Inclamo::Shopify::AppKey). Talk to the store through
 # Inclamo::Shopify::StoreConnection, which hands out a valid token.
 class Inclamo::ShopifyConnection < ApplicationRecord
-  AUTH_KINDS = %w[client_credentials legacy_token].freeze
+  AUTH_KINDS = %w[client_credentials legacy_token app_key].freeze
+  # Why a connection through the store app is broken, when the app said why:
+  # the store does not have the app, the app does not know the account for
+  # the store, or the app's key lacks a scope the helpdesk cannot read without.
+  BROKEN_REASONS = %w[app_removed account_mismatch missing_read_scope].freeze
   READ_SCOPES = %w[read_customers read_orders].freeze
   ACTION_SCOPES = {
     'cancel' => %w[write_orders],
@@ -45,7 +51,14 @@ class Inclamo::ShopifyConnection < ApplicationRecord
   validates :auth_kind, :api_version, presence: true
   validates :client_id, :client_secret, presence: true, if: :client_credentials?
   validates :access_token, presence: true, if: :legacy_token?
+  validates :broken_reason, inclusion: { in: BROKEN_REASONS }, allow_nil: true
   validate :encryption_must_be_configured
+
+  # Whether the helpdesk obtains this connection's tokens by itself: from the
+  # store with the client credentials, or from the store app.
+  def renewable?
+    client_credentials? || app_key?
+  end
 
   def missing_scopes_for(action)
     ACTION_SCOPES.fetch(action.to_s) - scopes
