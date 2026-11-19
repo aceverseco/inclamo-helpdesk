@@ -1,10 +1,11 @@
 # frozen_string_literal: true
 
 # One provisioning attempt: the time, the store's domain, the outcome and the
-# request id. Never the person's email or name, the signature, the body or the
-# password link.
+# request id. Never the person's email or name, the signature, the body, the
+# password link or a website token. The outcomes that begin with `chat_` are
+# those of the storefront chat's request (docs/app-storefront-chat.md).
 class Inclamo::ProvisioningEvent < ApplicationRecord
-  OUTCOMES = %w[created existed restored suspended none refused limited].freeze
+  OUTCOMES = %w[created existed restored suspended none refused limited chat_created chat_existed chat_refused].freeze
   KEEP = 90.days
   DOMAIN = /\A[a-z0-9][a-z0-9.-]{0,254}\z/
   UUID = /\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/

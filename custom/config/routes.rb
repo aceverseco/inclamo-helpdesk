@@ -10,15 +10,18 @@
 # the names of the failing checks (Inclamo::Health).
 get '/inclamo/health', to: 'inclamo/health#show', defaults: { format: 'json' }
 
-# The store app's calls (docs/app-provisioning.md). Drawn only where the
-# operator set the shared secret: any other installation answers them as it
-# answers every unknown address.
+# The store app's calls (docs/app-provisioning.md, and docs/app-storefront-chat.md
+# for the storefront chat). Drawn only where the operator set the shared
+# secret: any other installation answers them as it answers every unknown
+# address.
 if Inclamo::Provisioning.enabled?
   scope '/inclamo/provisioning/stores/:shop_domain', controller: 'inclamo/provisioning/stores',
                                                      constraints: { shop_domain: %r{[^/]+} } do
     put '', action: :update, format: false
     get '', action: :show, format: false
     post 'removal', action: :removal, format: false
+    put 'storefront-chat', controller: 'inclamo/provisioning/storefront_chats', action: :update, format: false
+    get 'storefront-chat', controller: 'inclamo/provisioning/storefront_chats', action: :show, format: false
   end
 end
 

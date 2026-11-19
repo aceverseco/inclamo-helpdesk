@@ -36,12 +36,16 @@ module Inclamo
 
       # The row goes in first. A second request for the same new store waits on
       # the unique index until this transaction ends, then finds the account.
+      # The account's storefront inbox is made in the same transaction, so
+      # there is never a new account without it; an account that existed or is
+      # restored gets none here (docs/app-storefront-chat.md §2.1).
       def create
         ActiveRecord::Base.transaction(requires_new: true) do
           row = ProvisionedAccount.create!(shop_domain: @payload.shop_domain, state: 'active', store_access_url: @payload.store_access_url)
           user, created = administrator
           account = build_account(user)
           row.update!(account: account)
+          StorefrontChat.create!(row, account)
           Result.new(row: row, account: account, outcome: 'created', admin_is_member: true,
                      password_setup_url: (password_link(user) if created))
         end
