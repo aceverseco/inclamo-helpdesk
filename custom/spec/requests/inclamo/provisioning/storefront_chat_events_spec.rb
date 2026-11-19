@@ -74,7 +74,7 @@ RSpec.describe 'App storefront chat: the record of attempts', type: :request do
     signature = request.headers['X-Inclamo-Signature']
 
     expect(Inclamo::ProvisioningEvent.pluck(:outcome)).to eq(%w[chat_created chat_existed chat_refused refused])
-    expect(Inclamo::ProvisioningEvent.column_names).to contain_exactly('id', 'shop_domain', 'outcome', 'request_id', 'created_at')
+    expect(Inclamo::ProvisioningEvent.column_names).to contain_exactly('id', 'shop_domain', 'outcome', 'request_id', 'account_id', 'created_at')
     recorded = Inclamo::ProvisioningEvent.all.flat_map { |event| event.attributes.values }.join(' ')
     [channel.website_token, channel.hmac_token, 'maple-and-oak', 'not-https', signature, signature.delete_prefix('sha256='),
      ProvisioningRequests::SECRET].each do |hidden|
