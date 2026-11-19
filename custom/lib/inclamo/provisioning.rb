@@ -33,6 +33,7 @@ module Inclamo
       '/storefront-chat' => { 'PUT' => :put, 'GET' => :get },
       '/agent' => { 'PUT' => :put, 'GET' => :get, 'DELETE' => nil },
       '/removal' => { 'POST' => nil },
+      '/shoppers/erasure' => { 'POST' => :erasure }, '/shoppers/data-request' => { 'POST' => :erasure }, '/shoppers/requests' => { 'GET' => :get },
       '/erasure' => { 'POST' => :erasure }
     }.freeze
 

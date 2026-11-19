@@ -11,11 +11,13 @@ helpdesk erases a Shopify store's account, and turns the requests about one
 shopper of a store into tickets the merchant's team acts on, with automatic
 deletion when the team does not.
 
-In this source revision the store's erasure is built. The requirements about
-one shopper (the tickets, their deletion and holds, the data requests and the
-counts) are not built yet: their scenarios are listed in
-`scripts/check-e2e-coverage.mjs` as not yet built, and the helpdesk answers
-those calls as unknown addresses.
+In this source revision every requirement below is built: the store's
+erasure, and the requests about one shopper (the tickets in the account's
+"Data requests" inbox, their deletion, holds and reminders, the data
+requests and the counts). The scenarios that cannot run against the
+installation the end-to-end tests drive are listed, with where they are
+covered, in `scripts/check-e2e-coverage.mjs`. The operator's settings and
+routines are in `docs/app-provisioning-setup.md`.
 
 ### Requirement: Erasure requests come only from the app
 

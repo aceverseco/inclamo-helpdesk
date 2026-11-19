@@ -57,27 +57,6 @@ const FILES = {
   'app-store-erasure': ['app-store-erasure.spec.mjs'],
 };
 
-// app-store-erasure: the store's erasure is built; the requests about one
-// shopper are not yet, and the helpdesk answers those calls as unknown
-// addresses. Their end-to-end tests come with them.
-const SHOPPER_REQUESTS_NOT_BUILT =
-  'not yet built in this source revision: the requests about one shopper (the tickets, their deletion and holds, the data requests and the counts) come in a later change with their end-to-end tests, and until then the helpdesk answers those calls as unknown addresses';
-const shopperScenarios = {
-  'A request to erase one shopper becomes a ticket': [
-    'A shopper with two conversations', 'The request is repeated', "The same email in another store's account",
-    'A shopper the helpdesk does not know', 'Neither email nor phone',
-  ],
-  "Data-request tickets and erasure tickets are the administrators'": ['An agent of the team', 'An administrator opens the ticket'],
-  "An administrator deletes the shopper's data from the ticket": ['Delete from the ticket', 'The shopper wrote again after the ticket was made'],
-  'Without a decision the helpdesk deletes after the waiting time': ['Nobody touched the ticket', 'A reminder before the date', 'A suspended account'],
-  'An administrator can hold the deletion with a reason': ['A hold with a reason', 'A hold without a reason', 'The hold is lifted after the date'],
-  'A finished ticket holds no shopper data': ['Reading a done ticket'],
-  "A request for one shopper's data becomes a ticket": ['A known shopper', 'An unknown shopper', 'The team has answered'],
-  'The app learns the state of requests without shopper data': ['Asking about a held request', "Counting a store's requests"],
-  'Requests are recorded, and readable shopper data is kept only while a ticket is open': ['Reading the record of a done request'],
-  'Erasures hold after a restore from backup': ['A restore brings an erased shopper back'],
-};
-
 // Scenarios that cannot run against the installation the tests drive, each
 // with where it is covered instead.
 const ELSEWHERE = {
@@ -147,11 +126,14 @@ const ELSEWHERE = {
     'needs an installation without encryption keys; covered by the request spec and the component test',
   'app-store-erasure › Erasures hold after a restore from backup › A restore brings an erased store back':
     'needs the database of the installation the tests drive to be restored from a backup; covered by custom/spec/lib/inclamo/erasure/reapply_spec.rb, which brings back the state a backup taken before the erasure holds and runs the re-apply routine and its task with the journal',
-  ...Object.fromEntries(
-    Object.entries(shopperScenarios).flatMap(([requirement, names]) =>
-      names.map(name => [`app-store-erasure › ${requirement} › ${name}`, SHOPPER_REQUESTS_NOT_BUILT])
-    )
-  ),
+  'app-store-erasure › Erasures hold after a restore from backup › A restore brings an erased shopper back':
+    "needs the database of the installation the tests drive to be restored from a backup; covered by custom/spec/lib/inclamo/erasure/reapply_shoppers_spec.rb, which brings back the shopper and the waiting ticket a backup taken before the deletion holds and runs the re-apply routine and its task with the journal",
+  'app-store-erasure › Without a decision the helpdesk deletes after the waiting time › A reminder before the date':
+    'the reminders come 7 days and 1 day before the date of automatic deletion and the tests cannot move the installation\'s clock by days; covered by custom/spec/jobs/inclamo/erasure_check_job_shoppers_spec.rb ("reminds a waiting erasure 7 days and 1 day before its date, each once")',
+  "app-store-erasure › The app learns the state of requests without shopper data › Counting a store's requests":
+    'needs a data request received 31 days ago, and the tests cannot move the installation\'s clock; covered by custom/spec/requests/inclamo/provisioning/shopper_requests_spec.rb ("counts waiting, held and overdue requests of the store"); the end-to-end test "A hold with a reason" reads the counts of a store with held requests',
+  'app-store-erasure › Requests are recorded, and readable shopper data is kept only while a ticket is open › Reading the record of a done request':
+    'the record is a table no address or page shows; covered by custom/spec/jobs/inclamo/erasure_check_job_shoppers_spec.rb ("keeps the email and phone encrypted while the ticket is open, and only keyed digests afterwards, in the record and the journal")',
 };
 
 const scenarios = [];

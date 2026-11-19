@@ -19,13 +19,22 @@ namespace :inclamo do
       # workers: wait for them for a while, then say what is left to them.
       wait = Integer(ENV.fetch('WAIT', '600'), 10, exception: false) || 600
       deadline = Time.current + wait
-      records = started.map(&:record)
+      stores, shoppers = started.partition { |one| one.line['kind'] == 'store' }
+      records = stores.map(&:record)
       sleep 5 until records.all? { |record| record.reload.state == 'erased' } || Time.current > deadline
 
-      started.each do |one|
+      stores.each do |one|
         line = one.line
         state = one.record.reload.state == 'erased' ? 'erased again' : 'still being erased by the background workers (the record says erasing)'
         puts "Store #{line['shop_domain']}, account #{line['account_id']} (erased #{line['completed_at']}): #{state}"
+      end
+      # A shopper's contacts are deleted at once; their conversations go in
+      # the background workers' jobs.
+      shoppers.each do |one|
+        line = one.line
+        ticket = one.record ? ', its ticket finished again' : ''
+        puts "Shopper of store #{line['shop_domain']}, account #{line['account_id']}, request #{line['request_id']} " \
+             "(erased #{line['completed_at']}): #{one.erased} contact(s) erased again#{ticket}"
       end
     end
   end

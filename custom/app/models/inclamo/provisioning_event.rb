@@ -13,7 +13,8 @@ class Inclamo::ProvisioningEvent < ApplicationRecord
   OUTCOMES = %w[created existed restored suspended none refused limited chat_created chat_existed chat_refused
                 agent_connected agent_existed agent_refused agent_not_answered agent_disconnected agent_status].freeze
   ERASURE_OUTCOMES = %w[erasure_scheduled erasure_cancelled erasing erased shopper_ticket_made shopper_deleted shopper_held
-                        shopper_hold_lifted data_request_made data_request_answered].freeze
+                        shopper_hold_lifted data_request_made data_request_answered
+                        shopper_ticket_found shopper_none data_request_found data_request_none].freeze
   KEEP = 90.days
   DOMAIN = /\A[a-z0-9][a-z0-9.-]{0,254}\z/
   UUID = /\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/

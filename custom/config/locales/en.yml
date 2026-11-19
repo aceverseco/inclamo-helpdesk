@@ -239,3 +239,39 @@ en:
         invalid_label: Labels of the AI agent start with inclamo_ and hold only lower case letters, digits, _ and -.
         conversation_not_pending: The conversation is no longer the AI agent's. Nothing was posted; do not send this reply again.
         empty_reply: A reply needs text.
+    # The tickets about one shopper (Inclamo::Erasure::Ticket), written in the
+    # account's language; custom/config/locales/uk.yml has the same keys.
+    erasure:
+      inbox_name: Data requests
+      contact_name: Shopify data requests
+      placeholder: "[removed]"
+      labels:
+        inclamo_erasure_request: Shopify asked to erase one shopper's data. Only administrators see these tickets.
+        inclamo_data_request: A shopper asked the store for a copy of their data. Only administrators see these tickets.
+      contacts:
+        one: "%{count} contact"
+        other: "%{count} contacts"
+      conversations:
+        one: "%{count} conversation"
+        other: "%{count} conversations"
+      notes:
+        erasure_made: |-
+          Shopify asked, on the store owner's behalf, to erase one shopper's data.
+          Found in this account: %{contacts} and %{conversations}. The shopper's email and phone and the contacts found are on this ticket's card.
+          An administrator can delete the data now, or hold the deletion with a reason. If nobody deletes or holds, the helpdesk deletes it on %{date}.
+          Deleting removes the contacts with all their conversations, messages and files. Afterwards the shopper's email and phone are removed from this ticket; a name or an address typed into a note by hand is not, so do not write them here.
+        data_request_made: |-
+          A shopper asked the store, through Shopify, for a copy of their data.
+          Found in this account: %{contacts} and %{conversations}. The contacts are on this ticket's card: answer the shopper with what they hold, then mark the request answered. The helpdesk does not close this ticket by itself.
+          Afterwards the shopper's email and phone are removed from this ticket; a name or an address typed into a note by hand is not, so do not write them here.
+        deleted_by: "Done: %{name} deleted the shopper's data on %{time}."
+        deleted_automatically: "Done: nobody deleted or held, so the helpdesk deleted the shopper's data on %{time}."
+        answered_by: "Done: %{name} marked the request answered on %{time}."
+        held_by: "%{name} held the automatic deletion. From now on the store answers for this request. The reason is on this ticket's card."
+        lifted_before: "%{name} lifted the hold. If nobody deletes, the helpdesk deletes the shopper's data on %{date}."
+        lifted_after: "%{name} lifted the hold. The date of automatic deletion has passed: the helpdesk deletes the shopper's data at its next daily run."
+        reminder_erasure: "Reminder: if nobody deletes or holds, the helpdesk deletes this shopper's data on %{date}."
+        reminder_held: "Reminder: the deletion of this shopper's data has been held since %{date}. The request is not met; an administrator can delete the data or lift the hold."
+        reminder_data_request: "Reminder: a shopper asked for a copy of their data on %{date}. Answer the shopper and mark the request answered."
+      errors:
+        forbidden: Only an administrator can act on a request about a shopper's data.

@@ -161,7 +161,7 @@ describe('SlaSection', () => {
     const entry = () => sidebarSections.find(section => section.name === 'inclamo_sla');
 
     it('is a section of its own, after Orders and Call', () => {
-      expect(sidebarSections.map(section => section.name)).toEqual(['inclamo_orders', 'inclamo_call', 'inclamo_sla']);
+      expect(sidebarSections.map(section => section.name)).toEqual(['inclamo_orders', 'inclamo_shopper_request', 'inclamo_call', 'inclamo_sla']);
       expect(entry()).toMatchObject({ openKey: 'is_inclamo_sla_open', component: SlaSection });
       expect(entry().title()).toBe('SLA');
     });

@@ -746,6 +746,73 @@
       "ambiguous": "New contact: not told apart from another"
     }
   },
+  "SHOPPER_REQUEST": {
+    "TITLE": "Data request",
+    "INBOX": "Data requests",
+    "ONLY_ADMINISTRATORS": "Only administrators see the inbox «{inbox}».",
+    "KIND": {
+      "shopper_erasure": "Shopify asked to erase one shopper's data",
+      "shopper_data_request": "A shopper asked for a copy of their data"
+    },
+    "STATE_LABEL": "State",
+    "STATE": {
+      "waiting": "Waiting",
+      "held": "On hold",
+      "done": "Done"
+    },
+    "RECEIVED": "Received",
+    "EMAIL": "Shopper's email",
+    "PHONE": "Shopper's phone",
+    "NONE_GIVEN": "Not given",
+    "DATE": "Deleted automatically on",
+    "DATE_HELD": "Date before the hold",
+    "OVERDUE": "Received more than 30 days ago: Shopify's deadline has passed.",
+    "CONTACTS": "Contacts found",
+    "NO_CONTACTS": "No contact matches now.",
+    "CONTACT": "{name}, conversations: {count}",
+    "HELD": "Held by {name} on {time}",
+    "HELD_REASON": "Reason: {reason}",
+    "HELD_NOTE": "Nothing is deleted automatically while the hold stands. The store answers for this request.",
+    "SOMEONE": "an administrator",
+    "DONE_BY": "Done by {name} on {time}. The shopper's email and phone are no longer kept here.",
+    "DONE_AUTOMATICALLY": "Deleted automatically on {time}. The shopper's email and phone are no longer kept here.",
+    "DONE_WITH_STORE": "Done with the erasure of the store's account on {time}.",
+    "ACTIONS": {
+      "delete": "Delete",
+      "hold": "Hold",
+      "lift": "Lift hold",
+      "answered": "Mark answered"
+    },
+    "DELETE_DIALOG": {
+      "TITLE": "Delete the shopper's data",
+      "BODY": "Contacts: {contacts}. Conversations: {conversations}. They are deleted with all their messages and files, together with what the helpdesk keeps about the orders Shopify named.",
+      "WARNING": "This cannot be undone."
+    },
+    "HOLD_DIALOG": {
+      "TITLE": "Hold the automatic deletion",
+      "BODY": "The data is not deleted automatically until an administrator lifts the hold. From then on the store answers for this request, so give the reason.",
+      "REASON": "Reason"
+    },
+    "LIFT_DIALOG": {
+      "TITLE": "Lift the hold",
+      "BEFORE": "If nobody deletes, the data is deleted automatically on {time}. Lifting the hold does not move that date.",
+      "AFTER": "The date of automatic deletion has passed: the data is deleted at the helpdesk's next daily run."
+    },
+    "ANSWERED_DIALOG": {
+      "TITLE": "Mark the request answered",
+      "BODY": "Mark it answered once the shopper has been given their data. The shopper's email and phone are then removed from this ticket."
+    },
+    "CLOSE": "Close",
+    "LOADING": "Loading the request…",
+    "RETRY": "Try again",
+    "ERRORS": {
+      "forbidden": "Only an administrator of this account can open or act on this request.",
+      "wrong_state": "The request has changed meanwhile; it is shown as it is now.",
+      "reason_missing": "Give the reason for the hold.",
+      "not_done": "Nothing was deleted: the helpdesk could not record the erasure. Try again later.",
+      "failed": "That did not work. Try again."
+    }
+  },
   "ACTION_RIGHTS": {
     "address": "Change shipping address",
     "edit_items": "Edit items and quantities",

@@ -101,6 +101,8 @@ Rails.application.config.filter_parameters |= [/\Aturns\z/, /\Arecord\z/, /\Acal
 # The store app's provisioning calls (Inclamo::Provisioning): the one-time
 # password link and the named person never reach the request log.
 Rails.application.config.filter_parameters |= [:password_setup_url, 'admin.email', 'admin.name']
+# Nor does the shopper of a request about one shopper (docs/app-store-erasure.md).
+Rails.application.config.filter_parameters |= ['shopper.email', 'shopper.phone']
 
 # The limits of those calls are Rack::Attack rules, added once Chatwoot's own
 # are in place (Inclamo::Provisioning::Limits).

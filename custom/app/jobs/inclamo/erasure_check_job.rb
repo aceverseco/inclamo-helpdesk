@@ -6,7 +6,13 @@
 #   suspended still (Inclamo::Erasure::Store.begin!);
 # - alerts about every erasure that has been under way for more than a day,
 #   and starts it again;
-# - removes the records of requests completed more than 90 days ago.
+# - deletes the data of every shopper whose erasure ticket nobody deleted or
+#   held before its date, in an active or a suspended account alike
+#   (Inclamo::Erasure::ShopperActions.delete_automatically!);
+# - writes the reminders that have come due in tickets about shoppers
+#   (Inclamo::Erasure::Reminders);
+# - removes the records of requests completed more than 90 days ago; a held
+#   or waiting request is kept, whatever its age.
 class Inclamo::ErasureCheckJob < ApplicationJob
   queue_as :scheduled_jobs
 
@@ -15,6 +21,8 @@ class Inclamo::ErasureCheckJob < ApplicationJob
   def perform(now = Time.current)
     start_due(now)
     restart_stuck(now)
+    delete_due_shoppers(now)
+    remind(now)
     remove_old(now)
   end
 
@@ -32,6 +40,25 @@ class Inclamo::ErasureCheckJob < ApplicationJob
       Rails.logger.error("[inclamo erasure] ALERT the erasure of #{record.shop_domain} (record #{record.id}) has been under way " \
                          "since #{record.updated_at.utc.iso8601}; started again")
       Inclamo::StoreErasureJob.perform_later(record.id)
+    end
+  end
+
+  # One request that fails is reported and tried again at the next run; the
+  # others are carried out all the same.
+  def delete_due_shoppers(now)
+    Inclamo::ErasureRequest.where(kind: 'shopper_erasure', state: 'waiting').where(delete_after: ..now).find_each do |request|
+      Inclamo::Erasure::ShopperActions.delete_automatically!(request, now: now)
+    rescue StandardError => e
+      Rails.logger.error("[inclamo erasure] ALERT the automatic deletion of request #{request.id} (#{request.shop_domain}) failed: " \
+                         "#{e.class}: #{e.message}; tried again at the next run")
+    end
+  end
+
+  def remind(now)
+    Inclamo::ErasureRequest.shoppers.where(state: %w[waiting held]).find_each do |request|
+      Inclamo::Erasure::Reminders.remind!(request, now: now)
+    rescue StandardError => e
+      Rails.logger.error("[inclamo erasure] reminder of request #{request.id} not written: #{e.class}: #{e.message}")
     end
   end
 

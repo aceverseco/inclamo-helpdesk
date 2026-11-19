@@ -41,6 +41,18 @@ module Inclamo
         }
       end
 
+      # The line of a shopper's completed erasure: the request, the store, the
+      # account, Shopify's order ids, the shopper's keyed digests (never the
+      # email or the phone), who did it and the times.
+      def shopper_entry(record)
+        {
+          kind: 'shopper', request_id: record.id, shop_domain: record.shop_domain, account_id: record.account_id,
+          email_digest: record.email_digest, phone_digest: record.phone_digest, order_ids: Array(record.order_ids),
+          done_by: record.done_by, done_by_id: record.done_by_id,
+          received_at: record.received_at&.utc&.iso8601, completed_at: record.completed_at&.utc&.iso8601
+        }
+      end
+
       # The lines of the journal at `path`, oldest first. A line that does not
       # read is skipped with a warning.
       def read(path)
