@@ -88,7 +88,7 @@ A request for an account that is already connected to the same AI service addres
 #### Scenario: A storefront inbox appears after the connection
 
 - **WHEN** an account was connected for calls only, then gets a storefront inbox, and the app sends the request again with the same address
-- **THEN** the answer says the connection already existed and lists no chat inbox, and a shopper's new message in the storefront inbox goes to the team
+- **THEN** the answer says the connection already existed and lists the storefront inbox, which the agent got when the inbox was made (agent-inbox-selection), the AI service received no second registration, and the agent's bot is the same
 
 #### Scenario: Another address for a connected account
 

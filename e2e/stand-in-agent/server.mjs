@@ -1,7 +1,12 @@
 // A stand-in for the AI service, for the end-to-end tests (design D10). It
 // implements the helpdesk's side of docs/ai-connector.md by fixed rules, so
 // every flow runs without the AI service:
-//   - issues connection codes and answers the registration and removal calls;
+//   - issues connection codes and answers the registration and removal calls,
+//     and the change of a connection's inboxes (§1.4): it keeps the list it
+//     was last told and takes no turn outside it. A switch under
+//     /__e2e/inboxes makes that call refuse with a message, stay silent past
+//     the helpdesk's time limit, answer 404 as an AI service without the
+//     call, or accept only after a delay;
 //   - checks each delivery's signature, refuses a timestamp older than five
 //     minutes, drops a delivery id it has seen, answers 200 at once and then
 //     takes its turn through the helpdesk's API with the bot's token,
@@ -45,6 +50,11 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
     held: [],
     sequence: 0,
     queues: new Map(),
+    // How the change of the inboxes is answered: null (accepted at once), or
+    // { mode: 'accept' | 'refuse' | 'silent' | 'unknown', status, error,
+    // message, delay_ms, account_id }; with account_id only that account's
+    // connections are switched.
+    inboxSwitch: null,
   };
   const say = (...args) => quiet || console.log('stand-in:', ...args);
   const record = entry => {
@@ -206,6 +216,41 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
     return send(response, 204);
   }
 
+  // PUT /connections/{id}/inboxes: the whole list after the change (§1.4).
+  function inboxChange(request, id, raw, response) {
+    const connection = state.connections.get(id);
+    if (!connection || connection.removed || bearer(request) !== connection.bot.access_token) return send(response, 401, { error: 'unauthorized', message: 'Unknown connection.' });
+    const data = parse(raw);
+    if (!data || data.contract !== 1 || !Array.isArray(data.inbox_ids) || !data.inbox_ids.every(Number.isInteger)) {
+      return send(response, 400, { error: 'invalid', message: 'The change is not one of contract 1.' });
+    }
+    const wanted = state.inboxSwitch;
+    const setting = wanted && (wanted.account_id === undefined || wanted.account_id === null || Number(wanted.account_id) === connection.account_id) ? wanted : {};
+    const entry = { kind: 'inbox_change', connection_id: id, account_id: connection.account_id, inbox_ids: data.inbox_ids };
+    const answer = (status, body) => !response.destroyed && !response.writableEnded && send(response, status, body);
+    if (setting.mode === 'unknown') {
+      record({ ...entry, outcome: 'unknown' });
+      return send(response, 404, { error: 'not_found' });
+    }
+    if (setting.mode === 'refuse') {
+      record({ ...entry, outcome: 'refused' });
+      return send(response, setting.status || 422, { error: setting.error || 'refused', message: setting.message || 'Refused.' });
+    }
+    // Silent: no answer before the helpdesk gives up (it waits 10 s), and the list is not taken.
+    if (setting.mode === 'silent') {
+      record({ ...entry, outcome: 'silent' });
+      return void setTimeout(() => answer(503, { error: 'too_late' }), Number(setting.delay_ms ?? 15_000));
+    }
+    const accept = () => {
+      connection.inbox_ids = data.inbox_ids;
+      record({ ...entry, outcome: 'accepted' });
+      say(`connection ${id} now answers in inboxes ${JSON.stringify(data.inbox_ids)}`);
+      answer(204);
+    };
+    if (setting.delay_ms) return void setTimeout(accept, Number(setting.delay_ms));
+    return accept();
+  }
+
   function delivery(request, id, raw, response) {
     const connection = state.connections.get(id);
     const deliveryId = request.headers['x-chatwoot-delivery'];
@@ -278,6 +323,12 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
       held.forEach(release => release());
       return send(response, 200, { released: held.length });
     }
+    // How the change of a connection's inboxes is answered from now on; an
+    // empty body accepts again.
+    if (request.method === 'POST' && path === '/__e2e/inboxes') {
+      state.inboxSwitch = data.mode ? data : null;
+      return send(response, 200, { inboxes: state.inboxSwitch });
+    }
     if (request.method === 'POST' && path === '/__e2e/fail') {
       state.failWith = data.status ? Number(data.status) : null;
       return send(response, 200, { fail_with: state.failWith });
@@ -340,6 +391,8 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
           if (request.method === 'POST' && path === '/connections') return registration(request, raw, response);
           const removing = path.match(/^\/connections\/([^/]+)$/);
           if (request.method === 'DELETE' && removing) return removal(request, decodeURIComponent(removing[1]), response);
+          const changing = path.match(/^\/connections\/([^/]+)\/inboxes$/);
+          if (request.method === 'PUT' && changing) return inboxChange(request, decodeURIComponent(changing[1]), raw, response);
           const hook = path.match(/^\/webhooks\/([^/]+)$/);
           if (request.method === 'POST' && hook) return delivery(request, hook[1], raw, response);
           record({ kind: 'unknown_request', method: request.method, path });

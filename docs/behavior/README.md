@@ -11,6 +11,7 @@ The checker fails if contracts are missing or empty. Explicit exceptions name
 the alternative coverage in the checker. No private workspace is required.
 
 - [acceptance-ux-corrections](acceptance-ux-corrections/spec.md)
+- [agent-inbox-selection](agent-inbox-selection/spec.md)
 - [ai-agent-connection](ai-agent-connection/spec.md)
 - [ai-order-authority](ai-order-authority/spec.md)
 - [ai-reply-ownership](ai-reply-ownership/spec.md)

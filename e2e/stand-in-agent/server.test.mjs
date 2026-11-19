@@ -267,6 +267,76 @@ test('logs a request to an address it does not serve', async () => {
   assert.deepEqual([unknown.method, unknown.path], ['POST', '/unlisted/connections']);
 });
 
+// docs/ai-connector.md §1.4: the change of a connection's inboxes.
+const put = async (path, body, headers = {}) => {
+  const response = await fetch(`${agentUrl}${path}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  return { status: response.status, body: await json(response) };
+};
+const changeLog = async id => (await (await fetch(`${agentUrl}/__e2e/log`)).json()).log.filter(entry => entry.kind === 'inbox_change' && entry.connection_id === id);
+
+test("keeps the list of inboxes it is told with the bot's token, and takes no turn outside it", async () => {
+  const { connection_id: id } = await connect();
+
+  const refused = await put(`/connections/${id}/inboxes`, { contract: 1, inbox_ids: [5] }, { Authorization: 'Bearer another-token' });
+  const changed = await put(`/connections/${id}/inboxes`, { contract: 1, inbox_ids: [5] }, { Authorization: `Bearer ${token}` });
+  const again = await put(`/connections/${id}/inboxes`, { contract: 1, inbox_ids: [5] }, { Authorization: `Bearer ${token}` });
+
+  assert.equal(refused.status, 401);
+  assert.deepEqual([changed.status, again.status], [204, 204]);
+  const own = await (await fetch(`${agentUrl}/__e2e/connection?account_id=1`)).json();
+  assert.deepEqual(own.inbox_ids, [5]);
+  assert.deepEqual((await changeLog(id)).map(entry => [entry.inbox_ids, entry.outcome]), [[[5], 'accepted'], [[5], 'accepted']]);
+  calls.length = 0;
+  const outside = JSON.stringify(event({ conversation: { id: 45, inbox_id: 3, status: 'pending' } }));
+  const inside = JSON.stringify(event({ conversation: { id: 46, inbox_id: 5, status: 'pending' } }));
+  assert.equal((await post(`/webhooks/${id}`, outside, signed(outside))).status, 200);
+  assert.equal((await post(`/webhooks/${id}`, inside, signed(inside))).status, 200);
+  await agent.idle();
+  assert.deepEqual(calls.map(call => call.url), ['/api/v1/accounts/1/inclamo/ai/conversations/46/reply']);
+
+  assert.equal((await put(`/connections/${id}/inboxes`, { contract: 1, inbox_ids: [] }, { Authorization: `Bearer ${token}` })).status, 204);
+  assert.deepEqual((await (await fetch(`${agentUrl}/__e2e/connection?account_id=1`)).json()).inbox_ids, []);
+  assert.equal((await put(`/connections/${id}/inboxes`, { contract: 1, inbox_ids: 'all' }, { Authorization: `Bearer ${token}` })).status, 400);
+});
+
+test('can be switched to refuse a change with a message, to answer 404 and to stay silent, keeping the list each time', async () => {
+  const { connection_id: id } = await connect();
+  const change = () => put(`/connections/${id}/inboxes`, { contract: 1, inbox_ids: [7] }, { Authorization: `Bearer ${token}` });
+  const list = async () => (await (await fetch(`${agentUrl}/__e2e/connection?account_id=1`)).json()).inbox_ids;
+
+  await post('/__e2e/inboxes', { mode: 'refuse', status: 422, error: 'plan_limit', message: 'One inbox on this plan.' });
+  const refused = await change();
+  await post('/__e2e/inboxes', { mode: 'unknown' });
+  const unknown = await change();
+  await post('/__e2e/inboxes', { mode: 'silent', delay_ms: 200 });
+  const started = Date.now();
+  const silent = await change();
+  const waited = Date.now() - started;
+  await post('/__e2e/inboxes', { mode: 'refuse', account_id: 999 });
+  const elsewhere = await change();
+  await post('/__e2e/inboxes', {});
+
+  assert.deepEqual([refused.status, refused.body], [422, { error: 'plan_limit', message: 'One inbox on this plan.' }]);
+  assert.equal(unknown.status, 404);
+  assert.equal(silent.status, 503);
+  assert.ok(waited >= 190, 'the silent answer came at once');
+  assert.equal(elsewhere.status, 204, 'a switch for another account changed this one');
+  assert.deepEqual(await list(), [7]);
+  assert.deepEqual((await changeLog(id)).map(entry => entry.outcome), ['refused', 'unknown', 'silent', 'accepted']);
+});
+
+test('accepts a change late when told to', async () => {
+  const { connection_id: id } = await connect();
+  await post('/__e2e/inboxes', { mode: 'accept', delay_ms: 200 });
+  const started = Date.now();
+
+  const answer = await put(`/connections/${id}/inboxes`, { contract: 1, inbox_ids: [8] }, { Authorization: `Bearer ${token}` });
+  await post('/__e2e/inboxes', {});
+
+  assert.equal(answer.status, 204);
+  assert.ok(Date.now() - started >= 190, 'the answer came at once');
+});
+
 test('keeps no token or secret in its log', async () => {
   const log = await (await fetch(`${agentUrl}/__e2e/log`)).text();
 

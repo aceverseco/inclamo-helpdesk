@@ -49,8 +49,15 @@ export const standIn = {
   // latest (the store app's connections are made with pairing tokens).
   connection: accountId => control('GET', accountId ? `connection?account_id=${accountId}` : 'connection'),
   orderTool: (conversationId, tool, payload, proposalId) => control('POST', 'order-tool', { conversation_id: Number(conversationId), tool, payload, proposal_id: proposalId }),
-  // What the agent reads of a conversation, through the helpdesk's endpoint.
-  read: (conversationId, limit) => control('POST', 'read', { conversation_id: conversationId, limit }),
+  // What the agent reads of a conversation, through the helpdesk's endpoint;
+  // with `accountId`, as that account's latest connection.
+  read: (conversationId, limit, accountId) => control('POST', 'read', { conversation_id: conversationId, limit, account_id: accountId }),
+  // How the change of a connection's inboxes is answered from now on
+  // (docs/ai-connector.md §1.4): { mode: 'refuse' | 'silent' | 'unknown' |
+  // 'accept', status, error, message, delay_ms, account_id }; null accepts again.
+  inboxSwitch: setting => control('POST', 'inboxes', setting || {}),
+  // The changes of the inboxes the stand-in was asked for, of one account.
+  inboxChanges: async accountId => (await standIn.log()).filter(entry => entry.kind === 'inbox_change' && entry.account_id === accountId),
   // A reply with the credentials the stand-in holds, even after a disconnection:
   // through Chatwoot's message call, or the protected reply with `protected`.
   reply: (conversationId, { content, protected: isProtected = false, accountId } = {}) =>

@@ -315,18 +315,23 @@ test.describe('Asking again changes nothing', () => {
     expect((await botsOf(shop)).map(bot => bot.id)).toEqual(bots.map(bot => bot.id));
   });
 
+  // The storefront inbox made while the agent is connected gets the agent when
+  // it is made (capability agent-inbox-selection), not from the repeated request.
   test('A storefront inbox appears after the connection', async ({ browser }) => {
     const shop = made.calls;
+    const bots = (await botsOf(shop)).map(bot => bot.id);
     const chat = await storeApp.storefrontChat(shop.domain);
     expect([chat.status, chat.body.outcome]).toEqual([201, 'created']);
+    expect(await botOfInbox(shop, chat.body.inbox_id)).toBe(bots[0]);
 
     const answer = await storeApp.agent(shop.domain);
 
-    expect([answer.status, answer.body.outcome, answer.body.inbox_ids]).toEqual([200, 'existed', []]);
-    expect(await botOfInbox(shop, chat.body.inbox_id)).toBeNull();
-    const id = await shopperWrites(browser, shop, chat.body.website_token, `The new storefront chat ${run}`);
-    await expectWithTheTeam(shop, id);
+    expect([answer.status, answer.body.outcome, answer.body.inbox_ids]).toEqual([200, 'existed', [chat.body.inbox_id]]);
+    expect((await botsOf(shop)).map(bot => bot.id)).toEqual(bots);
     expect(await registrationsOf(shop)).toHaveLength(1);
+    const id = await shopperWrites(browser, shop, chat.body.website_token, `The new storefront chat ${run}`);
+    expect(await statusOf(shop, id)).toBe('pending');
+    await eventually(() => agentReplies(shop, id), replies => replies.length >= 1, { timeout: 45_000 });
   });
 
   test('Another address for a connected account', async () => {
