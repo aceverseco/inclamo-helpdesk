@@ -117,6 +117,18 @@ describe('the Orders section of a store connected through the Inclamo app', () =
     expect(has(wrapper, 'inclamo-app-connection')).toBe(true);
   });
 
+  it('shows the removal after a "check again" the app refused, without failing', async () => {
+    const wrapper = await show(matched());
+    InclamoAPI.recheck.mockRejectedValue({ response: { status: 422, data: { error: 'app_removed' } } });
+    InclamoAPI.getPanel.mockResolvedValue({ data: { state: 'broken', viewer: admin, connection: throughApp({ status: 'broken', broken_reason: 'app_removed' }) } });
+
+    await wrapper.find('[data-testid="inclamo-manage-recheck"]').trigger('click');
+    await flush();
+
+    expect(InclamoAPI.recheck).toHaveBeenCalledTimes(1);
+    expect(text(wrapper, 'inclamo-orders-broken-text')).toBe('The Inclamo app was removed from the store.');
+  });
+
   it('tells an administrator to contact support on an account mismatch, and an agent to ask an administrator', async () => {
     const broken = { state: 'broken', connection: throughApp({ status: 'broken', broken_reason: 'account_mismatch' }) };
 

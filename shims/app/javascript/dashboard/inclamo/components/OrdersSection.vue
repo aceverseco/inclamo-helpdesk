@@ -146,9 +146,13 @@ const choose = customerId => mutate(id => InclamoAPI.chooseCustomer(id, customer
 const forget = () => mutate(id => InclamoAPI.forgetCustomer(id));
 const mark = order => mutate(id => InclamoAPI.markOrder(id, order.id));
 const unmark = () => mutate(id => InclamoAPI.clearOrder(id));
+// A refused check is not an error of the section: the panel read after it
+// shows what the store or the store app said (broken, with its reason).
 const recheck = async () => {
   try {
     await InclamoAPI.recheck();
+  } catch {
+    // shown by the read below
   } finally {
     await load();
   }
