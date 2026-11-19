@@ -57,8 +57,8 @@
 //
 // It never logs or answers the secret or a signature, and its log holds no
 // body: a password link passes through to the test that asked and is kept
-// nowhere, and so does a pairing token, which the helpdesk is sent once. The two widget values it keeps are public ones. No dependencies:
-// node >= 20.
+// nowhere, and so does a pairing token, which the helpdesk is sent once. The
+// two widget values it keeps are public ones. No dependencies: node >= 20.
 import { createServer } from 'node:http';
 import { createHmac, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';

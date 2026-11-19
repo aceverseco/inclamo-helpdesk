@@ -74,6 +74,25 @@ RSpec.describe 'App agent connection: limits', type: :request do
     expect_limited
   end
 
+  it "does not count a replay of the agent's PUT, and counts one refused for its body" do
+    registration = stub_ai_registration
+    provision(headers: outside)
+    request_id = SecureRandom.uuid
+    connect_agent(headers: outside, request_id: request_id)
+    expect(response).to have_http_status(:created)
+
+    2.times do
+      connect_agent(headers: outside, request_id: request_id)
+      expect(response).to have_http_status(:created)
+    end
+    connect_agent(headers: outside, with: { service_url: 'https://attacker.example.net' })
+    expect(response).to have_http_status(:unprocessable_entity)
+
+    connect_agent(headers: outside)
+    expect_limited
+    expect(registration).to have_been_requested.once
+  end
+
   it 'does not limit the disconnection' do
     stub_ai_registration
     stub_ai_removal

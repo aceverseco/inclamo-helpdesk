@@ -21,14 +21,24 @@ module Inclamo
     # (the code's two fields), no person, `via: 'app'`, and `inbox_ids` as a
     # callable that is read under the account's lock; with `allow_no_inboxes`
     # an empty choice connects the account for calls only.
+    #
+    # `time_budget` (seconds) bounds the whole call for a caller that promised
+    # an answer within it: telling the AI service to forget a connection the
+    # helpdesk will not use gets only what is left of it, and at least
+    # FORGET_MINIMUM. Without it, that call waits up to TIME_LIMIT.
     class Connect
       PHONE_INBOX_NAME = 'Phone'
+      # Kept back from the budget for what follows the call to forget.
+      BUDGET_MARGIN = 1
+      FORGET_MINIMUM = 2
+      MONOTONIC = -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }
 
       def self.call(...)
         new(...).call
       end
 
-      def initialize(account:, user:, inbox_ids:, code: nil, pairing: nil, allow_no_inboxes: false, via: 'page', client: ServiceClient.new)
+      def initialize(account:, user:, inbox_ids:, code: nil, pairing: nil, allow_no_inboxes: false, via: 'page',
+                     time_budget: nil, client: ServiceClient.new, clock: MONOTONIC)
         @account = account
         @user = user
         @code_text = code
@@ -36,10 +46,13 @@ module Inclamo
         @inbox_ids = inbox_ids
         @allow_no_inboxes = allow_no_inboxes
         @via = via
+        @time_budget = time_budget
         @client = client
+        @clock = clock
       end
 
       def call
+        @started = @clock.call
         raise Error::EncryptionNotConfigured, 'encryption is not configured' unless Chatwoot.encryption_configured?
 
         code = @pairing || ConnectionCode.read(@code_text)
@@ -132,12 +145,22 @@ module Inclamo
       end
 
       # Best effort: the AI service made a connection that will not be used.
+      # It is asked once, within what is left of the time budget; when it does
+      # not answer, the connection it holds is written to the log for the
+      # operator and nobody waits longer.
       def forget(service_url, connection_id, bot)
         return if connection_id.blank?
 
-        @client.remove(service_url: service_url, connection_id: connection_id, token: bot.access_token.token)
+        @client.remove(service_url: service_url, connection_id: connection_id, token: bot.access_token.token, time_limit: forget_time_limit)
       rescue StandardError => e
-        Rails.logger.warn("[inclamo] the AI service could not be told to forget a connection: #{e.class}")
+        Rails.logger.warn("[inclamo] the AI service at #{service_url} could not be told to forget connection #{connection_id.to_s.first(200)}: #{e.class}")
+      end
+
+      def forget_time_limit
+        return TIME_LIMIT unless @time_budget
+
+        left = @time_budget - BUDGET_MARGIN - (@clock.call - @started)
+        left.clamp(FORGET_MINIMUM, TIME_LIMIT)
       end
 
       def undo(bot, phone)

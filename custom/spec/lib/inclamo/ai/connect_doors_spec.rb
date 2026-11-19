@@ -187,4 +187,93 @@ RSpec.describe Inclamo::Ai::Connect, 'through both doors' do
       expect(removal).to have_been_requested
     end
   end
+
+  # The app waits 15 seconds for its answer, the AI service is waited for at
+  # most 10 of them; telling it to forget a connection gets what is left.
+  describe 'within the time budget' do
+    # An AI service that answers its registration after `takes` seconds of a
+    # clock the spec moves, with a connection the helpdesk cannot use.
+    let(:clock) { Struct.new(:now) { def call = now }.new(100.0) }
+    let(:removals) { [] }
+
+    def slow_client(takes:, removal_fails: false)
+      spec_clock = clock
+      seen = removals
+      Class.new do
+        define_method(:register) do |_code, _body|
+          spec_clock.now += takes
+          raise Inclamo::Ai::Error::NotAnswered.new('the AI service answered 201 without a webhook address', connection_id: 'conn-late')
+        end
+        define_method(:remove) do |**options|
+          seen << options
+          raise Inclamo::Ai::Error::NotAnswered, 'the AI service did not answer: Timeout::Error' if removal_fails
+
+          true
+        end
+      end.new
+    end
+
+    def connect_within(budget, client)
+      described_class.call(account: account, user: nil, pairing: pairing, inbox_ids: -> { [website.id] }, allow_no_inboxes: true, via: 'app',
+                           time_budget: budget, client: client, clock: clock)
+    end
+
+    it 'gives the call to forget what is left of the budget, so the whole answer stays within it' do
+      expect { connect_within(15, slow_client(takes: 10.5)) }.to raise_error(Inclamo::Ai::Error::NotAnswered)
+
+      expect(removals.map { |options| options.slice(:connection_id, :time_limit) }).to eq([{ connection_id: 'conn-late', time_limit: 3.5 }])
+      expect(10.5 + removals.first[:time_limit]).to be <= 15
+    end
+
+    it 'gives it a couple of seconds at least, and never more than the AI service is ever waited for' do
+      connect_within(15, slow_client(takes: 13.5)) rescue nil # rubocop:disable Style/RescueModifier
+      connect_within(15, slow_client(takes: 0.5)) rescue nil # rubocop:disable Style/RescueModifier
+
+      expect(removals.pluck(:time_limit)).to eq([Inclamo::Ai::Connect::FORGET_MINIMUM, Inclamo::Ai::TIME_LIMIT])
+    end
+
+    it 'does not wait on a call to forget that fails: the connection is answered as not answered, and the log names it' do
+      allow(Rails.logger).to receive(:warn)
+
+      expect { connect_within(15, slow_client(takes: 10, removal_fails: true)) }.to raise_error(Inclamo::Ai::Error::NotAnswered, /without a webhook address/)
+
+      expect(removals.size).to eq(1)
+      expect(Rails.logger).to have_received(:warn).with(/could not be told to forget connection conn-late: Inclamo::Ai::Error::NotAnswered/)
+      expect(made_by_us[:bots]).to eq(0)
+    end
+
+    it 'leaves the page without a budget: forgetting waits as long as any call to the AI service' do
+      expect do
+        described_class.call(account: account, user: admin, code: ai_code(token: token), inbox_ids: [website.id],
+                             client: slow_client(takes: 12), clock: clock)
+      end.to raise_error(Inclamo::Ai::Error::NotAnswered)
+
+      expect(removals.pluck(:time_limit)).to eq([Inclamo::Ai::TIME_LIMIT])
+    end
+  end
+end
+
+RSpec.describe Inclamo::Ai::ServiceClient, 'removal within a time limit' do
+  include AiServiceStubs
+
+  before { resolve_ai_service_publicly }
+
+  before { allow(Timeout).to receive(:timeout).and_call_original }
+
+  it 'waits at most the time it is given' do
+    stub_ai_removal
+
+    described_class.new.remove(service_url: AiServiceStubs::AI_SERVICE_URL, connection_id: 'conn-1', token: 'bot-token', time_limit: 3.5)
+
+    expect(Timeout).to have_received(:timeout).with(3.5)
+    expect(Timeout).not_to have_received(:timeout).with(Inclamo::Ai::TIME_LIMIT)
+  end
+
+  it 'waits the usual time when it is given none' do
+    stub_ai_removal
+
+    described_class.new.remove(service_url: AiServiceStubs::AI_SERVICE_URL, connection_id: 'conn-1', token: 'bot-token')
+
+    expect(Timeout).to have_received(:timeout).with(Inclamo::Ai::TIME_LIMIT)
+  end
 end

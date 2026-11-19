@@ -75,6 +75,10 @@ module Inclamo
         end
       end
 
+      # The app waits this long for the answer to its connection request; the
+      # AI service itself is waited for at most Ai::TIME_LIMIT of it.
+      ANSWER_WITHIN = 15
+
       def initialize(shop_domain, client: Ai::ServiceClient.new)
         @shop_domain = shop_domain
         @client = client
@@ -91,7 +95,7 @@ module Inclamo
         return existed(existing, payload) if existing
 
         record = Ai::Connect.call(account: account, user: nil, pairing: payload.pairing, inbox_ids: -> { chosen_inboxes(row, account) },
-                                  allow_no_inboxes: true, via: 'app', client: @client)
+                                  allow_no_inboxes: true, via: 'app', time_budget: ANSWER_WITHIN, client: @client)
         Result.new(outcome: 'connected', record: record)
       rescue Ai::Error::AlreadyConnected
         # Another request connected the account between the look and the lock.

@@ -7,7 +7,8 @@ require Rails.root.join('custom/spec/support/agent_provisioning_requests')
 # the request id inside the signed text, a reused id, a retry while the first
 # request is still answered, the header on every answer, and the shared
 # limits' defaults. They are kept by the channel (Gate, RequestStore, Limits,
-# StoresController), not by the agent's code.
+# StoresController, InclamoProvisioningHeader), not by the agent's code; the
+# agent's addresses join it through Provisioning::ADDRESSES.
 RSpec.describe 'App agent connection: the rules of the provisioning channel', type: :request do
   include_context 'with the store app and the AI service'
 
@@ -65,7 +66,8 @@ RSpec.describe 'App agent connection: the rules of the provisioning channel', ty
 
     expect(response).to have_http_status(:conflict)
     expect(response.parsed_body).to eq('error' => 'in_progress')
-    expect(response.headers['Retry-After']).to match(/\A\d+\z/)
+    expect(response.headers['Retry-After']).to eq(Inclamo::Provisioning::StoresController::RETRY_PENDING.to_s)
+    expect(connection_of(provisioned.account)).to be_nil
   end
 
   it 'marks every answer of the agent calls as the provisioning channel' do
@@ -81,6 +83,10 @@ RSpec.describe 'App agent connection: the rules of the provisioning channel', ty
     marks = calls.transform_values { |call| call.call.headers['X-Inclamo-Provisioning'] }
 
     expect(marks).to eq(calls.keys.index_with('1'))
+  end
+
+  it 'counts the agent\'s PUT with the store\'s PUTs, its GET with the status calls, and its DELETE nowhere' do
+    expect(Inclamo::Provisioning::ADDRESSES.fetch('/agent')).to eq('PUT' => :put, 'GET' => :get, 'DELETE' => nil)
   end
 
   it "has the shared limits' defaults: 15 PUTs an hour per store and 120 for the installation" do
