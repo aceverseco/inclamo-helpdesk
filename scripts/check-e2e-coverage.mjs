@@ -50,11 +50,18 @@ const FILES = {
   'ready-replies': ['ready-replies.spec.mjs'],
   'instance-installation': ['instance-installation.spec.mjs'],
   'interface-language': ['interface-language.spec.mjs'],
+  'app-provisioned-account': ['app-provisioned-account.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each
 // with where it is covered instead.
 const ELSEWHERE = {
+  "app-provisioned-account › A new administrator can set a password of their own › The link's time has passed":
+    "the link lives for hours (Devise's reset_password_within) and the tests cannot move the installation's clock; covered by custom/spec/requests/inclamo/provisioning/account_spec.rb, which travels past that time",
+  'app-provisioned-account › Requests are limited › Too many requests':
+    'the limits are Rack::Attack rules and the test installation runs with ENABLE_RACK_ATTACK=false, as every other file needs; covered by custom/spec/requests/inclamo/provisioning/limits_spec.rb',
+  'app-provisioned-account › Every provisioning attempt is recorded without personal data › A refused request is recorded':
+    'the record is a table no address or page shows; covered by custom/spec/requests/inclamo/provisioning/events_spec.rb',
   'team-queues › Ready queues exist for every account › A new account has the ready queues':
     'needs a new account; covered by custom/spec/lib/inclamo/presets_spec.rb (an account gets the eight queues when it is created)',
   'team-queues › Ready queues exist for every account › An existing account gets the ready queues on upgrade':

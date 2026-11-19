@@ -124,6 +124,8 @@ jobs:
         run: node scripts/check-deploy-env.mjs
       - name: The stand-in AI agent refuses what the AI service refuses
         run: node --test e2e/stand-in-agent/server.test.mjs
+      - name: The stand-in store app signs as the provisioning contract says
+        run: node --test e2e/stand-in-app/server.test.mjs
 
   frontend:
     name: Dashboard component tests on the pinned Chatwoot
