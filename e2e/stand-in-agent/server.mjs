@@ -9,7 +9,14 @@
 //     is refused with 409 conversation_not_pending;
 //   - a control API under /__e2e lets a test read what it received, make it
 //     answer 503, and file a finished call with the bot's token
-//     (docs/ai-connector-calls.md).
+//     (docs/ai-connector-calls.md);
+//   - it also mints bare pairing tokens for the stand-in app
+//     (docs/app-agent-connection.md), which hands them to the helpdesk
+//     instead of a person pasting a code. The calls that act with "the latest
+//     connection" take the latest one made with a code, so a test of the
+//     store app does not move them; given an `account_id` they take that
+//     account's latest connection instead. A request to an address it does
+//     not serve is logged, so a test can show none was sent.
 // Rules on the shopper's text: "person" or "human" hands over with a note and
 // inclamo_handover; "urgent" raises the priority, adds inclamo_urgent and
 // hands over; "resolve" replies and resolves; "intent" adds
@@ -27,7 +34,7 @@ export const MAX_AGE_SECONDS = 300;
 
 export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = {}) {
   const state = {
-    codes: new Map(), // token -> { refuse, used }
+    codes: new Map(), // token -> { refuse, used, kind: 'code' | 'pairing' }
     connections: new Map(), // id -> connection
     seen: new Set(),
     log: [],
@@ -44,7 +51,14 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
     state.log.push({ at: new Date().toISOString(), ...entry });
     if (state.log.length > 2000) state.log.shift();
   };
-  const latest = () => [...state.connections.values()].at(-1);
+  // The latest connection of the account, or the latest made with a code.
+  const latest = accountId => {
+    const all = [...state.connections.values()];
+    const wanted = Number(accountId);
+    return accountId === undefined || accountId === null || accountId === ''
+      ? all.filter(connection => connection.kind === 'code').at(-1)
+      : all.filter(connection => connection.account_id === wanted).at(-1);
+  };
 
   async function helpdesk(connection, method, path, body) {
     const url = `${connection.helpdesk_url}/api/v1/accounts/${connection.account_id}${path}`;
@@ -155,7 +169,12 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
     const token = bearer(request);
     const code = token && state.codes.get(token);
     if (!code) return send(response, 401, { error: 'unknown_code', message: 'This connection code is not known.' });
-    if (code.refuse) return send(response, code.refuse.status || 410, { error: code.refuse.error || 'refused', message: code.refuse.message || 'Refused.' });
+    if (code.refuse) {
+      const refusal = () => send(response, code.refuse.status || 410, { error: code.refuse.error || 'refused', message: code.refuse.message || 'Refused.' });
+      // An AI service slower than the helpdesk waits for.
+      if (code.refuse.delay_ms) return void setTimeout(refusal, Number(code.refuse.delay_ms));
+      return refusal();
+    }
     if (code.used) return send(response, 409, { error: 'used', message: 'This connection code was used already.' });
     const data = parse(body);
     if (!data || data.contract !== 1 || !data.bot?.access_token || !data.bot?.secret) return send(response, 400, { error: 'invalid', message: 'The registration is not one of contract 1.' });
@@ -170,9 +189,10 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
       inbox_ids: data.inbox_ids || [],
       phone_inbox_id: data.phone_inbox_id,
       removed: false,
+      kind: code.kind || 'code',
     };
     state.connections.set(id, connection);
-    record({ kind: 'registration', connection_id: id, account_id: connection.account_id, inbox_ids: connection.inbox_ids, phone_inbox_id: connection.phone_inbox_id, bot_id: connection.bot.id });
+    record({ kind: 'registration', connection_id: id, account_id: connection.account_id, inbox_ids: connection.inbox_ids, phone_inbox_id: connection.phone_inbox_id, bot_id: connection.bot.id, via: connection.kind, helpdesk_url: connection.helpdesk_url });
     say(`registered connection ${id} for account ${connection.account_id}`);
     return send(response, 201, { connection_id: id, webhook_url: `${publicUrl}/webhooks/${id}` });
   }
@@ -228,9 +248,16 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
     const data = parse(body) || {};
     if (request.method === 'POST' && path === '/__e2e/codes') {
       const token = randomBytes(24).toString('base64url');
-      state.codes.set(token, { refuse: data.refuse || null, used: false });
+      state.codes.set(token, { refuse: data.refuse || null, used: false, kind: 'code' });
       const code = `aic1.${Buffer.from(JSON.stringify({ service_url: publicUrl, token })).toString('base64url')}`;
       return send(response, 201, { code });
+    }
+    // A pairing token for the store app: the code's two fields as they are,
+    // which the app sends to the helpdesk (docs/app-agent-connection.md §3.1).
+    if (request.method === 'POST' && path === '/__e2e/tokens') {
+      const token = randomBytes(24).toString('base64url');
+      state.codes.set(token, { refuse: data.refuse || null, used: false, kind: 'pairing' });
+      return send(response, 201, { service_url: publicUrl, token });
     }
     if (request.method === 'GET' && path === '/__e2e/log') return send(response, 200, { log: state.log });
     if (request.method === 'GET' && path === '/__e2e/raw') {
@@ -256,13 +283,13 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
       return send(response, 200, { fail_with: state.failWith });
     }
     if (request.method === 'GET' && path === '/__e2e/connection') {
-      const connection = latest();
+      const connection = latest(new URL(request.url, 'http://stand-in').searchParams.get('account_id') ?? undefined);
       if (!connection) return send(response, 404, {});
-      return send(response, 200, { id: connection.id, account_id: connection.account_id, inbox_ids: connection.inbox_ids, phone_inbox_id: connection.phone_inbox_id, bot_id: connection.bot.id, removed: connection.removed });
+      return send(response, 200, { id: connection.id, account_id: connection.account_id, inbox_ids: connection.inbox_ids, phone_inbox_id: connection.phone_inbox_id, bot_id: connection.bot.id, removed: connection.removed, via: connection.kind });
     }
     // What the agent reads of a conversation, through the helpdesk's endpoint.
     if (request.method === 'POST' && path === '/__e2e/read') {
-      const connection = latest();
+      const connection = latest(data.account_id);
       if (!connection) return send(response, 404, {});
       const result = await helpdesk(connection, 'GET', `/inclamo/ai/conversations/${data.conversation_id}/messages${data.limit ? `?limit=${data.limit}` : ''}`);
       return send(response, 200, result);
@@ -270,7 +297,7 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
     // Deterministic order-tool calls use the registered bot token internally.
     // Only the private test stack exposes this control API; secrets never leave it.
     if (request.method === 'POST' && path === '/__e2e/order-tool') {
-      const connection = latest();
+      const connection = latest(data.account_id);
       if (!connection) return send(response, 404, {});
       if (!Number.isInteger(data.conversation_id) || !['context', 'propose', 'execute'].includes(data.tool)) return send(response, 400, { error: 'invalid_tool' });
       const root = `/inclamo/ai/conversations/${data.conversation_id}`;
@@ -282,7 +309,7 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
     // was removed (docs/ai-connector-calls.md). The log keeps the call's id
     // and the answer's status, never the call.
     if (request.method === 'POST' && path === '/__e2e/call') {
-      const connection = latest();
+      const connection = latest(data.account_id);
       if (!connection) return send(response, 404, {});
       const result = await helpdesk(connection, 'POST', '/inclamo/calls', data.call);
       record({ kind: 'call_filed', connection_id: connection.id, call_id: typeof data.call?.call_id === 'string' ? data.call.call_id : null, status: result.status });
@@ -291,7 +318,7 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
     // A reply with the latest connection's token, even after it was removed:
     // through Chatwoot's message call, or the protected reply with `protected`.
     if (request.method === 'POST' && path === '/__e2e/reply') {
-      const connection = latest();
+      const connection = latest(data.account_id);
       if (!connection) return send(response, 404, {});
       const content = typeof data.content === 'string' ? data.content : 'A reply of the stand-in.';
       const route = data.protected ? `/inclamo/ai/conversations/${data.conversation_id}/reply` : `/conversations/${data.conversation_id}/messages`;
@@ -315,6 +342,7 @@ export function createStandIn({ publicUrl, fetchImpl = fetch, quiet = false } = 
           if (request.method === 'DELETE' && removing) return removal(request, decodeURIComponent(removing[1]), response);
           const hook = path.match(/^\/webhooks\/([^/]+)$/);
           if (request.method === 'POST' && hook) return delivery(request, hook[1], raw, response);
+          record({ kind: 'unknown_request', method: request.method, path });
           return send(response, 404, { error: 'not_found' });
         })
         .catch(error => {

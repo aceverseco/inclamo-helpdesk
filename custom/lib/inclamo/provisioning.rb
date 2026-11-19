@@ -29,6 +29,7 @@ module Inclamo
     ADDRESSES = {
       '' => { 'PUT' => :put, 'GET' => :get },
       '/storefront-chat' => { 'PUT' => :put, 'GET' => :get },
+      '/agent' => { 'PUT' => :put, 'GET' => :get, 'DELETE' => nil },
       '/removal' => { 'POST' => nil }
     }.freeze
 

@@ -23,6 +23,10 @@ x-e2e: &e2e
     # The stand-in agent is an address of this stack's own network; Chatwoot's
     # SSRF filter refuses such addresses everywhere else.
     - SAFE_FETCH_ALLOW_PRIVATE_NETWORK=true
+    # The AI service addresses the store app may connect an agent to
+    # (docs/app-agent-connection.md §3.3): the stand-in agent, and the same
+    # with another path, for a second address the operator allowed.
+    - INCLAMO_APP_AGENT_SERVICE_URLS=http://stand-in-agent:8090,http://stand-in-agent:8090/second
 
 services:
   rails:
@@ -52,6 +56,8 @@ services:
     environment:
       - PORT=8091
       - HELPDESK_URL=http://rails:3000
+      # Where it takes a pairing token for the agent's connection.
+      - AGENT_URL=http://stand-in-agent:8090
       - INCLAMO_APP_PROVISIONING_SECRET=${INCLAMO_APP_PROVISIONING_SECRET:-}
     volumes:
       - ../e2e/stand-in-app:/app:ro
@@ -69,6 +75,9 @@ services:
       - INSTALLATION_ENV=docker
       - INCLAMO_E2E=1
       - ENABLE_RACK_ATTACK=false
+      # An administrator here connects the AI agent with a code of the
+      # stand-in agent, an address of this stack's own network.
+      - SAFE_FETCH_ALLOW_PRIVATE_NETWORK=true
       - INCLAMO_APP_PROVISIONING_SECRET=
       - INCLAMO_APP_PROVISIONING_SECRET_PREVIOUS=
     entrypoint: docker/entrypoints/rails.sh

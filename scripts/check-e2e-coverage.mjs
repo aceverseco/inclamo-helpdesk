@@ -52,6 +52,7 @@ const FILES = {
   'interface-language': ['interface-language.spec.mjs'],
   'app-provisioned-account': ['app-provisioned-account.spec.mjs'],
   'app-storefront-chat': ['app-storefront-chat.spec.mjs'],
+  'app-agent-auto-connection': ['app-agent-auto-connection.spec.mjs'],
 };
 
 // Scenarios that cannot run against the installation the tests drive, each
@@ -63,6 +64,8 @@ const ELSEWHERE = {
     'the limits are Rack::Attack rules and the test installation runs with ENABLE_RACK_ATTACK=false, as every other file needs; covered by custom/spec/requests/inclamo/provisioning/limits_spec.rb',
   'app-provisioned-account › Every provisioning attempt is recorded without personal data › A refused request is recorded':
     'the record is a table no address or page shows; covered by custom/spec/requests/inclamo/provisioning/events_spec.rb',
+  'app-agent-auto-connection › Every attempt is recorded without secrets › A refused connection is recorded':
+    'the record is a table no address or page shows; covered by custom/spec/requests/inclamo/provisioning/agent_events_spec.rb',
   'team-queues › Ready queues exist for every account › A new account has the ready queues':
     'needs a new account; covered by custom/spec/lib/inclamo/presets_spec.rb (an account gets the eight queues when it is created)',
   'team-queues › Ready queues exist for every account › An existing account gets the ready queues on upgrade':

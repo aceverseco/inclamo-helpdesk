@@ -35,20 +35,29 @@ async function control(method, path, body) {
 export const standIn = {
   raw: async conversationId => (await control('GET', `raw?conversation_id=${conversationId}`)).deliveries,
   code: async (refuse = null) => (await control('POST', 'codes', { refuse })).code,
+  // A connection code made of a pairing token: it connects like any code, but
+  // its connection is not the one the calls without an account act with, so a
+  // test of another account leaves the other files' connection in place.
+  pairingCode: async (refuse = null) => {
+    const { service_url: serviceUrl, token } = await control('POST', 'tokens', { refuse });
+    return `aic1.${Buffer.from(JSON.stringify({ service_url: serviceUrl, token })).toString('base64url')}`;
+  },
   log: async () => (await control('GET', 'log')).log,
   clear: () => control('DELETE', 'log'),
   failWith: status => control('POST', 'fail', { status }),
-  connection: () => control('GET', 'connection'),
+  // The latest connection made with a code, or with `accountId` that account's
+  // latest (the store app's connections are made with pairing tokens).
+  connection: accountId => control('GET', accountId ? `connection?account_id=${accountId}` : 'connection'),
   orderTool: (conversationId, tool, payload, proposalId) => control('POST', 'order-tool', { conversation_id: Number(conversationId), tool, payload, proposal_id: proposalId }),
   // What the agent reads of a conversation, through the helpdesk's endpoint.
   read: (conversationId, limit) => control('POST', 'read', { conversation_id: conversationId, limit }),
   // A reply with the credentials the stand-in holds, even after a disconnection:
   // through Chatwoot's message call, or the protected reply with `protected`.
-  reply: (conversationId, { content, protected: isProtected = false } = {}) =>
-    control('POST', 'reply', { conversation_id: conversationId, content, protected: isProtected }),
+  reply: (conversationId, { content, protected: isProtected = false, accountId } = {}) =>
+    control('POST', 'reply', { conversation_id: conversationId, content, protected: isProtected, account_id: accountId }),
   // Files a finished call with the bot's token the stand-in holds; answers the
   // helpdesk's { status, body } (docs/ai-connector-calls.md).
-  call: call => control('POST', 'call', { call }),
+  call: (call, accountId) => control('POST', 'call', { call, account_id: accountId }),
   // How long a "slow" turn holds its reply at most, and releasing it now.
   slow: ms => control('POST', 'slow', { ms }),
   release: () => control('POST', 'release', {}),

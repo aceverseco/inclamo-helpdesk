@@ -7,7 +7,8 @@ module Inclamo
     # widget and the channels; nothing of the account is deleted, and a user's
     # sessions are left alone since they may belong to other accounts.
     # Returns the state afterwards: 'suspended', or 'none' for a store that has
-    # no account. Repeating it changes nothing.
+    # no account. Repeating it changes nothing. The account's AI agent is
+    # disconnected as part of it (AgentConnection.suspending).
     class Removal
       def initialize(shop_domain)
         @shop_domain = shop_domain
@@ -17,9 +18,11 @@ module Inclamo
         row = Provisioning.store_domain(@shop_domain) && ProvisionedAccount.for_store(@shop_domain)
         return 'none' unless row
 
-        row.with_lock do
-          row.account.update!(status: :suspended) unless row.account.suspended?
-          row.update!(state: 'suspended') unless row.suspended?
+        AgentConnection.suspending(row.account) do
+          row.with_lock do
+            row.account.update!(status: :suspended) unless row.account.suspended?
+            row.update!(state: 'suspended') unless row.suspended?
+          end
         end
         'suspended'
       end

@@ -199,6 +199,40 @@ describe('AiAgentPage with a connection', () => {
     expect(find(wrapper, 'inclamo-ai-notice').text()).toContain('could not be told');
   });
 
+  it('names the person who connected with a code', async () => {
+    const wrapper = await mountPage(connected({ connected_via: 'page', connected_by: 'Alex Admin' }));
+
+    const by = find(wrapper, 'inclamo-ai-connected-by');
+    expect(by.attributes('data-via')).toBe('page');
+    expect(by.text()).toBe('Alex Admin');
+  });
+
+  it('says the store app made a connection it made, instead of naming a person', async () => {
+    const wrapper = await mountPage(connected({ connected_via: 'app', connected_by: null }));
+
+    const by = find(wrapper, 'inclamo-ai-connected-by');
+    expect(by.attributes('data-via')).toBe('app');
+    expect(by.text()).toBe('The store app');
+    expect(find(wrapper, 'inclamo-ai-inboxes').text()).toBe('Website');
+    expect(find(wrapper, 'inclamo-ai-disconnect').exists()).toBe(true);
+  });
+
+  it('says a connection without an inbox takes calls only', async () => {
+    const data = connected({ connected_via: 'app', connected_by: null, inbox_ids: [] });
+    data.inboxes = inboxes;
+    const wrapper = await mountPage(data);
+
+    expect(find(wrapper, 'inclamo-ai-calls-only').text()).toContain('Finished calls are filed in the Phone inbox');
+    expect(find(wrapper, 'inclamo-ai-state').attributes('data-state')).toBe('connected');
+  });
+
+  it('shows no line for who connected when nobody is known', async () => {
+    const wrapper = await mountPage(connected({ connected_by: null }));
+
+    expect(find(wrapper, 'inclamo-ai-connected-by').exists()).toBe(false);
+    expect(find(wrapper, 'inclamo-ai-calls-only').exists()).toBe(false);
+  });
+
   it('says when the page cannot be loaded', async () => {
     InclamoAPI.getAiConnection.mockRejectedValue({ response: { status: 403 } });
     const wrapper = mount(AiAgentPage, { global: { stubs } });

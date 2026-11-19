@@ -48,6 +48,37 @@ RSpec.describe 'Inclamo AI agent connection API', type: :request do
     expect(response.body).not_to include(bot.secret)
   end
 
+  it 'says a connection made with a code was made on the page, by the person who pasted it' do
+    stub_ai_registration
+
+    post path, params: { connection_code: ai_code, inbox_ids: [website.id] }, headers: admin.create_new_auth_token, as: :json
+
+    expect(body['connection']).to include('connected_via' => 'page', 'connected_by' => admin.name)
+  end
+
+  it 'says a connection the store app made was made by the app, naming no person, and lets it be disconnected' do
+    connect_ai_agent(account, [website]).update!(connected_via: 'app', connected_by: nil)
+
+    get path, headers: admin.create_new_auth_token, as: :json
+
+    expect(body).to include('connected' => true, 'state' => 'connected')
+    expect(body['connection']).to include('connected_via' => 'app', 'connected_by' => nil, 'inbox_ids' => [website.id])
+
+    stub_ai_removal
+    delete path, headers: admin.create_new_auth_token, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(body).to include('connected' => false, 'state' => 'disconnected')
+  end
+
+  it 'shows a connection for calls only with no inbox connected' do
+    connect_ai_agent(account, []).update!(connected_via: 'app')
+
+    get path, headers: admin.create_new_auth_token, as: :json
+
+    expect(body['connection']).to include('inbox_ids' => [], 'connected_via' => 'app')
+    expect(body['inboxes'].pluck('connected')).to all(be(false))
+  end
+
   it 'says the code is not valid and asks the AI service nothing' do
     stub = stub_ai_registration
 

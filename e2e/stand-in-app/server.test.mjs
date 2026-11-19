@@ -1,7 +1,8 @@
 // Tests of the stand-in app itself: it must sign as docs/app-provisioning.md
-// says, its switches must send exactly what the helpdesk has to refuse, and its
+// says, its switches must send exactly what the helpdesk has to refuse, its
 // storefront page must load the widget as docs/app-storefront-chat.md §4 says,
-// or the end-to-end tests prove nothing.
+// and its agent calls must carry a fresh pairing token as
+// docs/app-agent-connection.md §3.1 says, or the end-to-end tests prove nothing.
 //   node --test e2e/stand-in-app/server.test.mjs
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,7 +21,11 @@ let helpdesk;
 let helpdeskUrl;
 let other;
 let otherUrl;
+let agent;
+let agentUrl;
 const received = [];
+// What the fake AI service was asked for: one entry per pairing token.
+const minted = [];
 // What the fake helpdesk says of the store's storefront chat.
 const chat = { token: 'wT3xFirstTokenOfTheInbox', gone: false };
 const widgetBase = 'https://helpdesk.example.test';
@@ -58,6 +63,11 @@ function fakeHelpdesk() {
       if (entry.signature !== expected(secret, entry) || !fresh) return answer(401, { error: 'unauthorized' });
       if (seen.has(entry.requestId) && seen.get(entry.requestId) !== digest) return answer(409, { error: 'request_id_reused' });
       seen.set(entry.requestId, digest);
+      if (entry.path.endsWith('/agent')) {
+        if (entry.method === 'PUT') return answer(201, { contract: 1, state: 'connected', outcome: 'connected', inbox_ids: [3], phone_inbox_id: 12, connected_at: '2026-11-17T10:05:00Z' });
+        if (entry.method === 'GET') return answer(200, { contract: 1, state: 'never_connected' });
+        return answer(200, { contract: 1, state: 'disconnected', ai_service_told: true });
+      }
       if (entry.path.endsWith('/storefront-chat')) {
         const inbox = { contract: 1, inbox_id: 7, website_token: chat.token, widget_base_url: widgetBase, state: 'active' };
         if (entry.method === 'PUT') return answer(201, { ...inbox, outcome: 'created' });
@@ -82,7 +92,18 @@ before(async () => {
     });
   });
   otherUrl = await listen(other);
-  app = createStandInApp({ helpdeskUrl, secret, quiet: true });
+  // The AI service's side of a pairing token (the stand-in agent's /__e2e/tokens).
+  agent = createServer((request, response) => {
+    let raw = '';
+    request.on('data', chunk => (raw += chunk));
+    request.on('end', () => {
+      minted.push({ path: request.url, refuse: JSON.parse(raw || '{}').refuse ?? null });
+      response.writeHead(201, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ service_url: 'https://ai.example.test/channels/helpdesk', token: `pairing-token-${minted.length}` }));
+    });
+  });
+  agentUrl = await listen(agent);
+  app = createStandInApp({ helpdeskUrl, secret, agentUrl, quiet: true });
   appUrl = await listen(app.server);
 });
 
@@ -90,10 +111,12 @@ after(() => {
   app.server.close();
   helpdesk.close();
   other.close();
+  agent.close();
 });
 
 beforeEach(() => {
   received.length = 0;
+  minted.length = 0;
   Object.assign(chat, { token: 'wT3xFirstTokenOfTheInbox', gone: false });
 });
 
@@ -325,4 +348,48 @@ test('refuses to sign without a secret, and a control call it does not know', as
   assert.equal(received.length, 0);
   assert.equal((await control('provision', {})).status, 400);
   assert.equal((await control('erase', { domain: store })).status, 404);
+});
+
+test('signs the three agent calls, with a new pairing token for every connection it asks for', async () => {
+  const agentStore = 'agent-calls.myshopify.com';
+  const first = await control('agent', { domain: agentStore });
+  const second = await control('agent', { domain: agentStore, extra: { inbox_ids: [5] } });
+  const refused = await control('agent', { domain: agentStore, refuse: { status: 410, error: 'invalid_token' } });
+  const given = await control('agent', { domain: agentStore, service_url: 'https://other-ai.example.test', token: 'given-token' });
+  const replaced = await control('agent', { domain: agentStore, body: { contract: 2 } });
+  const status = await control('agent-status', { domain: agentStore });
+  const disconnected = await control('agent-disconnect', { domain: agentStore });
+
+  assert.deepEqual([first, second, refused, given, replaced, status, disconnected].map(answer => answer.body.status), [201, 201, 201, 201, 201, 200, 200]);
+  const path = `/inclamo/provisioning/stores/${agentStore}/agent`;
+  assert.deepEqual(received.map(entry => [entry.method, entry.path]), [...Array(5).fill(['PUT', path]), ['GET', path], ['DELETE', path]]);
+  assert.deepEqual(received.map(entry => entry.raw), [
+    '{"contract":1,"service_url":"https://ai.example.test/channels/helpdesk","token":"pairing-token-1"}',
+    '{"contract":1,"service_url":"https://ai.example.test/channels/helpdesk","token":"pairing-token-2","inbox_ids":[5]}',
+    '{"contract":1,"service_url":"https://ai.example.test/channels/helpdesk","token":"pairing-token-3"}',
+    '{"contract":1,"service_url":"https://other-ai.example.test","token":"given-token"}',
+    '{"contract":2}',
+    '',
+    '',
+  ]);
+  // One token for each connection it made itself, asked of the AI service just before.
+  assert.deepEqual(minted, [
+    { path: '/__e2e/tokens', refuse: null },
+    { path: '/__e2e/tokens', refuse: null },
+    { path: '/__e2e/tokens', refuse: { status: 410, error: 'invalid_token' } },
+  ]);
+  assert.deepEqual(received.map(entry => entry.signature === expected(secret, entry)), Array(7).fill(true));
+  assert.equal(new Set(received.map(entry => entry.requestId)).size, 7);
+  assert.deepEqual(first.body.body, { contract: 1, state: 'connected', outcome: 'connected', inbox_ids: [3], phone_inbox_id: 12, connected_at: '2026-11-17T10:05:00Z' });
+});
+
+test('the switches work on the agent calls too, and its log holds no pairing token', async () => {
+  await control('log', null, 'DELETE');
+  const refused = await control('agent', { domain: store, wrong_signature: true });
+  const stale = await control('agent-disconnect', { domain: store, stale: true });
+  const { log } = (await control('log', null, 'GET')).body;
+
+  assert.deepEqual([refused.body.status, stale.body.status], [401, 401]);
+  assert.deepEqual(log.map(entry => [entry.method, entry.status]), [['PUT', 401], ['DELETE', 401]]);
+  assert.equal(JSON.stringify(log).includes('pairing-token'), false);
 });

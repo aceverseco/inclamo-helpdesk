@@ -30,10 +30,11 @@ module Inclamo
         raise Error::NotAnswered, "the AI service answered #{status}"
       end
 
-      # DELETE {service_url}/connections/{id} with the bot's former token.
-      def remove(service_url:, connection_id:, token:)
+      # DELETE {service_url}/connections/{id} with the bot's former token,
+      # waiting at most `time_limit` seconds.
+      def remove(service_url:, connection_id:, token:, time_limit: TIME_LIMIT)
         url = "#{service_url.to_s.chomp('/')}/connections/#{ERB::Util.url_encode(connection_id.to_s)}"
-        status = request(:delete, url, token: token).code.to_i
+        status = request(:delete, url, token: token, time_limit: time_limit).code.to_i
         raise Error::NotAnswered, "the AI service answered #{status}" unless (200..299).cover?(status)
 
         true
@@ -41,14 +42,14 @@ module Inclamo
 
       private
 
-      def request(method, url, token:, body: nil)
+      def request(method, url, token:, body: nil, time_limit: TIME_LIMIT)
         headers = { 'Authorization' => "Bearer #{token}", 'Accept' => 'application/json' }
         headers['Content-Type'] = 'application/json' if body
         options = SafeFetch::RequestOptions.new(
           url: url, method: method, body: body, headers: headers, resolver: self.class.resolver,
-          open_timeout: TIME_LIMIT, read_timeout: TIME_LIMIT, validate_content_type: false
+          open_timeout: time_limit, read_timeout: time_limit, validate_content_type: false
         )
-        Timeout.timeout(TIME_LIMIT) { transport(options) }
+        Timeout.timeout(time_limit) { transport(options) }
       rescue Error
         raise
       rescue StandardError, Timeout::Error => e

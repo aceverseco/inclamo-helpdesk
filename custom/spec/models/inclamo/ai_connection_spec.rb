@@ -36,6 +36,24 @@ RSpec.describe Inclamo::AiConnection do
     expect(record.covers?(3)).to be(false)
   end
 
+  describe 'the door a connection came through' do
+    it 'reads as made on the page unless it says otherwise, as every connection made before the column' do
+      expect(create(:inclamo_ai_connection).reload.connected_via).to eq('page')
+      expect(described_class.columns_hash['connected_via']).to have_attributes(default: 'page', null: false)
+    end
+
+    it 'knows the page and the store app, and nothing else' do
+      expect(build(:inclamo_ai_connection, connected_via: 'app')).to be_valid
+      expect(build(:inclamo_ai_connection, connected_via: 'elsewhere')).not_to be_valid
+      record = create(:inclamo_ai_connection)
+      expect { record.update_column(:connected_via, 'elsewhere') }.to raise_error(ActiveRecord::StatementInvalid) # rubocop:disable Rails/SkipsModelValidations
+    end
+
+    it 'needs no person for a connection the app made' do
+      expect(create(:inclamo_ai_connection, connected_via: 'app', connected_by: nil)).to be_persisted
+    end
+  end
+
   describe 'delivery health' do
     let(:record) { create(:inclamo_ai_connection) }
 
