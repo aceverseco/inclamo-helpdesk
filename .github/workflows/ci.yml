@@ -67,6 +67,15 @@ jobs:
           bundler-cache: true
           working-directory: build/chatwoot
 
+      # Rails draws custom/config/routes.rb by itself (no database); see the script.
+      - name: The route check refuses an undescribed route, a path no route serves and a stale exclusion
+        working-directory: build/chatwoot
+        run: bundle exec ruby ../../scripts/check-openapi-routes.rb --self-test
+
+      - name: Every overlay route is in custom/swagger/inclamo.yml or excluded with a reason
+        working-directory: build/chatwoot
+        run: bundle exec ruby ../../scripts/check-openapi-routes.rb
+
       - name: Create the database and load the schema of Chatwoot
         working-directory: build/chatwoot
         run: bundle exec rake db:create db:schema:load
@@ -120,6 +129,8 @@ jobs:
         run: node scripts/check-repository-boundary.mjs
       - name: Every behavior scenario has an end-to-end test
         run: node scripts/check-e2e-coverage.mjs
+      - name: The overlay's OpenAPI document is valid OpenAPI 3.1
+        run: npx --yes @redocly/cli@2.82.0 lint --config custom/swagger/redocly.yaml custom/swagger/inclamo.yml
       - name: Every variable deploy/ reads is in its template, every image is pinned
         run: node scripts/check-deploy-env.mjs
       - name: The stand-in AI agent refuses what the AI service refuses

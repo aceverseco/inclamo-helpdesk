@@ -1,0 +1,7 @@
+# Problems Redocly's linter is told to ignore in custom/swagger/inclamo.yml,
+# each with the reason. See https://redocly.com/docs/cli/ for the format.
+inclamo.yml:
+  # The health check answers 200 or 503 and takes no input or sign-in: it has
+  # no 4XX answer to describe.
+  operation-4xx-response:
+    - '#/paths/~1inclamo~1health/get/responses'
