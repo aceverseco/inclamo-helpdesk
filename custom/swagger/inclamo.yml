@@ -1,0 +1,5340 @@
+openapi: 3.1.0
+info:
+  title: Inclamo Helpdesk overlay API
+  version: 0.1.0
+  summary: The endpoints the Inclamo overlay adds to Chatwoot Community Edition.
+  description: |
+    Inclamo Helpdesk is Chatwoot Community Edition with the Inclamo overlay
+    (`custom/`). This document describes only the endpoints the overlay adds,
+    drawn by `custom/config/routes.rb`. Chatwoot's own API is described by the
+    specification of the Chatwoot tag the helpdesk is built on
+    (`x-chatwoot-version`).
+
+    Every path under `/api/v1/accounts/{account_id}/inclamo/` goes through
+    Chatwoot's account controller: the caller is a member of the account,
+    signed in with a user access token (`api_access_token` header or
+    `Authorization: Bearer`) or with a dashboard session. Agent bot tokens
+    are refused on these paths, except on the AI agent connector paths,
+    which accept only the connected AI agent's bot token. A caller who is not
+    a member of the account gets Chatwoot's `401`.
+
+    Some answers are built from what the connected Shopify store returns;
+    where this document cannot say more than the code guarantees, the
+    operation's `x-notes` says so.
+
+    Routes the overlay draws but does not publish (the signed support intake,
+    the store app's signed calls) are listed with their reasons in
+    `custom/swagger/excluded-routes.yml`; `scripts/check-openapi-routes.rb`
+    fails the build when a route is in neither file.
+  license:
+    name: AGPL-3.0-only
+    identifier: AGPL-3.0-only
+  x-chatwoot-version: v4.19.1
+servers:
+  - url: '{origin}'
+    description: The address of your helpdesk installation.
+    variables:
+      origin:
+        default: http://localhost:3000
+        description: Scheme, host and port of the installation.
+security:
+  - userApiKey: []
+  - userBearerAuth: []
+  - sessionAccessToken: []
+    sessionClient: []
+    sessionUid: []
+tags:
+  - name: Instance
+    description: The installation's health and public assets. No sign-in.
+  - name: Overlay status
+    description: Whether the overlay is present and which versions run.
+  - name: Helpdesk setup
+    description: The administrator's setup checklist (Settings → Helpdesk setup).
+  - name: Workspace layout
+    description: The widgets of a member's workspace and the account's default layout.
+  - name: Website widget
+    description: The website chat widget of a web widget inbox. Administrators only.
+  - name: In-product support
+    description: Requests a member sends to Inclamo support from inside the helpdesk.
+  - name: Help Center
+    description: Previews of unpublished Help Center articles.
+  - name: Staff permissions
+    description: Which members may act on orders and give discounts. Administrators only.
+  - name: Shopify connection
+    description: The account's connection to its Shopify store.
+  - name: Order panel
+    description: The "Orders" section of a conversation.
+  - name: Order actions
+    description: Actions on the store's orders and customers from a conversation, and their previews.
+  - name: Macros
+    description: Previews and confirmations of macros with order steps.
+  - name: Discounts
+    description: The discount presets agents may give.
+  - name: Rule presets
+    description: Ready automation rules switched on with one toggle. Administrators only.
+  - name: Team queues
+    description: Conversation queues shared by the whole account.
+  - name: SLA
+    description: SLA policies, their summary and the timers of conversations.
+  - name: AI agent connection
+    description: Connecting the AI agent and choosing its inboxes. Administrators only.
+  - name: AI policies
+    description: What the AI agent may do on its own, per action. Administrators only.
+  - name: AI proposals
+    description: Order actions the AI agent proposed, reviewed by staff.
+  - name: AI agent connector
+    description: |
+      The calls the connected AI agent makes with its agent bot token
+      (docs/ai-connector.md §5, docs/ai-connector-calls.md). Any other token,
+      a person's session or the bot of a disconnected account is refused
+      with 401.
+  - name: Shopper requests
+    description: Shopify's requests about one shopper (erasure, data request). Administrators only.
+x-tagGroups:
+  - name: Installation
+    tags: [Instance, Overlay status, Helpdesk setup]
+  - name: Workspace
+    tags: [Workspace layout, Website widget, In-product support, Help Center, Team queues, SLA]
+  - name: Store and orders
+    tags: [Shopify connection, Order panel, Order actions, Macros, Discounts, Rule presets, Staff permissions, Shopper requests]
+  - name: AI agent
+    tags: [AI agent connection, AI policies, AI proposals, AI agent connector]
+
+paths:
+  # ───────────────────────────── Instance ─────────────────────────────
+  /inclamo/health:
+    get:
+      tags: [Instance]
+      operationId: inclamoHealth
+      summary: Health of the installation
+      description: |
+        For a monitor outside the machine. `200` when every check passes,
+        `503` with the names of the failing checks otherwise. The answer
+        carries nothing else (no counts, settings or error text).
+      security: []
+      responses:
+        '200':
+          description: Every check passes.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          description: At least one check fails.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+
+  /inclamo/widget-images/{id}:
+    get:
+      tags: [Instance]
+      operationId: inclamoWidgetImage
+      summary: A validated website-widget SVG image
+      description: |
+        Public delivery of a sanitized SVG launcher icon. The address comes
+        from the widget's configuration (`icon_url`); a plain Active Storage
+        blob id does not open it. Served with a long, immutable cache.
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The image's signed id, as it appears in `icon_url`.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The SVG.
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+                contentMediaType: image/svg+xml
+        '304':
+          description: Not modified (ETag / Last-Modified).
+        '404':
+          description: Unknown or invalid signature, or not a validated SVG.
+
+  # ─────────────────────────── Overlay status ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/status:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [Overlay status]
+      operationId: inclamoStatus
+      summary: Overlay version and pending migrations
+      responses:
+        '200':
+          description: The overlay runs.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [overlay_version, chatwoot_version, migrations_pending]
+                properties:
+                  overlay_version:
+                    type: string
+                    examples: ['0.1.0']
+                  chatwoot_version:
+                    type: string
+                    examples: ['4.19.1']
+                  migrations_pending:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─────────────────────────── Helpdesk setup ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/setup:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [Helpdesk setup]
+      operationId: inclamoSetupShow
+      summary: The setup checklist
+      x-required-role: administrator
+      responses:
+        '200':
+          description: The checklist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupOverview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenEmpty'
+    patch:
+      tags: [Helpdesk setup]
+      operationId: inclamoSetupReview
+      summary: Mark a review step as reviewed
+      description: |
+        Records that the administrator reviewed the staff permissions or the AI
+        policies as they are now. `digest` must be the step's current value
+        from `review_digests`; a changed one is `409 review_changed`. Also
+        accepted as `PUT`.
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [step, digest]
+              properties:
+                step:
+                  type: string
+                  enum: [staff, ai]
+                digest:
+                  type: string
+                  description: The step's value from `review_digests`.
+      responses:
+        '200':
+          description: The checklist after the review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupOverview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenEmpty'
+        '409':
+          description: '`review_changed`: the step changed since it was read.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+
+  /api/v1/accounts/{account_id}/inclamo/setup/complete:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    post:
+      tags: [Helpdesk setup]
+      operationId: inclamoSetupComplete
+      summary: Complete the setup
+      x-required-role: administrator
+      responses:
+        '200':
+          description: The completed checklist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupOverview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenEmpty'
+        '409':
+          description: '`setup_incomplete`: the checklist with `error` added, not every check passes.'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SetupOverview'
+                  - type: object
+                    properties:
+                      error:
+                        const: setup_incomplete
+
+  # ─────────────────────────── Workspace layout ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/workspace_layout:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [Workspace layout]
+      operationId: inclamoWorkspaceLayoutShow
+      summary: The signed-in member's workspace layout
+      responses:
+        '200':
+          description: The layout in effect for the member.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceLayoutRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [Workspace layout]
+      operationId: inclamoWorkspaceLayoutUpdate
+      summary: Save the member's own layout
+      description: Also accepted as `PUT`. `revision` is the one last read; another is `409 layout_conflict`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [layout, revision]
+              properties:
+                layout:
+                  $ref: '#/components/schemas/WorkspaceLayout'
+                revision:
+                  type: string
+      responses:
+        '200':
+          description: The saved layout.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceLayoutRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/LayoutConflict'
+        '422':
+          $ref: '#/components/responses/LayoutInvalid'
+    delete:
+      tags: [Workspace layout]
+      operationId: inclamoWorkspaceLayoutReset
+      summary: Drop the member's own layout
+      description: The member gets the account's default layout (or the product's) again.
+      parameters:
+        - name: revision
+          in: query
+          required: true
+          description: The revision last read. Rails also reads it from a JSON body.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The layout in effect after the reset.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceLayoutRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/LayoutConflict'
+
+  /api/v1/accounts/{account_id}/inclamo/workspace_layout/administration:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [Workspace layout]
+      operationId: inclamoWorkspaceLayoutAdministration
+      summary: The account's default layout and its members
+      x-required-role: administrator
+      responses:
+        '200':
+          description: The default layout.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceAdministration'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenEmpty'
+
+  /api/v1/accounts/{account_id}/inclamo/workspace_layout/administer:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    put:
+      tags: [Workspace layout]
+      operationId: inclamoWorkspaceLayoutAdminister
+      summary: Set the default layout, one member's layout, or everyone's
+      description: |
+        `target: default` sets the account's default; `member` sets the layout
+        of the member `user_id`; `all` sets the default and drops every
+        personal layout, and needs `confirmed_count` equal to the number of
+        members.
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [layout, revision, target]
+              properties:
+                layout:
+                  $ref: '#/components/schemas/WorkspaceLayout'
+                revision:
+                  type: string
+                  description: The `revision` of the administration last read.
+                target:
+                  type: string
+                  enum: [default, member, all]
+                user_id:
+                  type: integer
+                  description: 'With `target: member`.'
+                confirmed_count:
+                  type: integer
+                  description: 'With `target: all`, the number of members the administrator confirmed.'
+      responses:
+        '200':
+          description: The administration after the change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceAdministration'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenEmpty'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/LayoutConflict'
+        '422':
+          $ref: '#/components/responses/LayoutInvalid'
+
+  # ─────────────────────────── Website widget ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/website_widgets/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/WebWidgetInboxId'
+    get:
+      tags: [Website widget]
+      operationId: inclamoWebsiteWidgetShow
+      summary: The widget's configuration
+      x-required-role: administrator
+      responses:
+        '200':
+          description: The configuration and what the editor needs.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebsiteWidgetConfiguration'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenEmpty'
+        '404':
+          description: No such inbox, or it is not a web widget inbox.
+    patch:
+      tags: [Website widget]
+      operationId: inclamoWebsiteWidgetUpdate
+      summary: Publish the widget's configuration
+      description: Also accepted as `PUT`. `configuration.revision` is the one last read.
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [configuration]
+              properties:
+                configuration:
+                  $ref: '#/components/schemas/WebsiteWidgetPublication'
+      responses:
+        '200':
+          description: The configuration as published.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebsiteWidgetConfiguration'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenEmpty'
+        '404':
+          description: No such inbox or portal, or the inbox is not a web widget inbox.
+        '409':
+          description: Another administrator changed the settings since they were read.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatwootError'
+        '422':
+          description: The configuration is refused; `error` is a sentence for the form.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatwootError'
+
+  /api/v1/accounts/{account_id}/inclamo/website_widgets/{id}/preview:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/WebWidgetInboxId'
+    get:
+      tags: [Website widget]
+      operationId: inclamoWebsiteWidgetPreview
+      summary: An HTML page that previews the widget
+      description: For the editor's preview frame.
+      x-required-role: administrator
+      responses:
+        '200':
+          description: The preview page.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            text/html:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenEmpty'
+        '404':
+          description: No such inbox, or it is not a web widget inbox.
+
+  # ─────────────────────────── In-product support ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/support/metadata:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [In-product support]
+      operationId: inclamoSupportMetadata
+      summary: What the support form needs
+      responses:
+        '200':
+          description: The author, the account and the file limits.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [author, account, version, max_files, max_bytes]
+                properties:
+                  author:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      email:
+                        type: string
+                  account:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                  version:
+                    type: string
+                    description: The overlay version.
+                  max_files:
+                    type: integer
+                    examples: [5]
+                  max_bytes:
+                    type: integer
+                    examples: [10485760]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/accounts/{account_id}/inclamo/support/uploads:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    post:
+      tags: [In-product support]
+      operationId: inclamoSupportUpload
+      summary: Stage a file for a request
+      description: |
+        The file is kept for 24 hours; name its `reference` in `files` of a
+        request or a reply to attach it. At most 20 uploads per member in the
+        limiter's window.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  contentMediaType: application/octet-stream
+      responses:
+        '201':
+          description: The staged file.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportFile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/SupportInvalid'
+        '429':
+          $ref: '#/components/responses/SupportRateLimited'
+
+  /api/v1/accounts/{account_id}/inclamo/support/requests:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [In-product support]
+      operationId: inclamoSupportRequestsIndex
+      summary: The member's support requests
+      description: The 100 most recently updated requests the member may see. Also schedules a sync with Inclamo support.
+      responses:
+        '200':
+          description: The requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [requests]
+                properties:
+                  requests:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SupportRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [In-product support]
+      operationId: inclamoSupportRequestsCreate
+      summary: Send a new support request
+      description: |
+        `uuid` names the request and its first message; sending the same
+        request again with the same `uuid`, body and files answers the request
+        already made.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/SupportSubmission'
+                - type: object
+                  required: [category]
+                  properties:
+                    category:
+                      type: string
+                      enum: [problem, question, suggestion]
+                    context:
+                      type: object
+                      properties:
+                        browser:
+                          type: string
+                          maxLength: 200
+                        location:
+                          type: string
+                          enum: [conversation, inbox, settings, contacts, reports, workspace]
+                        conversation_reference:
+                          type: string
+                          pattern: '^\d{1,15}$'
+      responses:
+        '201':
+          description: The request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportRequestDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/SupportConflict'
+        '422':
+          $ref: '#/components/responses/SupportInvalid'
+
+  /api/v1/accounts/{account_id}/inclamo/support/requests/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/SupportRequestId'
+    get:
+      tags: [In-product support]
+      operationId: inclamoSupportRequestsShow
+      summary: One support request with its messages
+      responses:
+        '200':
+          description: The request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportRequestDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{account_id}/inclamo/support/requests/{id}/replies:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/SupportRequestId'
+    post:
+      tags: [In-product support]
+      operationId: inclamoSupportRequestsReply
+      summary: Reply in a support request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupportSubmission'
+      responses:
+        '201':
+          description: The request with the reply.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportRequestDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/SupportConflict'
+        '422':
+          $ref: '#/components/responses/SupportInvalid'
+
+  /api/v1/accounts/{account_id}/inclamo/support/requests/{id}/read:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/SupportRequestId'
+    post:
+      tags: [In-product support]
+      operationId: inclamoSupportRequestsRead
+      summary: Mark replies as read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cursor]
+              properties:
+                cursor:
+                  type: integer
+                  minimum: 0
+                  description: The last reply read; at most the request's `last_reply_id`.
+      responses:
+        '204':
+          description: Recorded.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/SupportInvalid'
+
+  /api/v1/accounts/{account_id}/inclamo/support/requests/{id}/retry/{uuid}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/SupportRequestId'
+      - name: uuid
+        in: path
+        required: true
+        description: The `uuid` of the submission to deliver again.
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [In-product support]
+      operationId: inclamoSupportRequestsRetry
+      summary: Deliver a failed submission again
+      responses:
+        '200':
+          description: The request, the submission queued again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportRequestDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{account_id}/inclamo/support/requests/{id}/attachments/{file_id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/SupportRequestId'
+      - $ref: '#/components/parameters/SupportFileId'
+    get:
+      tags: [In-product support]
+      operationId: inclamoSupportAttachment
+      summary: Download a file Inclamo support sent
+      description: Fetched from Inclamo support and passed on as an attachment download.
+      responses:
+        '200':
+          $ref: '#/components/responses/SafeDownload'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/SupportUnavailable'
+
+  /api/v1/accounts/{account_id}/inclamo/support/requests/{id}/uploads/{file_id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/SupportRequestId'
+      - $ref: '#/components/parameters/SupportFileId'
+    get:
+      tags: [In-product support]
+      operationId: inclamoSupportUploadDownload
+      summary: Download a file the team attached
+      responses:
+        '200':
+          $ref: '#/components/responses/SafeDownload'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{account_id}/inclamo/support/requests/{id}/recipient:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/SupportRequestId'
+    post:
+      tags: [In-product support]
+      operationId: inclamoSupportRecipient
+      summary: Email notifications for the request's author
+      description: |
+        Only the request's author. With `enabled`, switches the member's email
+        notifications on or off, then tells Inclamo support the recipient.
+      x-notes: |
+        The 200 body is Inclamo support's answer passed through unchanged
+        (Inclamo::Support::Transport#recipient); its shape is decided by that
+        service and is not determinable from this repository.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Inclamo support's answer.
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No such request, or the member is not its author.
+        '503':
+          $ref: '#/components/responses/SupportUnavailable'
+
+  /api/v1/accounts/{account_id}/inclamo/support/requests/{id}/recipient/verify:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/SupportRequestId'
+    post:
+      tags: [In-product support]
+      operationId: inclamoSupportRecipientVerify
+      summary: Confirm the author's email with a code
+      x-notes: The 200 body is Inclamo support's answer passed through unchanged; not determinable from this repository.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+      responses:
+        '200':
+          description: Inclamo support's answer.
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No such request, or the member is not its author.
+        '503':
+          $ref: '#/components/responses/SupportUnavailable'
+
+  # ─────────────────────────── Help Center ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/article_previews/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - name: id
+        in: path
+        required: true
+        description: The article's id.
+        schema:
+          type: integer
+    post:
+      tags: [Help Center]
+      operationId: inclamoArticlePreview
+      summary: A preview address for an article
+      description: A member who may see the article's portal gets a Help Center address with a preview token.
+      responses:
+        '200':
+          description: The preview address.
+          headers:
+            Cache-Control:
+              description: '`private, no-store`'
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url:
+                    type: string
+                    description: A path relative to the installation, `/hc/<portal>/articles/<slug>?preview_token=…`.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────── Staff permissions ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/order_roles:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [Staff permissions]
+      operationId: inclamoOrderRolesIndex
+      summary: Who may act on orders
+      x-required-role: administrator
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderRoleMembers'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+    post:
+      tags: [Staff permissions]
+      operationId: inclamoOrderRolesCreate
+      summary: Give a member every order action
+      description: Gives every right except `discount`. Administrators act by their role and are left as they are.
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id:
+                  type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderRoleMembers'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No member with this user id.
+
+  /api/v1/accounts/{account_id}/inclamo/order_roles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/MemberUserId'
+    patch:
+      tags: [Staff permissions]
+      operationId: inclamoOrderRolesUpdate
+      summary: Switch one right of a member
+      description: Also accepted as `PUT`. Has no effect on an administrator.
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action_name, enabled]
+              properties:
+                action_name:
+                  $ref: '#/components/schemas/ActionName'
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderRoleMembers'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No member with this user id.
+        '422':
+          description: '`invalid_permission`: unknown action or `enabled` not a boolean.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+    delete:
+      tags: [Staff permissions]
+      operationId: inclamoOrderRolesDestroy
+      summary: Take every order right from a member
+      x-required-role: administrator
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderRoleMembers'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No member with this user id.
+
+  /api/v1/accounts/{account_id}/inclamo/discount_grants:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [Staff permissions]
+      operationId: inclamoDiscountGrantsIndex
+      summary: Who may give discounts
+      x-required-role: administrator
+      responses:
+        '200':
+          $ref: '#/components/responses/DiscountGrantMembers'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+    post:
+      tags: [Staff permissions]
+      operationId: inclamoDiscountGrantsCreate
+      summary: Let a member give discounts
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id:
+                  type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/DiscountGrantMembers'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No member with this user id.
+
+  /api/v1/accounts/{account_id}/inclamo/discount_grants/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/MemberUserId'
+    delete:
+      tags: [Staff permissions]
+      operationId: inclamoDiscountGrantsDestroy
+      summary: Take the right to give discounts from a member
+      x-required-role: administrator
+      responses:
+        '200':
+          $ref: '#/components/responses/DiscountGrantMembers'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No member with this user id.
+
+  # ─────────────────────────── Shopify connection ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/shopify/connection:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [Shopify connection]
+      operationId: inclamoShopifyConnectionShow
+      summary: The store connection
+      description: Every member may read it. No answer carries a secret or a token.
+      responses:
+        '200':
+          description: 'The connection, or `connected: false`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Shopify connection]
+      operationId: inclamoShopifyConnectionCreate
+      summary: Connect the store
+      description: |
+        With a custom app's client credentials, with a legacy Admin API access
+        token, or, for an account the Inclamo store app provisioned,
+        `via: "app"` with nothing else. Reconnecting the same store answers
+        `200`; another store while one is connected is refused
+        (`already_connected`).
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - title: Client credentials
+                  type: object
+                  required: [shop_domain, client_id, client_secret]
+                  properties:
+                    shop_domain:
+                      type: string
+                      examples: [my-store.myshopify.com]
+                    client_id:
+                      type: string
+                    client_secret:
+                      type: string
+                - title: Legacy access token
+                  type: object
+                  required: [shop_domain, access_token]
+                  properties:
+                    shop_domain:
+                      type: string
+                    access_token:
+                      type: string
+                - title: Through the store app
+                  type: object
+                  required: [via]
+                  properties:
+                    via:
+                      const: app
+      responses:
+        '200':
+          description: The connection, updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnection'
+        '201':
+          description: The connection, made.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: '`forbidden` (not an administrator) or `managed_by_app` (the app manages this account''s connection).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnectionError'
+        '422':
+          description: |
+            `encryption_not_configured`, `already_connected`, `not_through_app`,
+            `other_store`, `missing_scopes` (with `missing_scopes`),
+            `invalid_domain`, `app_not_installed`, `credentials_refused`,
+            `key_refused`, `orders_refused`, `shop_unavailable`, or a reason
+            the store app gave for refusing a key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnectionError'
+        '502':
+          description: '`store_unreachable` or `app_unavailable`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnectionError'
+    delete:
+      tags: [Shopify connection]
+      operationId: inclamoShopifyConnectionDestroy
+      summary: Remove the store connection
+      x-required-role: administrator
+      responses:
+        '204':
+          description: Removed (or there was none).
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: '`forbidden` or `managed_by_app`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnectionError'
+
+  /api/v1/accounts/{account_id}/inclamo/shopify/connection/recheck:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    post:
+      tags: [Shopify connection]
+      operationId: inclamoShopifyConnectionRecheck
+      summary: Check the connection again
+      x-required-role: administrator
+      responses:
+        '200':
+          description: The connection after the check.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: '`forbidden`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnectionError'
+        '404':
+          description: '`not_connected`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnectionError'
+        '422':
+          description: As for connecting.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnectionError'
+        '502':
+          description: '`store_unreachable` or `app_unavailable`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnectionError'
+
+  # ─────────────────────────── Order panel ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/shopify/conversations/{conversation_id}/panel:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [Order panel]
+      operationId: inclamoOrderPanelShow
+      summary: The conversation's "Orders" section
+      description: |
+        Everything the section shows in one answer; `state` says what it is.
+        With `after`, a further page of the matched customer's orders only.
+      parameters:
+        - name: after
+          in: query
+          description: The `page.cursor` of the previous answer.
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderPanel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{account_id}/inclamo/shopify/conversations/{conversation_id}/lookup:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [Order panel]
+      operationId: inclamoOrderPanelLookup
+      summary: Find an order by its number
+      parameters:
+        - name: number
+          in: query
+          required: true
+          schema:
+            type: string
+            examples: ['1042']
+      responses:
+        '200':
+          description: 'The order, or `found: false`.'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [found]
+                properties:
+                  found:
+                    type: boolean
+                  order:
+                    $ref: '#/components/schemas/PanelOrder'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No such conversation, or no working store connection (empty body).
+        '502':
+          $ref: '#/components/responses/StoreUnreachable'
+
+  /api/v1/accounts/{account_id}/inclamo/shopify/conversations/{conversation_id}/marks:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [Order panel]
+      operationId: inclamoOrderPanelMarks
+      summary: Tags and note of an order or customer as the store holds them now
+      description: Give `customer_id` for a customer, otherwise `order_id`.
+      parameters:
+        - name: order_id
+          in: query
+          schema:
+            type: string
+            examples: ['gid://shopify/Order/1']
+        - name: customer_id
+          in: query
+          schema:
+            type: string
+            examples: ['gid://shopify/Customer/1']
+      responses:
+        '200':
+          description: The marks.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, tags, note]
+                properties:
+                  id:
+                    type: string
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                  note:
+                    type: [string, 'null']
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No such conversation, or no working store connection (empty body).
+        '422':
+          description: '`customer_data_hidden` (the store limits customer data) or `unknown`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+        '502':
+          $ref: '#/components/responses/StoreUnreachable'
+
+  /api/v1/accounts/{account_id}/inclamo/shopify/conversations/{conversation_id}/customer:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    post:
+      tags: [Order panel]
+      operationId: inclamoOrderPanelChooseCustomer
+      summary: Choose the store's customer for the conversation's contact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id]
+              properties:
+                customer_id:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderPanel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No such conversation, or no working store connection (empty body).
+        '422':
+          description: '`unknown_customer`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+        '502':
+          $ref: '#/components/responses/StoreUnreachable'
+    delete:
+      tags: [Order panel]
+      operationId: inclamoOrderPanelForgetCustomer
+      summary: Forget the chosen customer
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderPanel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{account_id}/inclamo/shopify/conversations/{conversation_id}/order:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    put:
+      tags: [Order panel]
+      operationId: inclamoOrderPanelMarkOrder
+      summary: Mark the order the conversation is about
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order_id]
+              properties:
+                order_id:
+                  type: string
+                  description: The order's `id` as the panel shows it.
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderPanel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No such conversation, or no working store connection (empty body).
+        '422':
+          description: '`unknown_order`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+        '502':
+          $ref: '#/components/responses/StoreUnreachable'
+    delete:
+      tags: [Order panel]
+      operationId: inclamoOrderPanelClearOrder
+      summary: Clear the marked order
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderPanel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{account_id}/inclamo/shopify/conversations/{conversation_id}/products:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [Order panel]
+      operationId: inclamoProductsSearch
+      summary: Search the store's catalogue
+      description: |
+        Active products that are not gift cards, by the beginnings of the words
+        of their title or by SKU, ten a page. An empty query finds nothing.
+        Needs the `read_products` scope.
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+        - name: after
+          in: query
+          description: The `page.cursor` of the previous answer.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A page of products.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [products, page]
+                properties:
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/StoreRefusalForbidden'
+        '404':
+          description: '`not_connected`, or no such conversation.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+        '409':
+          description: '`connection_broken`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+        '422':
+          description: '`missing_scope` with `missing_scopes`, or a refusal of the store.'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StoreRefusal'
+                  - type: object
+                    properties:
+                      missing_scopes:
+                        type: array
+                        items:
+                          type: string
+        '502':
+          $ref: '#/components/responses/StoreRefusalGateway'
+
+  # ─────────────────────────── Order actions ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/shopify/conversations/{conversation_id}/actions:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [Order actions]
+      operationId: inclamoOrderActionsIndex
+      summary: Every attempt made from this conversation
+      description: The 100 newest, newest first.
+      responses:
+        '200':
+          description: The attempts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [actions]
+                properties:
+                  actions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderAction'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Order actions]
+      operationId: inclamoOrderActionsCreate
+      summary: Act on an order or customer
+      description: |
+        Whether the member may act and whether the store allows it is decided
+        on the server. `action_id` is the caller's key for the attempt: sending
+        the same attempt again settles it instead of acting twice; another
+        attempt under a used key is refused. The status says the outcome:
+        `200` accepted, `202` still pending/running/unknown, `403`
+        `not_allowed`, `422` refused — the body is the attempt in every case.
+      x-notes: |
+        `params` depends on `action_name` and is read by the action's handler
+        in custom/lib/inclamo/shopify/actions/ (for example `mode`/`amount`
+        for a refund, `refund` for a cancellation, `lines`/`additions` for an
+        items edit, `lines`/`discount`/`shipping` for a new order); this
+        document does not restate each handler's parameters.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action_name, action_id]
+              properties:
+                action_name:
+                  $ref: '#/components/schemas/ActionName'
+                action_id:
+                  type: string
+                  pattern: '^[A-Za-z0-9-]{8,64}$'
+                order_id:
+                  type: string
+                  description: Needed by every action except customer, new order and discount actions.
+                customer_id:
+                  type: string
+                  description: Needed by `customer_tags` and `customer_note`.
+                params:
+                  type: object
+                  additionalProperties: true
+                address:
+                  type: object
+                  additionalProperties: true
+                  description: For `address`, the new shipping address.
+                note:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderActionResult'
+        '202':
+          $ref: '#/components/responses/OrderActionResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OrderActionResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: The attempt, refused; or `invalid_request` with a message when the record itself is invalid.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/OrderAction'
+                  - $ref: '#/components/schemas/OverlayError'
+
+  /api/v1/accounts/{account_id}/inclamo/shopify/conversations/{conversation_id}/actions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+      - name: id
+        in: path
+        required: true
+        description: The attempt's `action_id`.
+        schema:
+          type: string
+    get:
+      tags: [Order actions]
+      operationId: inclamoOrderActionsShow
+      summary: One attempt
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderActionResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{account_id}/inclamo/shopify/conversations/{conversation_id}/actions/refund_preview:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    post:
+      tags: [Order actions]
+      operationId: inclamoOrderActionsRefundPreview
+      summary: What a refund would give back
+      description: Nothing is changed or recorded.
+      requestBody:
+        $ref: '#/components/requestBodies/OrderPreview'
+      responses:
+        '200':
+          description: The refund as it would be made.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundPreview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/StoreRefusalForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/StoreRefusalInvalid'
+        '502':
+          $ref: '#/components/responses/StoreRefusalGateway'
+
+  /api/v1/accounts/{account_id}/inclamo/shopify/conversations/{conversation_id}/actions/cancel_preview:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    post:
+      tags: [Order actions]
+      operationId: inclamoOrderActionsCancelPreview
+      summary: What a cancellation would give back
+      description: |
+        Always `200`. Without `params.refund: true` the body is empty. With it,
+        `amount`/`currency`, or `refund` saying why there is none (`unpaid`,
+        `none_left`, `unknown`). When the cancellation would be refused, the
+        body names the refusal instead.
+      requestBody:
+        $ref: '#/components/requestBodies/OrderPreview'
+      responses:
+        '200':
+          description: The preview or the refusal.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  amount:
+                    type: string
+                  currency:
+                    type: string
+                  refund:
+                    type: string
+                    enum: [unpaid, none_left, unknown]
+                  refusal:
+                    type: string
+                  message:
+                    type: [string, 'null']
+                  reason:
+                    type: string
+                  missing_scopes:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{account_id}/inclamo/shopify/conversations/{conversation_id}/actions/edit_items_preview:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    post:
+      tags: [Order actions]
+      operationId: inclamoOrderActionsEditItemsPreview
+      summary: What an items edit would make of the order
+      description: The order as the store calculates it after the edit; nothing is committed.
+      x-notes: '`params.lines` / `params.additions` are read by Inclamo::Shopify::Actions::EditItems; their item shapes are not restated here.'
+      requestBody:
+        $ref: '#/components/requestBodies/OrderPreview'
+      responses:
+        '200':
+          description: The edited order's summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditItemsPreview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/StoreRefusalForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/StoreRefusalInvalid'
+        '502':
+          $ref: '#/components/responses/StoreRefusalGateway'
+
+  /api/v1/accounts/{account_id}/inclamo/shopify/conversations/{conversation_id}/actions/new_order_preview:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    post:
+      tags: [Order actions]
+      operationId: inclamoOrderActionsNewOrderPreview
+      summary: What a new order would cost
+      description: The store's calculation for the matched customer; nothing is created.
+      x-notes: '`params.lines`, `params.discount` and `params.shipping` are read by Inclamo::Shopify::Actions::NewOrder; their shapes are not restated here.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [params]
+              properties:
+                params:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: The calculation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewOrderPreview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/StoreRefusalForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/StoreRefusalInvalid'
+        '502':
+          $ref: '#/components/responses/StoreRefusalGateway'
+
+  /api/v1/accounts/{account_id}/inclamo/shopify/conversations/{conversation_id}/actions/new_order_prefill:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [Order actions]
+      operationId: inclamoOrderActionsNewOrderPrefill
+      summary: The items of a customer's order, to order again
+      parameters:
+        - name: order_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: One line per variant at its current quantity; items the catalogue would not offer are in `skipped`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [order_number, lines, skipped]
+                properties:
+                  order_number:
+                    type: string
+                  lines:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        product:
+                          $ref: '#/components/schemas/Product'
+                        variant:
+                          $ref: '#/components/schemas/ProductVariant'
+                        quantity:
+                          type: integer
+                  skipped:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                        quantity:
+                          type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/StoreRefusalForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/StoreRefusalInvalid'
+        '502':
+          $ref: '#/components/responses/StoreRefusalGateway'
+
+  # ─────────────────────────── Macros ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/macro_previews:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    post:
+      tags: [Macros]
+      operationId: inclamoMacroPreview
+      summary: What a macro's order steps would do in a conversation
+      description: For the confirmation shown before the macro runs. Every step is checked again when it runs.
+      x-notes: |
+        Each entry of `steps` is `{position, step}` merged with that step's
+        preview (as the cancel preview: `amount`/`currency`, `refund`, `units`
+        for a replacement, or a refusal), or `{after_stop: true}` for steps
+        after one that stops the macro; built by
+        Inclamo::Shopify::MacroSteps::Preview.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [macro_id, conversation_id]
+              properties:
+                macro_id:
+                  type: integer
+                conversation_id:
+                  type: integer
+                  description: The conversation's display id.
+      responses:
+        '200':
+          description: The preview.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [digest, order, steps]
+                properties:
+                  digest:
+                    type: string
+                    description: Send it back to `macro_confirmations`.
+                  order:
+                    type: [object, 'null']
+                    properties:
+                      id:
+                        type: string
+                      number:
+                        type: [string, 'null']
+                  steps:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        position:
+                          type: integer
+                        step:
+                          type: string
+                      additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{account_id}/inclamo/macro_confirmations:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    post:
+      tags: [Macros]
+      operationId: inclamoMacroConfirmation
+      summary: Confirm a macro with order steps
+      description: |
+        The member's "Run". Kept a short while for Chatwoot's macro run that
+        follows; without it the run does nothing for the order steps.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [macro_id, conversation_id, digest]
+              properties:
+                macro_id:
+                  type: integer
+                conversation_id:
+                  type: integer
+                  description: The conversation's display id.
+                digest:
+                  type: string
+                  description: The `digest` of the preview the member saw.
+      responses:
+        '204':
+          description: Confirmed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: '`macro_changed`: the macro changed since the preview.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+
+  # ─────────────────────────── Discounts ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/discount_presets:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [Discounts]
+      operationId: inclamoDiscountPresetsIndex
+      summary: The discount presets
+      description: For administrators and members who may give discounts.
+      responses:
+        '200':
+          description: The presets.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [presets]
+                properties:
+                  presets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DiscountPreset'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+    post:
+      tags: [Discounts]
+      operationId: inclamoDiscountPresetsCreate
+      summary: Add a preset
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiscountPresetInput'
+      responses:
+        '201':
+          $ref: '#/components/responses/DiscountPresetSaved'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '422':
+          $ref: '#/components/responses/DiscountPresetInvalid'
+
+  /api/v1/accounts/{account_id}/inclamo/discount_presets/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    patch:
+      tags: [Discounts]
+      operationId: inclamoDiscountPresetsUpdate
+      summary: Change a preset
+      description: Also accepted as `PUT`.
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiscountPresetInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/DiscountPresetSaved'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No such preset.
+        '422':
+          $ref: '#/components/responses/DiscountPresetInvalid'
+    delete:
+      tags: [Discounts]
+      operationId: inclamoDiscountPresetsDestroy
+      summary: Remove a preset
+      x-required-role: administrator
+      responses:
+        '200':
+          description: The remaining presets.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [presets]
+                properties:
+                  presets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DiscountPreset'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No such preset.
+
+  # ─────────────────────────── Rule presets ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/rule_presets:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [Rule presets]
+      operationId: inclamoRulePresetsIndex
+      summary: The preset rules and whether each is on
+      x-required-role: administrator
+      responses:
+        '200':
+          $ref: '#/components/responses/RulePresets'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+
+  /api/v1/accounts/{account_id}/inclamo/rule_presets/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - name: id
+        in: path
+        required: true
+        description: The preset's key.
+        schema:
+          type: string
+          enum: [vip, not_shipped, no_orders]
+    patch:
+      tags: [Rule presets]
+      operationId: inclamoRulePresetsUpdate
+      summary: Switch a preset on or off
+      description: |
+        On creates an ordinary Chatwoot automation rule (or activates the one
+        made earlier); off deactivates it and changes nothing else. `vip`
+        needs `value`, the amount spent. Also accepted as `PUT`.
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [active]
+              properties:
+                active:
+                  type: boolean
+                value:
+                  type: string
+                  description: A non-negative amount, for presets with `needs_value`.
+                  examples: ['500']
+      responses:
+        '200':
+          $ref: '#/components/responses/RulePresets'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: Unknown preset.
+        '422':
+          description: '`value_required` or `rule_invalid`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+
+  # ─────────────────────────── Team queues ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/team_queues:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [Team queues]
+      operationId: inclamoTeamQueuesIndex
+      summary: The visible queues with the member's counts
+      parameters:
+        - name: all
+          in: query
+          description: For administrators, `1` adds the hidden queues (without a count).
+          schema:
+            type: string
+            enum: ['1', 'true']
+      responses:
+        '200':
+          $ref: '#/components/responses/TeamQueues'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/accounts/{account_id}/inclamo/team_queues/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/TeamQueueId'
+    patch:
+      tags: [Team queues]
+      operationId: inclamoTeamQueuesUpdate
+      summary: Rename, hide or show a queue
+      description: Also accepted as `PUT`. At most `limit` queues are visible.
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 60
+                hidden:
+                  type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/TeamQueues'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No such queue.
+        '422':
+          description: '`name_invalid`, `hidden_invalid` or `too_many_visible`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+
+  /api/v1/accounts/{account_id}/inclamo/team_queues/reorder:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    post:
+      tags: [Team queues]
+      operationId: inclamoTeamQueuesReorder
+      summary: Put the queues in a new order
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  description: Every queue of the account, in the new order.
+                  items:
+                    type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/TeamQueues'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '422':
+          description: '`order_incomplete`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+
+  /api/v1/accounts/{account_id}/inclamo/team_queues/{id}/restore:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/TeamQueueId'
+    post:
+      tags: [Team queues]
+      operationId: inclamoTeamQueuesRestore
+      summary: Restore a ready queue as it shipped
+      description: Name, membership and place as shipped; whether it is hidden stays.
+      x-required-role: administrator
+      responses:
+        '200':
+          $ref: '#/components/responses/TeamQueues'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No such queue.
+        '422':
+          description: '`not_ready`: the queue is not one of the ready queues.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+
+  /api/v1/accounts/{account_id}/inclamo/team_queues/sla_overview:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [Team queues, SLA]
+      operationId: inclamoTeamQueuesSlaOverview
+      summary: Overdue, soon and other conversations per queue
+      description: For the "SLA overview" widget. Cached for 30 seconds per member.
+      responses:
+        '200':
+          description: The overview.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlaOverview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenEmpty'
+
+  # ─────────────────────────── SLA ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/sla_policies:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [SLA]
+      operationId: inclamoSlaPoliciesIndex
+      summary: The SLA policies and the account's inboxes
+      x-required-role: administrator
+      responses:
+        '200':
+          description: The policies.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policies, inboxes]
+                properties:
+                  policies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SlaPolicy'
+                  inboxes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        business_hours:
+                          type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+    post:
+      tags: [SLA]
+      operationId: inclamoSlaPoliciesCreate
+      summary: Add a policy
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SlaPolicyInput'
+      responses:
+        '201':
+          $ref: '#/components/responses/SlaPolicySaved'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '422':
+          $ref: '#/components/responses/SlaPolicyInvalid'
+
+  /api/v1/accounts/{account_id}/inclamo/sla_policies/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    patch:
+      tags: [SLA]
+      operationId: inclamoSlaPoliciesUpdate
+      summary: Change a policy
+      description: Also accepted as `PUT`.
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SlaPolicyInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/SlaPolicySaved'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No such policy.
+        '422':
+          $ref: '#/components/responses/SlaPolicyInvalid'
+    delete:
+      tags: [SLA]
+      operationId: inclamoSlaPoliciesDestroy
+      summary: Remove a policy
+      x-required-role: administrator
+      responses:
+        '204':
+          description: Removed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No such policy.
+
+  /api/v1/accounts/{account_id}/inclamo/sla_policies/reorder:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    post:
+      tags: [SLA]
+      operationId: inclamoSlaPoliciesReorder
+      summary: Put the policies in a new order
+      description: The first policy that covers a conversation applies.
+      x-required-role: administrator
+      x-notes: How an incomplete or foreign list of ids is answered is decided by Inclamo::SlaPolicy.reorder!; not restated here.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        '200':
+          description: The policies in their new order.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policies]
+                properties:
+                  policies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SlaPolicy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+
+  /api/v1/accounts/{account_id}/inclamo/sla_policies/summary:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [SLA]
+      operationId: inclamoSlaPoliciesSummary
+      summary: Met and missed targets per policy
+      x-required-role: administrator
+      parameters:
+        - name: days
+          in: query
+          description: The period; anything else means 7.
+          schema:
+            type: integer
+            enum: [7, 30]
+            default: 7
+      responses:
+        '200':
+          description: The summary.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [days, policies]
+                properties:
+                  days:
+                    type: integer
+                  policies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SlaSummaryRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+
+  /api/v1/accounts/{account_id}/inclamo/conversations/{conversation_id}/sla:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [SLA]
+      operationId: inclamoConversationSla
+      summary: The SLA timer of a conversation
+      description: '`pending`: no timer yet, but a policy covers the conversation; ask again shortly.'
+      responses:
+        '200':
+          description: The timer.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timer, pending]
+                properties:
+                  timer:
+                    oneOf:
+                      - $ref: '#/components/schemas/SlaTimer'
+                      - type: 'null'
+                  pending:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{account_id}/inclamo/conversation_slas:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [SLA]
+      operationId: inclamoConversationSlaBatch
+      summary: The SLA timers of several conversations
+      description: |
+        For the badges of a conversation list. A conversation the member may
+        not see, or that is not the account's, is left out.
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: Display ids, separated by commas (or `ids[]=` repeated). At most 100.
+          schema:
+            type: string
+            examples: ['101,102,103']
+      responses:
+        '200':
+          description: The timers.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timers, pending]
+                properties:
+                  timers:
+                    type: object
+                    description: Per display id (as a string key), the timer or null.
+                    additionalProperties:
+                      oneOf:
+                        - $ref: '#/components/schemas/SlaTimer'
+                        - type: 'null'
+                  pending:
+                    type: array
+                    description: Display ids whose timer is still being applied.
+                    items:
+                      type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: '`too_many_ids`, with `limit`.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    const: too_many_ids
+                  limit:
+                    type: integer
+                    examples: [100]
+
+  # ─────────────────────────── Shopper requests ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/shopper_requests/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ShopperRequestId'
+    get:
+      tags: [Shopper requests]
+      operationId: inclamoShopperRequestShow
+      summary: The ticket card of a request about one shopper
+      x-required-role: administrator
+      responses:
+        '200':
+          $ref: '#/components/responses/ShopperRequestCard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No such request in the account.
+
+  /api/v1/accounts/{account_id}/inclamo/shopper_requests/{id}/delete:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ShopperRequestId'
+    post:
+      tags: [Shopper requests]
+      operationId: inclamoShopperRequestErase
+      summary: Delete the shopper's data now
+      description: For an erasure that is waiting or held.
+      x-required-role: administrator
+      responses:
+        '200':
+          $ref: '#/components/responses/ShopperRequestCard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No such request in the account.
+        '409':
+          $ref: '#/components/responses/ShopperRequestWrongState'
+        '503':
+          $ref: '#/components/responses/ShopperRequestNotDone'
+
+  /api/v1/accounts/{account_id}/inclamo/shopper_requests/{id}/hold:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ShopperRequestId'
+    post:
+      tags: [Shopper requests]
+      operationId: inclamoShopperRequestHold
+      summary: Stop the automatic deletion
+      description: For an erasure that is waiting. A reason is required.
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/ShopperRequestCard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No such request in the account.
+        '409':
+          $ref: '#/components/responses/ShopperRequestWrongState'
+        '422':
+          description: '`reason_missing`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+        '503':
+          $ref: '#/components/responses/ShopperRequestNotDone'
+
+  /api/v1/accounts/{account_id}/inclamo/shopper_requests/{id}/lift:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ShopperRequestId'
+    post:
+      tags: [Shopper requests]
+      operationId: inclamoShopperRequestLift
+      summary: Let the automatic deletion run on its date again
+      description: For an erasure that is held.
+      x-required-role: administrator
+      responses:
+        '200':
+          $ref: '#/components/responses/ShopperRequestCard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No such request in the account.
+        '409':
+          $ref: '#/components/responses/ShopperRequestWrongState'
+        '503':
+          $ref: '#/components/responses/ShopperRequestNotDone'
+
+  /api/v1/accounts/{account_id}/inclamo/shopper_requests/{id}/answered:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ShopperRequestId'
+    post:
+      tags: [Shopper requests]
+      operationId: inclamoShopperRequestAnswered
+      summary: The team has answered the shopper's data request
+      description: For a data request that is waiting.
+      x-required-role: administrator
+      responses:
+        '200':
+          $ref: '#/components/responses/ShopperRequestCard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/OverlayForbidden'
+        '404':
+          description: No such request in the account.
+        '409':
+          $ref: '#/components/responses/ShopperRequestWrongState'
+        '503':
+          $ref: '#/components/responses/ShopperRequestNotDone'
+
+  # ─────────────────────────── AI agent connection ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/ai/connection:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [AI agent connection]
+      operationId: inclamoAiConnectionShow
+      summary: The AI agent connection
+      description: No answer carries the bot's token or secret, the code, or a conversation's content.
+      x-required-role: administrator
+      responses:
+        '200':
+          $ref: '#/components/responses/AiConnection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/AiConnectionError'
+    post:
+      tags: [AI agent connection]
+      operationId: inclamoAiConnectionCreate
+      summary: Connect the AI agent with a connection code
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [connection_code]
+              properties:
+                connection_code:
+                  type: string
+                  description: The code the AI service issued, `aic1.<base64url>`.
+                inbox_ids:
+                  type: array
+                  description: The inboxes the agent answers in.
+                  items:
+                    type: integer
+      responses:
+        '201':
+          $ref: '#/components/responses/AiConnection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/AiConnectionError'
+        '409':
+          $ref: '#/components/responses/AiConnectionError'
+        '422':
+          $ref: '#/components/responses/AiConnectionRefused'
+        '500':
+          $ref: '#/components/responses/AiConnectionError'
+        '502':
+          $ref: '#/components/responses/AiConnectionError'
+    patch:
+      tags: [AI agent connection]
+      operationId: inclamoAiConnectionUpdate
+      summary: Change the inboxes the agent answers in
+      description: |
+        The whole list after the change, possibly empty. The AI service is
+        told first. Also accepted as `PUT`.
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inbox_ids]
+              properties:
+                inbox_ids:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+      responses:
+        '200':
+          $ref: '#/components/responses/AiConnection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/AiConnectionError'
+        '404':
+          $ref: '#/components/responses/AiConnectionError'
+        '409':
+          $ref: '#/components/responses/AiConnectionError'
+        '422':
+          $ref: '#/components/responses/AiConnectionRefused'
+        '500':
+          $ref: '#/components/responses/AiConnectionError'
+        '502':
+          $ref: '#/components/responses/AiConnectionError'
+    delete:
+      tags: [AI agent connection]
+      operationId: inclamoAiConnectionDestroy
+      summary: Disconnect the AI agent
+      x-required-role: administrator
+      responses:
+        '200':
+          description: The connection after the disconnection; `ai_service_told` says whether the AI service was told.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/AiConnection'
+                  - type: object
+                    required: [ai_service_told]
+                    properties:
+                      ai_service_told:
+                        type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/AiConnectionError'
+        '404':
+          $ref: '#/components/responses/AiConnectionError'
+        '409':
+          $ref: '#/components/responses/AiConnectionError'
+
+  # ─────────────────────────── AI policies ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/ai_policies:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    get:
+      tags: [AI policies]
+      operationId: inclamoAiPoliciesIndex
+      summary: The AI agent's policy per action
+      x-required-role: administrator
+      responses:
+        '200':
+          $ref: '#/components/responses/AiPolicies'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenEmpty'
+
+  /api/v1/accounts/{account_id}/inclamo/ai_policies/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - name: id
+        in: path
+        required: true
+        description: The action.
+        schema:
+          $ref: '#/components/schemas/ActionName'
+    patch:
+      tags: [AI policies]
+      operationId: inclamoAiPoliciesUpdate
+      summary: Set the policy of one action
+      description: |
+        `autonomous` needs limits: a maximum amount in the store's currency for
+        actions that move money, allowed fulfillment states for order
+        actions, a maximum percentage for `discount`. Also accepted as `PUT`.
+      x-required-role: administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode:
+                  $ref: '#/components/schemas/AiPolicyMode'
+                limits:
+                  $ref: '#/components/schemas/AiPolicyLimits'
+      responses:
+        '200':
+          $ref: '#/components/responses/AiPolicies'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenEmpty'
+        '404':
+          description: Unknown action.
+        '422':
+          description: '`invalid_policy` with the validation messages.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+
+  # ─────────────────────────── AI proposals ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/conversations/{conversation_id}/ai_proposals:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [AI proposals]
+      operationId: inclamoAiProposalsIndex
+      summary: The AI agent's proposals in a conversation
+      description: The 30 newest.
+      responses:
+        '200':
+          description: The proposals.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [proposals]
+                properties:
+                  proposals:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AiProposal'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{account_id}/inclamo/conversations/{conversation_id}/ai_proposals/{id}/approve:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+      - $ref: '#/components/parameters/AiProposalId'
+    post:
+      tags: [AI proposals]
+      operationId: inclamoAiProposalsApprove
+      summary: Approve a proposal and carry it out
+      description: '`review_digest` is the one the member reviewed; a proposal changed since is refused.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [review_digest]
+              properties:
+                review_digest:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/AiProposalResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/AiProposalNotAllowed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AiProposalRefused'
+        '502':
+          $ref: '#/components/responses/StoreUnavailable'
+
+  /api/v1/accounts/{account_id}/inclamo/conversations/{conversation_id}/ai_proposals/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+      - $ref: '#/components/parameters/AiProposalId'
+    post:
+      tags: [AI proposals]
+      operationId: inclamoAiProposalsReject
+      summary: Reject a proposal
+      responses:
+        '200':
+          $ref: '#/components/responses/AiProposalResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/AiProposalNotAllowed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AiProposalRefused'
+
+  /api/v1/accounts/{account_id}/inclamo/conversations/{conversation_id}/ai_proposals/{id}/refresh:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+      - $ref: '#/components/parameters/AiProposalId'
+    post:
+      tags: [AI proposals]
+      operationId: inclamoAiProposalsRefresh
+      summary: Read the store again for a proposal's summary
+      responses:
+        '200':
+          $ref: '#/components/responses/AiProposalResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/AiProposalNotAllowed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AiProposalRefused'
+        '502':
+          $ref: '#/components/responses/StoreUnavailable'
+
+  /api/v1/accounts/{account_id}/inclamo/conversations/{conversation_id}/ai_proposals/{id}/verify_identity:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+      - $ref: '#/components/parameters/AiProposalId'
+    post:
+      tags: [AI proposals]
+      operationId: inclamoAiProposalsVerifyIdentity
+      summary: Record that the member verified the shopper's identity
+      responses:
+        '200':
+          $ref: '#/components/responses/AiProposalResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/AiProposalNotAllowed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AiProposalRefused'
+        '502':
+          $ref: '#/components/responses/StoreUnavailable'
+
+  # ─────────────────────────── AI agent connector ───────────────────────────
+  /api/v1/accounts/{account_id}/inclamo/ai/conversations/{conversation_id}/messages:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [AI agent connector]
+      operationId: inclamoAiConversationMessages
+      summary: A conversation's public history with its files
+      description: The last public messages, oldest first. Private notes, activity and template messages are left out.
+      security:
+        - agentBotApiKey: []
+        - agentBotBearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+      responses:
+        '200':
+          description: The history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiHistory'
+        '401':
+          $ref: '#/components/responses/AiAgentUnauthorized'
+        '403':
+          $ref: '#/components/responses/AiAgentForbidden'
+
+  /api/v1/accounts/{account_id}/inclamo/ai/conversations/{conversation_id}/reply:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    post:
+      tags: [AI agent connector]
+      operationId: inclamoAiConversationReply
+      summary: Post the agent's reply, only while the conversation is Pending
+      description: |
+        Checked and saved under the conversation's lock: the reply is either
+        posted before a person's take-over or refused with `409`, and never
+        appears after it. On `409` the turn did not happen.
+      security:
+        - agentBotApiKey: []
+        - agentBotBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+      responses:
+        '201':
+          description: Posted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, created_at]
+                properties:
+                  id:
+                    type: integer
+                  created_at:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/AiAgentUnauthorized'
+        '403':
+          $ref: '#/components/responses/AiAgentForbidden'
+        '409':
+          description: '`conversation_not_pending`, with the conversation''s `status`. Nothing was posted.'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OverlayError'
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        examples: [open]
+        '422':
+          description: '`empty_reply`, or `invalid_request` when Chatwoot refused the message.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayError'
+
+  /api/v1/accounts/{account_id}/inclamo/ai/conversations/{conversation_id}/labels:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    post:
+      tags: [AI agent connector]
+      operationId: inclamoAiConversationLabels
+      summary: Add `inclamo_` labels, keeping every other label
+      security:
+        - agentBotApiKey: []
+        - agentBotBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [add]
+              properties:
+                add:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items:
+                    type: string
+                    pattern: '^inclamo_'
+                    maxLength: 100
+      responses:
+        '200':
+          description: The conversation's full list of labels.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [labels]
+                properties:
+                  labels:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/AiAgentUnauthorized'
+        '403':
+          $ref: '#/components/responses/AiAgentForbidden'
+        '422':
+          description: '`no_labels`, `too_many_labels` or `invalid_label` (with up to five `invalid` names). Nothing was added.'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OverlayError'
+                  - type: object
+                    properties:
+                      invalid:
+                        type: array
+                        items:
+                          type: string
+
+  /api/v1/accounts/{account_id}/inclamo/ai/conversations/{conversation_id}/orders:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [AI agent connector]
+      operationId: inclamoAiConversationOrders
+      summary: The matched customer, their orders and the AI policies
+      security:
+        - agentBotApiKey: []
+        - agentBotBearerAuth: []
+      responses:
+        '200':
+          description: What the agent may act on.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [customer, orders, policies, identity_verified]
+                properties:
+                  customer:
+                    $ref: '#/components/schemas/CustomerCandidate'
+                  orders:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+                  policies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AiPolicy'
+                  identity_verified:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/AiAgentUnauthorized'
+        '403':
+          $ref: '#/components/responses/AiAgentForbidden'
+        '409':
+          $ref: '#/components/responses/AiProposalRefused'
+        '502':
+          $ref: '#/components/responses/StoreUnavailable'
+
+  /api/v1/accounts/{account_id}/inclamo/ai/conversations/{conversation_id}/proposals:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+    post:
+      tags: [AI agent connector]
+      operationId: inclamoAiConversationPropose
+      summary: Propose an order action
+      description: |
+        `request_id` is the agent's key; the same request again answers the
+        proposal already made, a different one under a used key is
+        `409 request_id_taken`.
+      security:
+        - agentBotApiKey: []
+        - agentBotBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action_name, request_id]
+              properties:
+                action_name:
+                  $ref: '#/components/schemas/ActionName'
+                request_id:
+                  type: string
+                  pattern: '^[A-Za-z0-9-]{8,64}$'
+                order_id:
+                  type: string
+                customer_id:
+                  type: string
+                note:
+                  type: string
+                address:
+                  type: object
+                  additionalProperties: true
+                params:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '201':
+          $ref: '#/components/responses/AiProposalCreated'
+        '401':
+          $ref: '#/components/responses/AiAgentUnauthorized'
+        '403':
+          $ref: '#/components/responses/AiAgentForbidden'
+        '409':
+          $ref: '#/components/responses/AiProposalRefused'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '502':
+          $ref: '#/components/responses/StoreUnavailable'
+
+  /api/v1/accounts/{account_id}/inclamo/ai/conversations/{conversation_id}/proposals/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+      - $ref: '#/components/parameters/AiProposalId'
+    get:
+      tags: [AI agent connector]
+      operationId: inclamoAiConversationProposal
+      summary: One of the agent's proposals
+      security:
+        - agentBotApiKey: []
+        - agentBotBearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/AiProposalResult'
+        '401':
+          $ref: '#/components/responses/AiAgentUnauthorized'
+        '403':
+          $ref: '#/components/responses/AiAgentForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{account_id}/inclamo/ai/conversations/{conversation_id}/proposals/{id}/execute:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/ConversationId'
+      - $ref: '#/components/parameters/AiProposalId'
+    post:
+      tags: [AI agent connector]
+      operationId: inclamoAiConversationExecute
+      summary: Carry out a proposal on the agent's own authority
+      description: Only within an `autonomous` policy and its limits.
+      security:
+        - agentBotApiKey: []
+        - agentBotBearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/AiProposalResult'
+        '401':
+          $ref: '#/components/responses/AiAgentUnauthorized'
+        '403':
+          $ref: '#/components/responses/AiAgentForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AiProposalRefused'
+        '422':
+          $ref: '#/components/responses/InvalidRequest'
+        '502':
+          $ref: '#/components/responses/StoreUnavailable'
+
+  /api/v1/accounts/{account_id}/inclamo/calls:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+    post:
+      tags: [AI agent connector]
+      operationId: inclamoAiCallFile
+      summary: File a finished call of the AI phone agent
+      description: |
+        Files the call as a resolved conversation of the account's Phone inbox
+        on the caller's contact: the turns as messages, the record as a
+        private note (docs/ai-connector-calls.md). The same `call_id` again
+        answers `200` with the conversation filed before. Card numbers are
+        masked; a refusal never repeats a part of the call.
+      security:
+        - agentBotApiKey: []
+        - agentBotBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallFiling'
+      responses:
+        '200':
+          $ref: '#/components/responses/CallFiled'
+        '201':
+          $ref: '#/components/responses/CallFiled'
+        '401':
+          $ref: '#/components/responses/AiAgentUnauthorized'
+        '409':
+          description: '`not_connected`: the AI agent is not connected, or the Phone inbox is gone.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallRefusal'
+        '422':
+          description: '`invalid_call`, `invalid_label` or `too_large`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallRefusal'
+
+components:
+  securitySchemes:
+    userApiKey:
+      type: apiKey
+      in: header
+      name: api_access_token
+      description: A user's access token from **Profile Settings** (Chatwoot's scheme of the same name).
+    userBearerAuth:
+      type: http
+      scheme: bearer
+      description: 'The same user access token as `Authorization: Bearer <token>` (Chatwoot v4.19.0 and later).'
+    agentBotApiKey:
+      type: apiKey
+      in: header
+      name: api_access_token
+      description: The agent bot token of the account's connected AI agent. Only the AI agent connector paths accept it.
+    agentBotBearerAuth:
+      type: http
+      scheme: bearer
+      description: 'The connected AI agent''s bot token as `Authorization: Bearer <token>`.'
+    sessionAccessToken:
+      type: apiKey
+      in: header
+      name: access-token
+      description: Dashboard session (DeviseTokenAuth), sent together with `client` and `uid`.
+    sessionClient:
+      type: apiKey
+      in: header
+      name: client
+      description: Dashboard session (DeviseTokenAuth).
+    sessionUid:
+      type: apiKey
+      in: header
+      name: uid
+      description: Dashboard session (DeviseTokenAuth).
+
+  headers:
+    NoStore:
+      description: '`no-store`'
+      schema:
+        type: string
+
+  parameters:
+    AccountId:
+      name: account_id
+      in: path
+      required: true
+      description: The account's numeric id.
+      schema:
+        type: integer
+    ConversationId:
+      name: conversation_id
+      in: path
+      required: true
+      description: The conversation's display id (the number in the dashboard's address).
+      schema:
+        type: integer
+    WebWidgetInboxId:
+      name: id
+      in: path
+      required: true
+      description: The id of a web widget inbox.
+      schema:
+        type: integer
+    SupportRequestId:
+      name: id
+      in: path
+      required: true
+      description: The request's `reference`.
+      schema:
+        type: string
+        format: uuid
+    SupportFileId:
+      name: file_id
+      in: path
+      required: true
+      description: The file's id or `reference` as the request lists it.
+      schema:
+        type: string
+    MemberUserId:
+      name: id
+      in: path
+      required: true
+      description: The member's user id.
+      schema:
+        type: integer
+    TeamQueueId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    ShopperRequestId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    AiProposalId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  requestBodies:
+    OrderPreview:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [order_id]
+            properties:
+              order_id:
+                type: string
+              params:
+                type: object
+                additionalProperties: true
+
+  responses:
+    Unauthorized:
+      description: Not signed in, not a member of the account, the account is suspended, or Chatwoot's policy refused the record.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ChatwootError'
+    NotFound:
+      description: No such record in the account (Chatwoot's answer, or an empty body).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ChatwootError'
+    ForbiddenEmpty:
+      description: Not an administrator of the account (empty body).
+    OverlayForbidden:
+      description: '`forbidden` (or `not_allowed`) with a message.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OverlayError'
+    InvalidRequest:
+      description: '`invalid_request`.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OverlayError'
+    StoreUnavailable:
+      description: '`store_unavailable`: the store did not answer.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OverlayError'
+    StoreUnreachable:
+      description: '`store_unreachable`, with `reason`.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OverlayError'
+    StoreRefusalForbidden:
+      description: '`not_allowed`: the member lacks the right.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StoreRefusal'
+    StoreRefusalInvalid:
+      description: The action is refused (for example `unknown_order`, `store_refused`, `missing_scope`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StoreRefusal'
+    StoreRefusalGateway:
+      description: '`store_unreachable`, with `reason`.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StoreRefusal'
+    LayoutConflict:
+      description: '`layout_conflict`: the revision changed since it was read.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ChatwootError'
+    LayoutInvalid:
+      description: The layout is refused; `error` names why (`invalid_layout`, `unknown_widget`, `invalid_target`, …).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ChatwootError'
+    SupportInvalid:
+      description: The request is refused; `error` names why (`invalid_file`, `invalid_reference`, `file_count`, `invalid_files`, `invalid_cursor`, `invalid_request`, …).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ChatwootError'
+    SupportConflict:
+      description: '`submission_conflict`: the `uuid` is taken by a different submission.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ChatwootError'
+    SupportRateLimited:
+      description: '`rate_limited`.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ChatwootError'
+    SupportUnavailable:
+      description: '`support_unavailable`: Inclamo support did not answer.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ChatwootError'
+    SafeDownload:
+      description: 'The file, as an attachment download with `X-Content-Type-Options: nosniff`, `Cache-Control: private, no-store` and a sandboxing `Content-Security-Policy`.'
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            contentMediaType: application/octet-stream
+    OrderRoleMembers:
+      description: Every member with their order rights.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [members]
+            properties:
+              members:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderRoleMember'
+    DiscountGrantMembers:
+      description: Every member with whether they may give discounts.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [members]
+            properties:
+              members:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DiscountGrantMember'
+    OrderPanel:
+      description: The "Orders" section.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OrderPanel'
+    OrderActionResult:
+      description: The attempt.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OrderAction'
+    DiscountPresetSaved:
+      description: The preset and every preset.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [preset, presets]
+            properties:
+              preset:
+                $ref: '#/components/schemas/DiscountPreset'
+              presets:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DiscountPreset'
+    DiscountPresetInvalid:
+      description: '`invalid`, with the error codes per field.'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error, fields]
+            properties:
+              error:
+                const: invalid
+              fields:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+    RulePresets:
+      description: The presets.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RulePresets'
+    TeamQueues:
+      description: The queues.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TeamQueueListing'
+    SlaPolicySaved:
+      description: The policy.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [policy]
+            properties:
+              policy:
+                $ref: '#/components/schemas/SlaPolicy'
+    SlaPolicyInvalid:
+      description: '`invalid`, with messages and the fields at fault.'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error, messages, fields]
+            properties:
+              error:
+                const: invalid
+              messages:
+                type: array
+                items:
+                  type: string
+              fields:
+                type: array
+                items:
+                  type: string
+    ShopperRequestCard:
+      description: The ticket card.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ShopperRequestCard'
+    ShopperRequestWrongState:
+      description: '`wrong_state`: the request is not in a state that allows this; `state` is its state.'
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                const: wrong_state
+              state:
+                type: string
+    ShopperRequestNotDone:
+      description: '`not_done`: the journal could not be written, nothing was done.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ChatwootError'
+    AiConnection:
+      description: The connection.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AiConnection'
+    AiConnectionError:
+      description: |
+        `forbidden` (403), `not_connected` (404), `already_connected` or `busy`
+        (409), `not_applied` (500: the AI service accepted a change the
+        helpdesk could not apply), `not_answered` (502), or another code (422).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OverlayError'
+    AiConnectionRefused:
+      description: '`refused` by the AI service (with its `service_error`), `invalid_inbox`, or another code.'
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/OverlayError'
+              - type: object
+                properties:
+                  service_error: {}
+    AiPolicies:
+      description: The policies.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [policies, currency, allowed_states]
+            properties:
+              policies:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AiPolicy'
+              currency:
+                type: [string, 'null']
+                description: The connected store's currency.
+              allowed_states:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FulfillmentState'
+    AiProposalResult:
+      description: The proposal.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AiProposal'
+    AiProposalCreated:
+      description: The proposal.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AiProposal'
+    AiProposalNotAllowed:
+      description: '`not_allowed`: the member may not carry out this action.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ChatwootError'
+    AiProposalRefused:
+      description: The order authority refused; `error` names why (for example `already_decided`, `request_id_taken`, `not_connected`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ChatwootError'
+    AiAgentUnauthorized:
+      description: '`unauthorized`: not the connected AI agent''s bot token.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OverlayError'
+    AiAgentForbidden:
+      description: '`forbidden`: the conversation does not exist or is outside the connected inboxes.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OverlayError'
+    CallFiled:
+      description: '`201` filed now, `200` filed before under the same `call_id`.'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [conversation_id, contact_id, found, matched_by, labels_added]
+            properties:
+              conversation_id:
+                type: integer
+                description: The conversation's display id.
+              contact_id:
+                type: integer
+              found:
+                type: boolean
+                description: The call was filed before.
+              matched_by:
+                type: string
+                enum: [phone, email, created, anonymous, ambiguous]
+              labels_added:
+                type: array
+                items:
+                  type: string
+
+  schemas:
+    ChatwootError:
+      type: object
+      properties:
+        error:
+          type: string
+    OverlayError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: A stable code.
+        message:
+          type: string
+          description: A sentence for a person, in the member's language.
+        reason:
+          type: string
+      additionalProperties: true
+    StoreRefusal:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: The refusal code (`not_allowed`, `store_refused`, `store_unreachable`, `unknown_order`, …).
+        message:
+          type: string
+        reason:
+          type: string
+          description: For `store_unreachable`, what went wrong (`timeout`, `throttled`, …).
+    Health:
+      type: object
+      required: [status, failing, overlay_version, chatwoot_version]
+      properties:
+        status:
+          type: string
+          enum: [ok, failing]
+        failing:
+          type: array
+          items:
+            type: string
+            enum: [database, redis, workers, backup, restore_test, disk]
+        overlay_version:
+          type: string
+        chatwoot_version:
+          type: string
+    ActionName:
+      type: string
+      enum: [address, edit_items, cancel, refund, new_order, replacement, discount, order_tags, order_note, customer_tags, customer_note]
+    Permissions:
+      type: object
+      description: Per action, whether the member may perform it. Administrators have every right.
+      properties:
+        address: {type: boolean}
+        edit_items: {type: boolean}
+        cancel: {type: boolean}
+        refund: {type: boolean}
+        new_order: {type: boolean}
+        replacement: {type: boolean}
+        discount: {type: boolean}
+        order_tags: {type: boolean}
+        order_note: {type: boolean}
+        customer_tags: {type: boolean}
+        customer_note: {type: boolean}
+    Money:
+      type: object
+      properties:
+        amount:
+          type: [string, 'null']
+          examples: ['19.99']
+        currency:
+          type: [string, 'null']
+          examples: [EUR]
+    Page:
+      type: object
+      required: [has_more, cursor]
+      properties:
+        has_more:
+          type: boolean
+        cursor:
+          type: [string, 'null']
+    MemberBase:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [agent, administrator]
+        switchable:
+          type: boolean
+          description: False for administrators, who act by their role.
+        granted_at:
+          type: [string, 'null']
+          format: date-time
+    OrderRoleMember:
+      allOf:
+        - $ref: '#/components/schemas/MemberBase'
+        - type: object
+          properties:
+            can_act:
+              type: boolean
+            permissions:
+              $ref: '#/components/schemas/Permissions'
+    DiscountGrantMember:
+      allOf:
+        - $ref: '#/components/schemas/MemberBase'
+        - type: object
+          properties:
+            can_give:
+              type: boolean
+    SetupOverview:
+      type: object
+      properties:
+        checks:
+          type: object
+          properties:
+            store: {type: boolean}
+            channels: {type: boolean}
+            staff: {type: boolean}
+            ai: {type: boolean}
+        review_digests:
+          type: object
+          properties:
+            staff:
+              type: string
+            ai:
+              type: string
+        ready:
+          type: boolean
+        complete:
+          type: boolean
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+        store:
+          type: [object, 'null']
+          properties:
+            domain:
+              type: string
+            state:
+              type: string
+              enum: [working, broken]
+            checked_at:
+              type: [string, 'null']
+              format: date-time
+        channels:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+        members_count:
+          type: integer
+        ai_connected:
+          type: boolean
+        ai_state:
+          type: [string, 'null']
+        managed_by_app:
+          type: boolean
+        through_app:
+          type: boolean
+        order_actions:
+          type: array
+          description: The ten latest accepted order actions.
+          items:
+            type: object
+            properties:
+              action:
+                $ref: '#/components/schemas/ActionName'
+              order_number:
+                type: [string, 'null']
+              completed_at:
+                type: [string, 'null']
+                format: date-time
+              conversation_id:
+                type: [integer, 'null']
+    WorkspaceLayout:
+      type: object
+      required: [schema_version, placements]
+      additionalProperties: false
+      properties:
+        schema_version:
+          type: integer
+          examples: [1]
+        placements:
+          type: object
+          additionalProperties: false
+          required: [conversation-sidebar, workspace-header]
+          properties:
+            conversation-sidebar:
+              $ref: '#/components/schemas/WorkspacePlacement'
+            workspace-header:
+              $ref: '#/components/schemas/WorkspacePlacement'
+    WorkspacePlacement:
+      type: array
+      maxItems: 50
+      items:
+        type: object
+        required: [id, collapsed]
+        additionalProperties: false
+        properties:
+          id:
+            type: string
+            description: A widget id of custom/config/workspace_widgets.json (customer-profile, purchase-statistics, orders, sla-overview, notifications).
+          collapsed:
+            type: boolean
+    WorkspaceLayoutRead:
+      type: object
+      required: [layout, revision, source, unavailable]
+      properties:
+        layout:
+          $ref: '#/components/schemas/WorkspaceLayout'
+        revision:
+          type: string
+          examples: ['3:1']
+        source:
+          type: string
+          enum: [personal, account, product]
+        unavailable:
+          type: array
+          description: Widget ids in the layout this installation does not have.
+          items:
+            type: string
+    WorkspaceAdministration:
+      type: object
+      required: [layout, revision, members]
+      properties:
+        layout:
+          $ref: '#/components/schemas/WorkspaceLayout'
+        revision:
+          type: string
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              user_id:
+                type: integer
+              name:
+                type: string
+              role:
+                type: string
+    WidgetSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        position:
+          type: string
+          enum: [left, right]
+        type:
+          type: string
+          enum: [standard, expanded_bubble]
+        icon:
+          type: string
+          enum: [chat, message, help, custom]
+        theme:
+          type: string
+          enum: [light, dark, auto]
+        language_mode:
+          type: string
+          enum: [fixed, browser]
+        launcher_title:
+          type: string
+          maxLength: 60
+        offset_x:
+          type: integer
+          minimum: 0
+          maximum: 160
+        offset_y:
+          type: integer
+          minimum: 0
+          maximum: 160
+        locale:
+          type: string
+        visibility:
+          type: object
+          required: [mode, rules]
+          properties:
+            mode:
+              type: string
+              enum: [all, include, exclude]
+            rules:
+              type: array
+              maxItems: 20
+              items:
+                type: object
+                properties:
+                  path:
+                    type: string
+                    maxLength: 512
+                  match:
+                    type: string
+                    enum: [exact, prefix]
+        starters:
+          type: array
+          maxItems: 30
+          description: At most six enabled.
+          items:
+            type: object
+            required: [id, label, message, enabled]
+            properties:
+              id:
+                type: string
+                maxLength: 80
+              label:
+                type: string
+                maxLength: 60
+              message:
+                type: string
+                maxLength: 500
+              enabled:
+                type: boolean
+        links:
+          type: array
+          maxItems: 30
+          description: At most six enabled.
+          items:
+            type: object
+            required: [id, label, kind, enabled]
+            properties:
+              id:
+                type: string
+                maxLength: 80
+              label:
+                type: string
+                maxLength: 60
+              kind:
+                type: string
+                enum: [article, url]
+              url:
+                type: string
+                format: uri
+                description: 'HTTPS, for `kind: url`.'
+              article_id:
+                type: integer
+                description: 'A published article of the inbox''s portal, for `kind: article`.'
+              enabled:
+                type: boolean
+    WidgetNative:
+      type: object
+      description: Chatwoot's own inbox and channel fields the editor also changes.
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        portal_id:
+          type: [integer, 'null']
+        widget_color:
+          type: string
+          pattern: '^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$'
+        welcome_title:
+          type: [string, 'null']
+          maxLength: 120
+        welcome_tagline:
+          type: [string, 'null']
+          maxLength: 255
+        reply_time:
+          type: string
+    WidgetImageUpload:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: string
+          contentEncoding: base64
+          description: PNG, JPEG, WebP or SVG (sanitized), at most 1 MB and 4096×4096 px. SVG only for the icon.
+    WebsiteWidgetPublication:
+      type: object
+      required: [revision, settings]
+      additionalProperties: false
+      properties:
+        revision:
+          type: string
+        settings:
+          $ref: '#/components/schemas/WidgetSettings'
+        native:
+          $ref: '#/components/schemas/WidgetNative'
+        icon_image:
+          $ref: '#/components/schemas/WidgetImageUpload'
+        remove_icon:
+          type: boolean
+        avatar_image:
+          $ref: '#/components/schemas/WidgetImageUpload'
+        remove_avatar:
+          type: boolean
+    WebsiteWidgetConfiguration:
+      type: object
+      x-notes: '`public` is the configuration the website sees (the settings with only enabled starters and links, links resolved to URLs, and `icon_url`); `channel` is the camelCase preview config the widget script reads.'
+      properties:
+        revision:
+          type: string
+          description: SHA-256 fingerprint of the published values; send it back to publish.
+        settings:
+          $ref: '#/components/schemas/WidgetSettings'
+        native:
+          $ref: '#/components/schemas/WidgetNative'
+        avatar_url:
+          type: [string, 'null']
+        icon_url:
+          type: [string, 'null']
+        public:
+          type: object
+          additionalProperties: true
+        website_token:
+          type: string
+        portals:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              slug:
+                type: string
+              config:
+                type: [object, 'null']
+        articles:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              title:
+                type: string
+              portal_id:
+                type: integer
+              slug:
+                type: string
+        locales:
+          type: array
+          items:
+            type: string
+        channel:
+          type: object
+          additionalProperties: true
+    SupportSubmission:
+      type: object
+      required: [uuid]
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        body:
+          type: string
+        files:
+          type: array
+          maxItems: 5
+          description: '`reference`s of staged uploads, at most 24 hours old.'
+          items:
+            type: string
+    SupportFile:
+      type: object
+      properties:
+        reference:
+          type: string
+        filename:
+          type: string
+        size:
+          type: integer
+        type:
+          type: string
+          description: Content type.
+    SupportRequest:
+      type: object
+      properties:
+        reference:
+          type: string
+          format: uuid
+        author:
+          type: object
+          properties:
+            name:
+              type: string
+            administrator:
+              type: boolean
+        category:
+          type: string
+          enum: [problem, question, suggestion]
+        status:
+          type: string
+          description: The status of the request at Inclamo support (open, pending, resolved, snoozed).
+        created_at:
+          type: string
+          format: date-time
+        context:
+          type: object
+          additionalProperties: true
+        unread:
+          type: boolean
+        preview:
+          type: string
+          maxLength: 160
+        delivery:
+          type: [string, 'null']
+          enum: [failed, attachments_pending, queued, delivered, null]
+        can_verify_email:
+          type: boolean
+        notifications_enabled:
+          type: boolean
+    SupportRequestDetail:
+      allOf:
+        - $ref: '#/components/schemas/SupportRequest'
+        - type: object
+          properties:
+            last_reply_id:
+              type: integer
+            messages:
+              type: array
+              x-notes: '`actor` and the file entries come from Inclamo support; each file gets a download `url`.'
+              items:
+                type: object
+                properties:
+                  id: {}
+                  submission_uuid:
+                    type: [string, 'null']
+                  body:
+                    type: string
+                  actor: {}
+                  direction:
+                    type: string
+                  sent_at:
+                    type: string
+                    format: date-time
+                  files:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                      additionalProperties: true
+            submissions:
+              type: array
+              items:
+                type: object
+                properties:
+                  uuid:
+                    type: string
+                  body:
+                    type: string
+                  actor:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      administrator:
+                        type: boolean
+                  state:
+                    type: string
+                  error:
+                    type: [string, 'null']
+                  created_at:
+                    type: string
+                    format: date-time
+                  files:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/SupportFile'
+                        - type: object
+                          properties:
+                            url:
+                              type: string
+    Viewer:
+      type: object
+      properties:
+        administrator:
+          type: boolean
+        can_act_on_orders:
+          type: boolean
+        permissions:
+          $ref: '#/components/schemas/Permissions'
+    ActionReport:
+      type: object
+      properties:
+        name:
+          $ref: '#/components/schemas/ActionName'
+        available:
+          type: boolean
+        reason:
+          type: [string, 'null']
+        missing_scopes:
+          type: array
+          items:
+            type: string
+    ShopifyConnectionError:
+      allOf:
+        - $ref: '#/components/schemas/OverlayError'
+        - type: object
+          properties:
+            missing_scopes:
+              type: array
+              items:
+                type: string
+    ShopifyConnection:
+      type: object
+      required: [connected, managed_by_app, through_app]
+      properties:
+        viewer:
+          $ref: '#/components/schemas/Viewer'
+        connected:
+          type: boolean
+        encryption_configured:
+          type: boolean
+          description: Only when not connected.
+        status:
+          type: string
+          enum: [working, broken]
+        shop_name:
+          type: string
+        shop_domain:
+          type: string
+        shop_currency:
+          type: string
+        auth_kind:
+          type: string
+          enum: [client_credentials, legacy_token, app_key]
+        customer_data:
+          type: string
+          enum: [full, limited]
+        scopes:
+          type: array
+          items:
+            type: string
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionReport'
+        api_version:
+          type: string
+        last_checked_at:
+          type: [string, 'null']
+          format: date-time
+        broken_reason:
+          type: [string, 'null']
+          enum: [app_removed, account_mismatch, missing_read_scope, null]
+        renewed_at:
+          type: [string, 'null']
+          format: date-time
+        managed_by_app:
+          type: boolean
+          description: The Inclamo store app provisioned the account and manages its connection.
+        through_app:
+          type: boolean
+          description: Connecting through the store app can work now.
+    CustomerCandidate:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: [string, 'null']
+        email:
+          type: [string, 'null']
+        phone:
+          type: [string, 'null']
+        orders_count:
+          type: integer
+        total_spent:
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+    Order:
+      type: object
+      description: An order as Inclamo::Shopify::OrderPresenter presents it; values come from the store.
+      properties:
+        id:
+          type: string
+        number:
+          type: string
+          examples: ['#1042']
+        admin_url:
+          type: [string, 'null']
+        created_at:
+          type: string
+        cancelled_at:
+          type: [string, 'null']
+        cancel_reason:
+          type: [string, 'null']
+        financial_status:
+          type: [string, 'null']
+        fulfillment_status:
+          type: [string, 'null']
+        financial_status_text:
+          type: [string, 'null']
+        fulfillment_status_text:
+          type: [string, 'null']
+        return_status:
+          type: [string, 'null']
+        currency:
+          type: string
+        total:
+          $ref: '#/components/schemas/Money'
+        current_total:
+          $ref: '#/components/schemas/Money'
+        refunded:
+          $ref: '#/components/schemas/Money'
+        shipping:
+          $ref: '#/components/schemas/Money'
+        refundable:
+          $ref: '#/components/schemas/Money'
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: string}
+              title: {type: string}
+              variant: {type: ['string', 'null']}
+              sku: {type: ['string', 'null']}
+              quantity: {type: integer}
+              current_quantity: {type: integer}
+              refundable_quantity: {type: integer}
+              unfulfilled_quantity: {type: integer}
+              unit_price:
+                $ref: '#/components/schemas/Money'
+              image_url: {type: ['string', 'null']}
+        shipments:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: string}
+              status: {type: string}
+              created_at: {type: string}
+              tracking:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    company: {type: ['string', 'null']}
+                    number: {type: ['string', 'null']}
+                    url: {type: ['string', 'null']}
+        refunds:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: string}
+              created_at: {type: string}
+              note: {type: ['string', 'null']}
+              amount: {type: ['string', 'null']}
+              currency: {type: ['string', 'null']}
+        customer:
+          type: [object, 'null']
+          properties:
+            id: {type: string}
+            name: {type: ['string', 'null']}
+        shipping_address:
+          type: [object, 'null']
+          properties:
+            name: {type: ['string', 'null']}
+            first_name: {type: ['string', 'null']}
+            last_name: {type: ['string', 'null']}
+            company: {type: ['string', 'null']}
+            address1: {type: ['string', 'null']}
+            address2: {type: ['string', 'null']}
+            city: {type: ['string', 'null']}
+            province: {type: ['string', 'null']}
+            province_code: {type: ['string', 'null']}
+            zip: {type: ['string', 'null']}
+            country: {type: ['string', 'null']}
+            country_code: {type: ['string', 'null']}
+            phone: {type: ['string', 'null']}
+        tags:
+          type: array
+          items:
+            type: string
+        note:
+          type: [string, 'null']
+        actions:
+          type: object
+          description: Per order action, whether this order allows it and why not.
+          additionalProperties:
+            type: object
+            properties:
+              allowed:
+                type: boolean
+              reason:
+                type: [string, 'null']
+    PanelOrder:
+      allOf:
+        - $ref: '#/components/schemas/Order'
+        - type: object
+          properties:
+            variables:
+              type: object
+              description: The values of the order's reply variables (Inclamo::Shopify::OrderVariables).
+              additionalProperties: true
+    OrderPanel:
+      type: object
+      required: [viewer, connection, can, ai_proposals_enabled, state]
+      x-notes: |
+        `connection` is the store connection as the panel shows it (as
+        ShopifyConnection, plus `products_readable`); `awaiting_payment` lists
+        unpaid draft orders made from the helpdesk (Inclamo::Shopify::Actions::NewOrder.present_awaiting),
+        null when the store did not give them.
+      properties:
+        viewer:
+          allOf:
+            - $ref: '#/components/schemas/Viewer'
+            - type: object
+              properties:
+                can_give_discounts:
+                  type: boolean
+                discount_presets:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/DiscountPreset'
+        connection:
+          type: object
+          additionalProperties: true
+        can:
+          type: object
+          description: Which marks this member may change from the panel.
+          properties:
+            order_tags: {type: boolean}
+            order_note: {type: boolean}
+            customer_tags: {type: boolean}
+            customer_note: {type: boolean}
+            order_marks: {type: boolean}
+            customer_marks: {type: boolean}
+        ai_proposals_enabled:
+          type: boolean
+        state:
+          type: string
+          enum: [not_connected, broken, unavailable, refused, limited, no_identifier, none, ambiguous, matched]
+        reason:
+          type: string
+          description: With `unavailable` or `refused`.
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerCandidate'
+        stale_choice:
+          type: boolean
+        customer:
+          allOf:
+            - $ref: '#/components/schemas/CustomerCandidate'
+            - type: object
+              properties:
+                tags:
+                  type: array
+                  items:
+                    type: string
+                note:
+                  type: [string, 'null']
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/PanelOrder'
+        page:
+          $ref: '#/components/schemas/Page'
+        awaiting_payment:
+          type: [array, 'null']
+          items:
+            type: object
+            additionalProperties: true
+        marked_order:
+          oneOf:
+            - $ref: '#/components/schemas/PanelOrder'
+            - type: 'null'
+        open_actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderAction'
+    OrderAction:
+      type: object
+      properties:
+        action_id:
+          type: string
+        action:
+          $ref: '#/components/schemas/ActionName'
+        order_id:
+          type: [string, 'null']
+        customer_id:
+          type: [string, 'null']
+        order_number:
+          type: [string, 'null']
+        outcome:
+          type: string
+          enum: [pending, running, accepted, refused, unknown]
+        refusal:
+          type: [string, 'null']
+        store_message:
+          type: [string, 'null']
+        result:
+          type: object
+          description: |
+            What the outcome produced, by action: `new_order_number`,
+            `new_order_id`, `refunded`; for a new order `draft_id`,
+            `draft_name`, `total`, `invoice_url`, `invoice_sent`, `delivery`;
+            for a discount `code`, `discount_id`; for an items edit also
+            `difference`, `amount`, `currency`, `summary`, `invoice`,
+            `invoice_message`.
+          additionalProperties: true
+        macro_id:
+          type: [integer, 'null']
+        ai_proposal_id:
+          type: [integer, 'null']
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+    RefundPreview:
+      type: object
+      properties:
+        amount:
+          type: string
+        currency:
+          type: string
+        maximum:
+          type: string
+        destinations:
+          type: array
+          items:
+            type: object
+            properties:
+              gateway:
+                type: string
+              amount: {}
+        notify:
+          type: boolean
+        restocked_items:
+          type: integer
+        restock_locations: {}
+        left_out_items:
+          type: integer
+        missing_scopes:
+          type: array
+          items:
+            type: string
+        unplaced_items:
+          type: integer
+    EditItemsPreview:
+      type: object
+      properties:
+        currency:
+          type: string
+        total_before:
+          $ref: '#/components/schemas/Money'
+        total_after:
+          $ref: '#/components/schemas/Money'
+        balance:
+          $ref: '#/components/schemas/Money'
+        difference:
+          type: string
+          enum: [owed, due_back, none]
+        amount:
+          type: string
+        customer_email:
+          type: boolean
+          description: Whether an invoice can be emailed.
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: string}
+              title: {type: string}
+              variant: {type: ['string', 'null']}
+              quantity: {type: integer}
+              quantity_before: {type: integer}
+              editable: {type: integer}
+              restocking: {}
+              unit_price:
+                $ref: '#/components/schemas/Money'
+        added:
+          type: array
+          items:
+            type: object
+            properties:
+              title: {type: string}
+              variant: {type: ['string', 'null']}
+              quantity: {type: integer}
+              unit_price:
+                $ref: '#/components/schemas/Money'
+    NewOrderPreview:
+      type: object
+      properties:
+        currency:
+          type: string
+        taxes_included:
+          type: boolean
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              variant_id: {type: string}
+              title: {type: string}
+              sku: {type: ['string', 'null']}
+              quantity: {type: integer}
+              unit_price:
+                $ref: '#/components/schemas/NullableMoney'
+              total:
+                $ref: '#/components/schemas/NullableMoney'
+        subtotal:
+          $ref: '#/components/schemas/NullableMoney'
+        discount:
+          $ref: '#/components/schemas/NullableMoney'
+        shipping:
+          $ref: '#/components/schemas/NullableMoney'
+        tax:
+          $ref: '#/components/schemas/NullableMoney'
+        total:
+          $ref: '#/components/schemas/NullableMoney'
+        warnings:
+          type: array
+          items:
+            type: string
+    NullableMoney:
+      oneOf:
+        - $ref: '#/components/schemas/Money'
+        - type: 'null'
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        image_url:
+          type: [string, 'null']
+        online_store_url:
+          type: [string, 'null']
+          description: Null when the product is not published in the online store.
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductVariant'
+    ProductVariant:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: [string, 'null']
+          description: Null for a product with only the default variant.
+        sku:
+          type: [string, 'null']
+        price:
+          $ref: '#/components/schemas/Money'
+        available_for_sale:
+          type: boolean
+    DiscountPreset:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [percentage, amount]
+        value:
+          type: string
+          examples: ['10', '12.5']
+        expires_in_days:
+          type: [integer, 'null']
+        usage_limit:
+          type: integer
+        audience:
+          type: string
+          enum: [customer, anyone]
+    DiscountPresetInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 60
+        kind:
+          type: string
+          enum: [percentage, amount]
+        value:
+          type: [string, number]
+          description: Greater than 0, to the cent; at most 100 for a percentage.
+        expires_in_days:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 3650
+        usage_limit:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        audience:
+          type: string
+          enum: [customer, anyone]
+    RulePresets:
+      type: object
+      properties:
+        store_connected:
+          type: boolean
+        currency:
+          type: [string, 'null']
+        presets:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+                enum: [vip, not_shipped, no_orders]
+              name:
+                type: string
+              about:
+                type: string
+              needs_value:
+                type: boolean
+              'on':
+                type: boolean
+              rule_id:
+                type: [integer, 'null']
+              rule_name:
+                type: [string, 'null']
+              value:
+                type: [string, 'null']
+    TeamQueue:
+      type: object
+      properties:
+        id:
+          type: integer
+        key:
+          type: [string, 'null']
+          description: Set for the ready queues.
+        name:
+          type: string
+        position:
+          type: integer
+        hidden:
+          type: boolean
+        ready:
+          type: boolean
+        query:
+          type: object
+          description: 'The payload of Chatwoot''s conversation filter (`{"payload": [...]}`).'
+          additionalProperties: true
+        count:
+          type: [integer, 'null']
+          description: Conversations the member sees in it; null when hidden or not countable.
+    TeamQueueListing:
+      type: object
+      properties:
+        queues:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamQueue'
+        limit:
+          type: integer
+          description: The most queues that may be visible.
+          examples: [20]
+    SlaOverview:
+      type: object
+      properties:
+        queues:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              key: {type: ['string', 'null']}
+              name: {type: string}
+              total: {type: ['integer', 'null']}
+              overdue: {type: ['integer', 'null']}
+              soon: {type: ['integer', 'null']}
+              other: {type: ['integer', 'null']}
+              capped:
+                type: boolean
+                description: More unmet timers than `cap`; overdue and soon are at least what is shown.
+        totals:
+          type: object
+          properties:
+            overdue: {type: integer}
+            soon: {type: integer}
+        policies:
+          type: boolean
+          description: Whether the account has an SLA policy.
+        cap:
+          type: integer
+          examples: [2000]
+    SlaPolicy:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        position:
+          type: integer
+        first_response_seconds:
+          type: [integer, 'null']
+        resolution_seconds:
+          type: [integer, 'null']
+        business_hours_only:
+          type: boolean
+        all_inboxes:
+          type: boolean
+        inbox_ids:
+          type: array
+          items:
+            type: integer
+    SlaPolicyInput:
+      type: object
+      properties:
+        name:
+          type: string
+        first_response_seconds:
+          type: [integer, 'null']
+        resolution_seconds:
+          type: [integer, 'null']
+        business_hours_only:
+          type: boolean
+        all_inboxes:
+          type: boolean
+        inbox_ids:
+          type: array
+          items:
+            type: integer
+    SlaShare:
+      type: [object, 'null']
+      properties:
+        total: {type: integer}
+        met: {type: integer}
+        missed: {type: integer}
+        running: {type: integer}
+        met_percent: {type: ['integer', 'null']}
+    SlaSummaryRow:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        conversations:
+          type: integer
+        first_response:
+          $ref: '#/components/schemas/SlaShare'
+        resolution:
+          $ref: '#/components/schemas/SlaShare'
+    SlaTarget:
+      type: [object, 'null']
+      properties:
+        target_seconds:
+          type: integer
+        deadline_at:
+          type: [string, 'null']
+          format: date-time
+        state:
+          type: string
+          enum: [running, paused, met, missed, stopped]
+        remaining_seconds:
+          type: integer
+        took_seconds:
+          type: integer
+        over_seconds:
+          type: [integer, 'null']
+        counting:
+          type: boolean
+    SlaTimer:
+      type: object
+      properties:
+        policy_name:
+          type: string
+        business_hours_only:
+          type: boolean
+        started_at:
+          type: string
+          format: date-time
+        stopped:
+          type: boolean
+          description: The policy was deleted while a target was running.
+        next_change_at:
+          type: [string, 'null']
+          format: date-time
+          description: When to ask again.
+        first_response:
+          $ref: '#/components/schemas/SlaTarget'
+        resolution:
+          $ref: '#/components/schemas/SlaTarget'
+    ShopperRequestCard:
+      type: object
+      properties:
+        id:
+          type: integer
+        kind:
+          type: string
+          enum: [shopper_erasure, shopper_data_request]
+        state:
+          type: string
+          enum: [waiting, held, done]
+        conversation_id:
+          type: [integer, 'null']
+          description: The internal id of the ticket's conversation (not its display id).
+        received_at:
+          type: [string, 'null']
+          format: date-time
+        delete_after:
+          type: [string, 'null']
+          format: date-time
+        overdue:
+          type: boolean
+        email:
+          type: [string, 'null']
+          description: As Shopify gave it; null once done.
+        phone:
+          type: [string, 'null']
+          description: As Shopify gave it; null once done.
+        contacts:
+          type: array
+          description: The account's contacts that match now; empty once done.
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: ['string', 'null']}
+              conversations: {type: integer}
+        hold:
+          type: [object, 'null']
+          properties:
+            reason: {type: string}
+            held_at: {type: ['string', 'null'], format: date-time}
+            held_by:
+              $ref: '#/components/schemas/PersonRef'
+        done:
+          type: [object, 'null']
+          properties:
+            at: {type: ['string', 'null'], format: date-time}
+            by: {type: ['string', 'null']}
+            user:
+              $ref: '#/components/schemas/PersonRef'
+    PersonRef:
+      type: [object, 'null']
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+    AiConnection:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        state:
+          type: string
+          enum: [never_connected, connected, failing, disconnected]
+        encryption_configured:
+          type: boolean
+        get_agent_url:
+          type: string
+          description: Where to get an AI agent (INCLAMO_AI_AGENT_URL).
+        inboxes:
+          type: array
+          description: Every inbox the agent could answer in (all but the Phone inbox).
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: string}
+              channel_type: {type: string}
+              connected: {type: boolean}
+              other_bot:
+                type: [string, 'null']
+                description: Another bot provider on the inbox; such an inbox cannot be picked.
+              selectable: {type: boolean}
+              pending_for_agent:
+                type: integer
+                description: Pending conversations of the inbox assigned to the agent's bot.
+        connection:
+          type: [object, 'null']
+          properties:
+            state:
+              type: string
+              enum: [connected, failing]
+            inbox_ids:
+              type: array
+              items: {type: integer}
+            phone_inbox_id: {type: ['integer', 'null']}
+            connected_at: {type: ['string', 'null'], format: date-time}
+            connected_by: {type: ['string', 'null']}
+            connected_via:
+              type: string
+              enum: [page, app]
+            last_delivered_at: {type: ['string', 'null'], format: date-time}
+            last_failed_at: {type: ['string', 'null'], format: date-time}
+            last_error: {type: ['string', 'null']}
+            last_reply_at: {type: ['string', 'null'], format: date-time}
+            inbox_change_error:
+              type: [string, 'null']
+              enum: [not_applied, not_applied_service_not_told, storefront_not_added, null]
+        last_disconnection:
+          type: [object, 'null']
+          properties:
+            disconnected_at: {type: ['string', 'null'], format: date-time}
+            ai_service_told: {type: boolean}
+    AiPolicyMode:
+      type: string
+      enum: [forbidden, propose, autonomous]
+    FulfillmentState:
+      type: string
+      enum: [UNFULFILLED, PARTIALLY_FULFILLED, FULFILLED, RESTOCKED, ON_HOLD, SCHEDULED, IN_PROGRESS]
+    AiPolicyLimits:
+      type: object
+      additionalProperties: false
+      properties:
+        max_amount:
+          type: string
+          pattern: '^\d{1,9}(\.\d{1,2})?$'
+        currency:
+          type: string
+          description: Must be the connected store's currency.
+        allowed_states:
+          type: array
+          items:
+            $ref: '#/components/schemas/FulfillmentState'
+        max_percentage:
+          type: string
+          pattern: '^\d{1,9}(\.\d{1,2})?$'
+    AiPolicy:
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/ActionName'
+        mode:
+          $ref: '#/components/schemas/AiPolicyMode'
+        limits:
+          $ref: '#/components/schemas/AiPolicyLimits'
+    AiProposal:
+      type: object
+      x-notes: '`request` is the agent''s request as sent; `summary` is the snapshot of the store the review is made on (Inclamo::Ai::OrderAuthority#snapshot), not restated here.'
+      properties:
+        id:
+          type: integer
+        request_id:
+          type: string
+        action:
+          $ref: '#/components/schemas/ActionName'
+        state:
+          type: string
+          enum: [proposed, approved, rejected, accepted, refused, pending, running, unknown]
+        reason:
+          type: [string, 'null']
+        review_digest:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        expired:
+          type: boolean
+        request:
+          type: object
+          additionalProperties: true
+        summary:
+          type: object
+          additionalProperties: true
+        initiator:
+          type: object
+          properties:
+            id: {type: integer}
+            name: {type: ['string', 'null']}
+        approver:
+          type: [object, 'null']
+          properties:
+            id: {type: integer}
+            name: {type: string}
+        can_approve:
+          type: boolean
+          description: Whether the member reading it may approve it (always false for the agent).
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/OrderAction'
+            - type: 'null'
+    AiHistory:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The conversation's display id.
+        status:
+          type: string
+        inbox_id:
+          type: integer
+        priority:
+          type: [string, 'null']
+        labels:
+          type: array
+          items:
+            type: string
+        shopper_files:
+          type: integer
+          description: Files in all the shopper's public messages.
+        messages:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              created_at: {type: string, format: date-time}
+              role:
+                type: string
+                enum: [shopper, agent, team]
+              text: {type: string}
+              files:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: {type: integer}
+                    file_type: {type: string}
+                    content_type: {type: ['string', 'null']}
+                    file_size: {type: ['integer', 'null']}
+                    url: {type: ['string', 'null']}
+    CallFiling:
+      type: object
+      required: [call_id, entry, ended_at, outcome, needs_team, record]
+      properties:
+        call_id:
+          type: string
+          pattern: '^[A-Za-z0-9_:.\-]{1,100}$'
+        entry:
+          type: string
+          enum: [inbound, outbound, web]
+        line:
+          type: [string, 'null']
+          description: The number called or calling from, E.164.
+          pattern: '^\+[1-9]\d{1,14}$'
+        ended_at:
+          type: string
+          format: date-time
+          description: With a zone, years 2000–2100.
+        duration:
+          type: [integer, 'null']
+          minimum: 0
+          maximum: 1000000
+        recording_url:
+          type: [string, 'null']
+          format: uri
+          maxLength: 1500
+          description: HTTPS.
+        caller:
+          type: [object, 'null']
+          properties:
+            phone:
+              type: [string, 'null']
+              pattern: '^\+[1-9]\d{1,14}$'
+            email:
+              type: [string, 'null']
+              maxLength: 255
+            name:
+              type: [string, 'null']
+              maxLength: 255
+        outcome:
+          type: string
+          pattern: '^[a-z0-9_]{1,50}$'
+        needs_team:
+          type: boolean
+        priority:
+          type: [string, 'null']
+          enum: [low, medium, high, urgent, null]
+        labels:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            pattern: '^inclamo_[a-z0-9_]+$'
+        turns:
+          type: array
+          maxItems: 500
+          items:
+            type: object
+            required: [role, text]
+            properties:
+              role:
+                type: string
+                enum: [caller, agent]
+              text:
+                type: string
+                minLength: 1
+                maxLength: 10000
+              at:
+                type: [string, 'null']
+                format: date-time
+        record:
+          type: string
+          minLength: 1
+          maxLength: 8000
+          description: The call's record, filed as a private note.
+    CallRefusal:
+      type: object
+      required: [error, code, message]
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        message:
+          type: string

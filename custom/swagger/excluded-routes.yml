@@ -1,0 +1,79 @@
+# Routes that custom/config/routes.rb draws and custom/swagger/inclamo.yml
+# deliberately does not publish, each with the reason. Paths are written as in
+# OpenAPI ({param}); a route listed here must exist and must not also be
+# described in inclamo.yml. scripts/check-openapi-routes.rb enforces both.
+routes:
+  # The signed server-to-server support intake: installations talk to Inclamo
+  # support with X-Inclamo-Signature, apart from staff sessions. Not an API for
+  # merchants or integrators.
+  - verb: POST
+    path: /inclamo/support/v1/register
+    reason: Support intake — an installation enrols its signing key with Inclamo support (signed, server-to-server).
+  - verb: POST
+    path: /inclamo/support/v1/submissions
+    reason: Support intake — an installation delivers a member's request to Inclamo support (signed, server-to-server).
+  - verb: POST
+    path: /inclamo/support/v1/uploads
+    reason: Support intake — an installation delivers a request's file to Inclamo support (signed, server-to-server).
+  - verb: GET
+    path: /inclamo/support/v1/events
+    reason: Support intake — an installation reads Inclamo support's reply feed (signed, server-to-server).
+  - verb: POST
+    path: /inclamo/support/v1/requests/{id}/reconcile
+    reason: Support intake — an installation reconciles a request's state with Inclamo support (signed, server-to-server).
+  - verb: GET
+    path: /inclamo/support/v1/requests/{id}/attachments/{file_id}
+    reason: Support intake — an installation downloads a file Inclamo support sent (signed, server-to-server).
+  - verb: POST
+    path: /inclamo/support/v1/recipients
+    reason: Support intake — an installation tells Inclamo support who receives email notifications (signed, server-to-server).
+  - verb: POST
+    path: /inclamo/support/v1/recipients/verify
+    reason: Support intake — an installation confirms a recipient's email code with Inclamo support (signed, server-to-server).
+
+  # The Inclamo Shopify app's calls (docs/app-provisioning.md and the
+  # documents it links). Signed with the secret the operator shares with the
+  # app and drawn only where that secret is set; the store app's API is not
+  # published.
+  - verb: GET
+    path: /inclamo/entry
+    reason: One-time sign-in address the store app sends a staff member's browser to; the token is cut from the path before routing — a browser redirect, not an API.
+  - verb: PUT
+    path: /inclamo/provisioning/stores/{shop_domain}
+    reason: Store app — create, find or restore the store's account (signed provisioning call).
+  - verb: GET
+    path: /inclamo/provisioning/stores/{shop_domain}
+    reason: Store app — read the store's account (signed provisioning call).
+  - verb: POST
+    path: /inclamo/provisioning/stores/{shop_domain}/removal
+    reason: Store app — the app was removed from the store (signed provisioning call).
+  - verb: PUT
+    path: /inclamo/provisioning/stores/{shop_domain}/storefront-chat
+    reason: Store app — set up the storefront chat (signed provisioning call).
+  - verb: GET
+    path: /inclamo/provisioning/stores/{shop_domain}/storefront-chat
+    reason: Store app — read the storefront chat (signed provisioning call).
+  - verb: PUT
+    path: /inclamo/provisioning/stores/{shop_domain}/agent
+    reason: Store app — connect the store's AI agent without a code (signed provisioning call).
+  - verb: GET
+    path: /inclamo/provisioning/stores/{shop_domain}/agent
+    reason: Store app — read the store's AI agent connection (signed provisioning call).
+  - verb: DELETE
+    path: /inclamo/provisioning/stores/{shop_domain}/agent
+    reason: Store app — disconnect the store's AI agent (signed provisioning call).
+  - verb: POST
+    path: /inclamo/provisioning/stores/{shop_domain}/entry
+    reason: Store app — make a staff member's one-time entry address (signed provisioning call).
+  - verb: POST
+    path: /inclamo/provisioning/stores/{shop_domain}/erasure
+    reason: Store app — Shopify's request to erase the store's data, relayed by the app (signed provisioning call).
+  - verb: POST
+    path: /inclamo/provisioning/stores/{shop_domain}/shoppers/erasure
+    reason: Store app — Shopify's request to erase one shopper's data, relayed by the app (signed provisioning call).
+  - verb: POST
+    path: /inclamo/provisioning/stores/{shop_domain}/shoppers/data-request
+    reason: Store app — Shopify's request for one shopper's data, relayed by the app (signed provisioning call).
+  - verb: GET
+    path: /inclamo/provisioning/stores/{shop_domain}/shoppers/requests
+    reason: Store app — how many shopper requests wait in the store's account (signed provisioning call).

@@ -51,6 +51,13 @@ agent and changes, without disconnecting, the inboxes it answers in. The connect
 identity checks and outcome handling are documented in [docs/ai-connector.md](docs/ai-connector.md).
 
 Service builders start with [the integration handoff](docs/service-integration.md).
+The HTTP endpoints the overlay adds to Chatwoot's API are described in
+[`custom/swagger/inclamo.yml`](custom/swagger/inclamo.yml) (OpenAPI 3.1); the
+routes it deliberately leaves out, such as the signed support intake and the
+store app's calls, are listed with reasons in
+[`custom/swagger/excluded-routes.yml`](custom/swagger/excluded-routes.yml).
+CI fails when a route of `custom/config/routes.rb` is in neither file
+(`scripts/check-openapi-routes.rb`).
 [Scaling guidance](docs/scaling.md) describes storage, worker and integration
 constraints. See [release capabilities and limitations](docs/release-readiness.md)
 before configuring a production installation.

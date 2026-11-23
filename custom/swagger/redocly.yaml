@@ -1,0 +1,4 @@
+# Lint rules for custom/swagger/inclamo.yml: Redocly's recommended set, with
+# every warning an error. Run: npx @redocly/cli lint --config custom/swagger/redocly.yaml custom/swagger/inclamo.yml
+extends:
+  - recommended-strict
