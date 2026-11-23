@@ -1,0 +1,102 @@
+name: docs-signal
+
+# The queue the documentation is written from (CONTRIBUTING.md, "Docs labels and release tags").
+#
+#   merge of a pull request into main labelled docs:new, docs:update or docs:api
+#     -> one issue "Docs: <title> (#N)" labelled docs-pending and the PR's docs labels, with the
+#        link to the PR, the merge commit, its "## Docs" section and its changed contract files;
+#        then a Slack message to the founder (secret SLACK_BOT_TOKEN, variable SLACK_NOTIFY_CHANNEL).
+#        A second run for the same PR finds the issue by its marker and opens none.
+#   by hand, `gh workflow run docs-signal -f pr=<N>`: the same, for a PR labelled after its merge.
+#   push of a tag v* (put by whoever deployed, on the deployed commit of main)
+#     -> every open docs-pending issue whose merge commit the tag contains gets `released` and the
+#        comment "Released in <tag>".
+#   a pull request (not a draft) that changes this workflow or its script: the script's tests.
+#
+# The merge runs on pull_request_target: a merged PR from a fork gets a token that can write
+# issues and the Slack secret. It checks out main, never the PR's head, and hands the PR's title
+# and description to the script as data only (read from the API, not put into the shell).
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Number of the merged pull request
+        required: true
+        type: number
+  push:
+    tags: ['v*']
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - .github/scripts/docs_signal.py
+      - .github/scripts/test_docs_signal.py
+      - .github/workflows/docs-signal.yml
+      - .github/workflows/docs-label.yml
+
+permissions: {}
+
+jobs:
+  test:
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: docs-signal tests
+        run: python3 -m unittest discover -s .github/scripts -p "test_docs_signal.py" -v
+
+  signal:
+    if: >-
+      (github.event_name == 'pull_request_target' && github.event.pull_request.merged) ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    concurrency:
+      group: docs-signal-pr-${{ github.event.pull_request.number || inputs.pr }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Docs issue and the founder's message
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_NOTIFY_CHANNEL: ${{ vars.SLACK_NOTIFY_CHANNEL }}
+        run: python3 .github/scripts/docs_signal.py signal
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    concurrency:
+      group: docs-signal-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # the whole history and the tags: git merge-base --is-ancestor needs every merge commit
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Mark the released docs issues
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/docs_signal.py release

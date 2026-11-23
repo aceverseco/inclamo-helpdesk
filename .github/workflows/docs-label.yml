@@ -1,0 +1,41 @@
+name: docs-label
+
+# Every pull request into main carries one docs label: docs:new, docs:update, docs:api (alone or
+# with docs:new / docs:update) or docs:none alone. A user-facing one also fills the "## Docs"
+# section of its description. Rules: CONTRIBUTING.md, "Docs labels and release tags";
+# the script: .github/scripts/docs_signal.py check.
+#
+# The check `docs-label` is a required check of main. It runs again on every label change and
+# every edit of the description, and reads the pull request as it stands, so a re-run sees labels
+# put on after the event. A draft runs nothing (the job is skipped, which a required check counts
+# as passing; a draft cannot be merged); leaving draft runs it.
+# No paths filter: a workflow skipped by paths would leave the required check waiting forever.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, labeled, unlabeled, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: docs-label-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  docs-label:
+    name: docs-label
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: One docs label, and the Docs section of a user-facing change
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/docs_signal.py check

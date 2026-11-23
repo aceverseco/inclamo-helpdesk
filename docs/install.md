@@ -242,6 +242,31 @@ Without the restore key it stops before touching anything, and it never
 restores over an existing installation. Take the key off the machine when it
 has finished.
 
+## Releasing a version
+
+A release is a tag on the commit of `main` that goes to production; nothing is
+deployed from an untagged commit.
+
+1. Raise the version in `custom/INCLAMO_VERSION` in its own pull request
+   (label `docs:none`) and merge it.
+2. Tag the merged commit and push the tag:
+
+   ```sh
+   git fetch origin && git checkout <sha-of-the-commit-to-deploy>
+   git tag -a v$(cat custom/INCLAMO_VERSION) -m "Production <date>"
+   git push origin v$(cat custom/INCLAMO_VERSION)
+   ```
+
+   The tag must be `v` + `custom/INCLAMO_VERSION`; otherwise the `Image`
+   workflow refuses it and publishes nothing.
+3. The `Image` workflow builds the tagged commit, checks the overlay and
+   publishes `ghcr.io/aceverseco/inclamo-helpdesk:<version>-cw<Chatwoot version>`;
+   its run summary prints the digest.
+4. Upgrade the instance to that image (below).
+
+The same tag marks the documentation issues of every pull request it contains
+as `released` (workflow `docs-signal`, [CONTRIBUTING.md](../CONTRIBUTING.md#docs-labels-and-release-tags)).
+
 ## Upgrade and rollback
 
 Check out the new release, then give the upgrade the tag of its image
