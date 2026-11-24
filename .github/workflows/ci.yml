@@ -18,7 +18,7 @@ jobs:
   backend:
     name: Backend specs on the pinned Chatwoot
     # Chatwoot pins a Ruby patch release; prebuilt rubies lag on the newest runner image.
-    runs-on: ubuntu-24.04
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'self-hosted' }}
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -106,7 +106,7 @@ jobs:
 
   graphql:
     name: Shopify documents match the schema, fixtures hold no real people
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'self-hosted' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -140,7 +140,7 @@ jobs:
 
   frontend:
     name: Dashboard component tests on the pinned Chatwoot
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'self-hosted' }}
     steps:
       - uses: actions/checkout@v4
 
